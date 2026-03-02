@@ -751,11 +751,16 @@ tr:hover td{background:#E8F0ED}
 <div id="sec-ga4" class="page">
 <div class="section">
   <div class="section-header"><div class="section-bar"></div><div class="section-title">Website Analytics — theracquetx.com</div></div>
+  <div class="hs-pipeline-toggle" id="ga4YearToggle" style="margin-bottom:0">
+    <button class="active" data-yr="26">2026</button>
+    <button data-yr="25">2025</button>
+    <button data-yr="24">2024</button>
+  </div>
   <div id="ga4KpiGrid" class="kpi-grid"></div>
 </div>
 <div class="two-col">
   <div class="section">
-    <div class="section-header"><div class="section-bar"></div><div class="section-title">Traffic Sources</div></div>
+    <div class="section-header"><div class="section-bar"></div><div class="section-title" id="ga4SourcesTitle">Traffic Sources — 2026</div></div>
     <div class="card"><canvas id="cGa4Sources" height="340"></canvas></div>
   </div>
   <div class="section">
@@ -764,7 +769,7 @@ tr:hover td{background:#E8F0ED}
   </div>
 </div>
 <div class="section">
-  <div class="section-header"><div class="section-bar"></div><div class="section-title">Top Pages — 2025</div></div>
+  <div class="section-header"><div class="section-bar"></div><div class="section-title" id="ga4PagesTitle">Top Pages — 2026</div></div>
   <div class="card" style="overflow-x:auto">
     <table class="hs-table" id="ga4PagesTable"></table>
   </div>
@@ -3648,6 +3653,15 @@ const GA4_DATA = {
   },
   yoy: {sessions:21.3, users:23.4, events:29.6, keyEvents:46.3},
   ytdGrowth: {sessions:113.3, users:90.3, events:118.1, keyEvents:109.4},
+  sources2024: [
+    {ch:'Direct',         sessions:32000},
+    {ch:'Google Organic', sessions:13000},
+    {ch:'Facebook',       sessions:15300},
+    {ch:'Google CPC',     sessions:5700},
+    {ch:'Referral',       sessions:5800},
+    {ch:'Email',          sessions:2100},
+    {ch:'Other',          sessions:18400}
+  ],
   sources2025: [
     {ch:'Direct',         sessions:32000},
     {ch:'Google Organic', sessions:27000},
@@ -3657,6 +3671,28 @@ const GA4_DATA = {
     {ch:'LinkedIn CPC',   sessions:735},
     {ch:'IG Paid',        sessions:835},
     {ch:'Other',          sessions:12330}
+  ],
+  sources2026: [
+    {ch:'Direct',         sessions:8100},
+    {ch:'Google Organic', sessions:8100},
+    {ch:'LinkedIn CPC',   sessions:1300},
+    {ch:'Email',          sessions:1100},
+    {ch:'Google CPC',     sessions:894},
+    {ch:'IG Paid',        sessions:852},
+    {ch:'Bing Organic',   sessions:470},
+    {ch:'Other',          sessions:3184}
+  ],
+  pages2024: [
+    {path:'/',                views:35235, users:20676, engTime:'25s'},
+    {path:'/more-info',       views:25868, users:21806, engTime:'3s'},
+    {path:'/register',        views:15256, users:12248, engTime:'18s'},
+    {path:'/event-details',   views:10235, users:6010,  engTime:'43s'},
+    {path:'/agenda',          views:8692,  users:4805,  engTime:'1m 15s'},
+    {path:'/speakers',        views:5532,  users:3321,  engTime:'1m 38s'},
+    {path:'/sponsors',        views:4978,  users:2868,  engTime:'1m 08s'},
+    {path:'/register/',       views:4073,  users:3419,  engTime:'9s'},
+    {path:'/racquetx',        views:3309,  users:561,   engTime:'1m 23s'},
+    {path:'/event-registration', views:4200, users:2908, engTime:'16s'}
   ],
   pages2025: [
     {path:'/',                          views:48806, users:31413, engTime:'23s'},
@@ -3669,29 +3705,82 @@ const GA4_DATA = {
     {path:'/on-court-agenda/2025/',     views:6532,  users:5078,  engTime:'31s'},
     {path:'/speakers/2025/',            views:5853,  users:3760,  engTime:'1m 37s'},
     {path:'/general-admission-register/',views:4869, users:4116,  engTime:'11s'}
+  ],
+  pages2026: [
+    {path:'/',                            views:13236, users:7669,  engTime:'28s'},
+    {path:'/register/',                   views:5234,  users:3814,  engTime:'24s'},
+    {path:'/agenda/2026/',                views:3766,  users:2068,  engTime:'58s'},
+    {path:'/the-club-summit-at-racquetx/',views:3738,  users:2425,  engTime:'42s'},
+    {path:'/event-details/',              views:3563,  users:2022,  engTime:'33s'},
+    {path:'/sponsors/2026/',              views:2547,  users:1432,  engTime:'1m 02s'},
+    {path:'/on-court-agenda/2026/',       views:1827,  users:1258,  engTime:'38s'},
+    {path:'/speakers/2026/',              views:1082,  users:638,   engTime:'1m 39s'},
+    {path:'/city-series/orlando/',        views:621,   users:327,   engTime:'51s'},
+    {path:'/speakers/2025/',              views:609,   users:430,   engTime:'1m 36s'}
   ]
 };
 
 let _ga4ChartSrc=null, _ga4ChartYoy=null;
+let ga4Year = 26;
 
 window.renderGA4 = renderGA4;
+window.switchGa4Year = switchGa4Year;
+
+function switchGa4Year(yr){
+  ga4Year = yr;
+  document.querySelectorAll('#ga4YearToggle button').forEach(b=>
+    b.classList.toggle('active',parseInt(b.dataset.yr)===yr));
+  renderGA4();
+}
+
 function renderGA4(){
   const d=GA4_DATA;
   const el=document.getElementById('ga4KpiGrid');
   if(!el) return;
   const fmt=v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?Math.round(v/1e3).toLocaleString()+'K':v.toLocaleString();
-  const y=d.y2025, ytd=d.y2026ytd;
-  const kpis=[
-    {l:'Sessions (2025)',v:fmt(y.sessions),s:'\u25B2'+d.yoy.sessions+'% vs 2024'},
-    {l:'Active Users (2025)',v:fmt(y.users),s:'\u25B2'+d.yoy.users+'% vs 2024'},
-    {l:'Key Events (2025)',v:fmt(y.keyEvents),s:'\u25B2'+d.yoy.keyEvents+'% vs 2024'},
-    {l:'Avg Engagement',v:y.engTime+'s',s:'Per session (2025)'},
-    {l:'Sessions (2026 YTD)',v:fmt(ytd.sessions),s:'\u25B2'+d.ytdGrowth.sessions+'% vs 2025'},
-    {l:'Users (2026 YTD)',v:fmt(ytd.users),s:'\u25B2'+d.ytdGrowth.users+'% vs 2025'},
-    {l:'Key Events (2026 YTD)',v:fmt(ytd.keyEvents),s:'\u25B2'+d.ytdGrowth.keyEvents+'% vs 2025'},
-    {l:'Events (2025)',v:fmt(y.events),s:'\u25B2'+d.yoy.events+'% vs 2024'}
-  ];
+  const yr=ga4Year;
+  const yrLabel=yr===26?'2026 (YTD)':'20'+yr;
+  const yData=yr===26?d.y2026ytd:yr===25?d.y2025:d.y2024;
+  const sources=yr===26?d.sources2026:yr===25?d.sources2025:d.sources2024;
+  const pages=yr===26?d.pages2026:yr===25?d.pages2025:d.pages2024;
+
+  // KPI cards
+  var kpis=[];
+  if(yr===26){
+    kpis=[
+      {l:'Sessions (YTD)',v:fmt(yData.sessions),s:'\u25B2'+d.ytdGrowth.sessions+'% vs 2025'},
+      {l:'Active Users (YTD)',v:fmt(yData.users),s:'\u25B2'+d.ytdGrowth.users+'% vs 2025'},
+      {l:'Key Events (YTD)',v:fmt(yData.keyEvents),s:'\u25B2'+d.ytdGrowth.keyEvents+'% vs 2025'},
+      {l:'Avg Engagement',v:yData.engTime+'s',s:'Per session (YTD)'},
+      {l:'New Users (YTD)',v:fmt(yData.newUsers),s:yData.period},
+      {l:'Events (YTD)',v:fmt(yData.events),s:'\u25B2'+d.ytdGrowth.events+'% vs 2025'},
+    ];
+  } else if(yr===25){
+    kpis=[
+      {l:'Sessions',v:fmt(yData.sessions),s:'\u25B2'+d.yoy.sessions+'% vs 2024'},
+      {l:'Active Users',v:fmt(yData.users),s:'\u25B2'+d.yoy.users+'% vs 2024'},
+      {l:'Key Events',v:fmt(yData.keyEvents),s:'\u25B2'+d.yoy.keyEvents+'% vs 2024'},
+      {l:'Avg Engagement',v:yData.engTime+'s',s:'Per session'},
+      {l:'New Users',v:fmt(yData.newUsers),s:yData.period},
+      {l:'Events',v:fmt(yData.events),s:'\u25B2'+d.yoy.events+'% vs 2024'},
+    ];
+  } else {
+    kpis=[
+      {l:'Sessions',v:fmt(yData.sessions),s:yData.period},
+      {l:'Active Users',v:fmt(yData.users),s:yData.period},
+      {l:'Key Events',v:fmt(yData.keyEvents),s:yData.period},
+      {l:'Avg Engagement',v:yData.engTime+'s',s:'Per session'},
+      {l:'New Users',v:fmt(yData.newUsers),s:yData.period},
+      {l:'Events',v:fmt(yData.events),s:yData.period},
+    ];
+  }
   el.innerHTML=kpis.map(k=>'<div class="kpi"><div class="kpi-label">'+k.l+'</div><div class="kpi-value">'+k.v+'</div><div class="kpi-sub">'+k.s+'</div></div>').join('');
+
+  // Update section titles
+  var stTitle=document.getElementById('ga4SourcesTitle');
+  if(stTitle) stTitle.textContent='Traffic Sources \u2014 '+yrLabel;
+  var ptTitle=document.getElementById('ga4PagesTitle');
+  if(ptTitle) ptTitle.textContent='Top Pages \u2014 '+yrLabel;
 
   // Traffic Sources Doughnut
   const ctx1=document.getElementById('cGa4Sources');
@@ -3701,8 +3790,8 @@ function renderGA4(){
     _ga4ChartSrc=new Chart(ctx1,{
       type:'doughnut',
       data:{
-        labels:d.sources2025.map(s=>s.ch),
-        datasets:[{data:d.sources2025.map(s=>s.sessions),backgroundColor:colors,borderWidth:0}]
+        labels:sources.map(s=>s.ch),
+        datasets:[{data:sources.map(s=>s.sessions),backgroundColor:colors,borderWidth:0}]
       },
       options:{
         responsive:true,maintainAspectRatio:false,cutout:'55%',
@@ -3714,7 +3803,7 @@ function renderGA4(){
     });
   }
 
-  // YoY Sessions Bar Chart
+  // YoY Sessions Bar Chart (always shows all 3 years)
   const ctx2=document.getElementById('cGa4Yoy');
   if(ctx2){
     if(_ga4ChartYoy) _ga4ChartYoy.destroy();
@@ -3744,8 +3833,8 @@ function renderGA4(){
   const tbl=document.getElementById('ga4PagesTable');
   if(tbl){
     let h='<thead><tr><th style="text-align:left">PAGE</th><th>VIEWS</th><th>USERS</th><th>% VIEWS</th><th>AVG TIME</th></tr></thead><tbody>';
-    var totalViews=d.pages2025.reduce((a,p)=>a+p.views,0);
-    d.pages2025.forEach(p=>{
+    var totalViews=pages.reduce((a,p)=>a+p.views,0);
+    pages.forEach(p=>{
       h+='<tr><td style="text-align:left;font-family:monospace;font-size:12px">'+p.path+'</td><td style="font-weight:600">'+p.views.toLocaleString()+'</td><td>'+p.users.toLocaleString()+'</td><td style="color:#1B4D4A;font-weight:600">'+(p.views/totalViews*100).toFixed(1)+'%</td><td>'+p.engTime+'</td></tr>';
     });
     h+='</tbody>';
@@ -3755,6 +3844,11 @@ function renderGA4(){
   const src=document.getElementById('ga4Source');
   if(src) src.textContent='Source: Google Analytics 4 \u00B7 theracquetx.com \u00B7 Updated '+d.updated;
 }
+
+// GA4 Year Toggle Click Handlers
+document.querySelectorAll('#ga4YearToggle button').forEach(b=>{
+  b.addEventListener('click',()=>switchGa4Year(parseInt(b.dataset.yr)));
+});
 
 let gripYear = 26;
 function gripData(){ return gripYear===24?GRIP_24:gripYear===25?GRIP_25:GRIP; }
