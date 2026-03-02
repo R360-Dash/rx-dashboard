@@ -278,6 +278,7 @@ tr:hover td{background:#E8F0ED}
     <div class="nav-group-title">Marketing</div>
     <div class="nav-links">
     <a class="nav-item" data-nav="sec-linkedin">LinkedIn Analytics</a>
+    <a class="nav-item" data-nav="sec-ga4">Website Analytics</a>
     </div>
   </div>
   <div class="nav-group">
@@ -744,6 +745,31 @@ tr:hover td{background:#E8F0ED}
   </div>
 </div>
 <div class="hs-updated" id="liSource" style="margin-top:12px"></div>
+</div>
+
+<!-- ═══ WEBSITE ANALYTICS (GA4) ═══ -->
+<div id="sec-ga4" class="page">
+<div class="section">
+  <div class="section-header"><div class="section-bar"></div><div class="section-title">Website Analytics — theracquetx.com</div></div>
+  <div id="ga4KpiGrid" class="kpi-grid"></div>
+</div>
+<div class="two-col">
+  <div class="section">
+    <div class="section-header"><div class="section-bar"></div><div class="section-title">Traffic Sources</div></div>
+    <div class="card"><canvas id="cGa4Sources" height="340"></canvas></div>
+  </div>
+  <div class="section">
+    <div class="section-header"><div class="section-bar"></div><div class="section-title">Sessions — YoY Comparison</div></div>
+    <div class="card"><canvas id="cGa4Yoy" height="340"></canvas></div>
+  </div>
+</div>
+<div class="section">
+  <div class="section-header"><div class="section-bar"></div><div class="section-title">Top Pages — 2025</div></div>
+  <div class="card" style="overflow-x:auto">
+    <table class="hs-table" id="ga4PagesTable"></table>
+  </div>
+</div>
+<div class="hs-updated" id="ga4Source" style="margin-top:12px"></div>
 </div>
 
 <!-- ═══ SETTINGS ═══ -->
@@ -2090,7 +2116,7 @@ function showPage(id){
   document.querySelectorAll('.nav-group').forEach(g=>{
     if(g.querySelector(`.nav-item[data-nav="${id}"]`))g.classList.remove('collapsed');
   });
-  document.getElementById('tog').style.display=(id==='sec-mkt'||id==='sec-cumfirm'||id==='sec-cumsp'||id==='sec-settings'||id==='sec-hsoverview'||id==='sec-hsdeals'||id==='sec-grip'||id==='sec-hsmix'||id==='sec-hsnew'||id==='sec-hsrebooks'||id==='sec-hsmom'||id==='sec-hscumsp'||id==='sec-hscumfirm'||id==='sec-partners'||id==='sec-linkedin')?'none':'flex';
+  document.getElementById('tog').style.display=(id==='sec-mkt'||id==='sec-cumfirm'||id==='sec-cumsp'||id==='sec-settings'||id==='sec-hsoverview'||id==='sec-hsdeals'||id==='sec-grip'||id==='sec-hsmix'||id==='sec-hsnew'||id==='sec-hsrebooks'||id==='sec-hsmom'||id==='sec-hscumsp'||id==='sec-hscumfirm'||id==='sec-partners'||id==='sec-linkedin'||id==='sec-ga4')?'none':'flex';
   // Hide 2024 button on rebooks page
   const btn24=document.querySelector('.toggle button[data-s="2024"]');
   if(btn24) btn24.style.display=(id==='sec-rebooks')?'none':'';
@@ -2107,6 +2133,7 @@ function showPage(id){
   if(id==='sec-hscumfirm')setTimeout(renderHsCohorts,80);
   if(id==='sec-partners')setTimeout(renderPartners,80);
   if(id==='sec-linkedin')setTimeout(renderLinkedin,80);
+  if(id==='sec-ga4')setTimeout(renderGA4,80);
 }
 document.querySelectorAll('.nav-item').forEach(item=>{
   item.addEventListener('click',()=>showPage(item.dataset.nav));
@@ -3598,6 +3625,135 @@ function renderLinkedin(){
   // Source
   const src=document.getElementById('liSource');
   if(src) src.textContent='Source: LinkedIn Company Analytics \u00B7 '+d.period+' \u00B7 4,018 followers';
+}
+
+// ════════════════════════════════════════════════════
+// GOOGLE ANALYTICS (GA4) DATA — theracquetx.com
+// Source: GA4 Property (RacquetX Expo LLC)
+// ════════════════════════════════════════════════════
+const GA4_DATA = {
+  property: 'theracquetx.com',
+  updated: 'Mar 2, 2026',
+  y2024: {
+    period: 'Jan 1 – Dec 31, 2024',
+    sessions: 92300, users: 66500, newUsers: 61200, events: 434000, keyEvents: 1435, engTime: 54
+  },
+  y2025: {
+    period: 'Jan 1 – Dec 31, 2025',
+    sessions: 112000, users: 82000, newUsers: 83000, events: 562000, keyEvents: 2100, engTime: 42
+  },
+  y2026ytd: {
+    period: 'Jan 1 – Mar 2, 2026',
+    sessions: 24000, users: 16000, newUsers: 15200, events: 125000, keyEvents: 578, engTime: 48
+  },
+  yoy: {sessions:21.3, users:23.4, events:29.6, keyEvents:46.3},
+  ytdGrowth: {sessions:113.3, users:90.3, events:118.1, keyEvents:109.4},
+  sources2025: [
+    {ch:'Direct',         sessions:32000},
+    {ch:'Google Organic', sessions:27000},
+    {ch:'Google CPC',     sessions:23000},
+    {ch:'Email',          sessions:11500},
+    {ch:'Referral',       sessions:4600},
+    {ch:'LinkedIn CPC',   sessions:735},
+    {ch:'IG Paid',        sessions:835},
+    {ch:'Other',          sessions:12330}
+  ],
+  pages2025: [
+    {path:'/',                          views:48806, users:31413, engTime:'23s'},
+    {path:'/agenda/2025/',              views:18536, users:11798, engTime:'44s'},
+    {path:'/register/',                 views:16831, users:12517, engTime:'19s'},
+    {path:'/club-summit-register/',     views:12075, users:10329, engTime:'3s'},
+    {path:'/event-details/',            views:10929, users:6769,  engTime:'22s'},
+    {path:'/sponsors/2025/',            views:8040,  users:5101,  engTime:'55s'},
+    {path:'/vip-all-access-register/',  views:7629,  users:6721,  engTime:'2s'},
+    {path:'/on-court-agenda/2025/',     views:6532,  users:5078,  engTime:'31s'},
+    {path:'/speakers/2025/',            views:5853,  users:3760,  engTime:'1m 37s'},
+    {path:'/general-admission-register/',views:4869, users:4116,  engTime:'11s'}
+  ]
+};
+
+let _ga4ChartSrc=null, _ga4ChartYoy=null;
+
+window.renderGA4 = renderGA4;
+function renderGA4(){
+  const d=GA4_DATA;
+  const el=document.getElementById('ga4KpiGrid');
+  if(!el) return;
+  const fmt=v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?Math.round(v/1e3).toLocaleString()+'K':v.toLocaleString();
+  const y=d.y2025, ytd=d.y2026ytd;
+  const kpis=[
+    {l:'Sessions (2025)',v:fmt(y.sessions),s:'\u25B2'+d.yoy.sessions+'% vs 2024'},
+    {l:'Active Users (2025)',v:fmt(y.users),s:'\u25B2'+d.yoy.users+'% vs 2024'},
+    {l:'Key Events (2025)',v:fmt(y.keyEvents),s:'\u25B2'+d.yoy.keyEvents+'% vs 2024'},
+    {l:'Avg Engagement',v:y.engTime+'s',s:'Per session (2025)'},
+    {l:'Sessions (2026 YTD)',v:fmt(ytd.sessions),s:'\u25B2'+d.ytdGrowth.sessions+'% vs 2025'},
+    {l:'Users (2026 YTD)',v:fmt(ytd.users),s:'\u25B2'+d.ytdGrowth.users+'% vs 2025'},
+    {l:'Key Events (2026 YTD)',v:fmt(ytd.keyEvents),s:'\u25B2'+d.ytdGrowth.keyEvents+'% vs 2025'},
+    {l:'Events (2025)',v:fmt(y.events),s:'\u25B2'+d.yoy.events+'% vs 2024'}
+  ];
+  el.innerHTML=kpis.map(k=>'<div class="kpi"><div class="kpi-label">'+k.l+'</div><div class="kpi-value">'+k.v+'</div><div class="kpi-sub">'+k.s+'</div></div>').join('');
+
+  // Traffic Sources Doughnut
+  const ctx1=document.getElementById('cGa4Sources');
+  if(ctx1){
+    if(_ga4ChartSrc) _ga4ChartSrc.destroy();
+    const colors=['#1B4D4A','#2D7A73','#7BA69E','#C8A96E','#4A9B8F','#8CC4B9','#D4A853','#B0C4BC'];
+    _ga4ChartSrc=new Chart(ctx1,{
+      type:'doughnut',
+      data:{
+        labels:d.sources2025.map(s=>s.ch),
+        datasets:[{data:d.sources2025.map(s=>s.sessions),backgroundColor:colors,borderWidth:0}]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,cutout:'55%',
+        plugins:{
+          legend:{position:'right',labels:{usePointStyle:true,padding:12,font:{size:11}}},
+          tooltip:{callbacks:{label:function(c){var t=c.dataset.data.reduce((a,b)=>a+b,0);return c.label+': '+c.raw.toLocaleString()+' ('+Math.round(c.raw/t*100)+'%)';}}}
+        }
+      }
+    });
+  }
+
+  // YoY Sessions Bar Chart
+  const ctx2=document.getElementById('cGa4Yoy');
+  if(ctx2){
+    if(_ga4ChartYoy) _ga4ChartYoy.destroy();
+    _ga4ChartYoy=new Chart(ctx2,{
+      type:'bar',
+      data:{
+        labels:['2024','2025','2026 (YTD)'],
+        datasets:[{
+          label:'Sessions',
+          data:[d.y2024.sessions, d.y2025.sessions, d.y2026ytd.sessions],
+          backgroundColor:['#7BA69E','#1B4D4A','#C8A96E'],
+          borderRadius:6
+        }]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{
+          x:{grid:{display:false},ticks:{font:{size:12,weight:'bold'}}},
+          y:{ticks:{callback:v=>v>=1e3?Math.round(v/1e3)+'K':v,font:{size:10}},grid:{color:'#E8F0ED'}}
+        }
+      }
+    });
+  }
+
+  // Top Pages Table
+  const tbl=document.getElementById('ga4PagesTable');
+  if(tbl){
+    let h='<thead><tr><th style="text-align:left">PAGE</th><th>VIEWS</th><th>USERS</th><th>% VIEWS</th><th>AVG TIME</th></tr></thead><tbody>';
+    var totalViews=d.pages2025.reduce((a,p)=>a+p.views,0);
+    d.pages2025.forEach(p=>{
+      h+='<tr><td style="text-align:left;font-family:monospace;font-size:12px">'+p.path+'</td><td style="font-weight:600">'+p.views.toLocaleString()+'</td><td>'+p.users.toLocaleString()+'</td><td style="color:#1B4D4A;font-weight:600">'+(p.views/totalViews*100).toFixed(1)+'%</td><td>'+p.engTime+'</td></tr>';
+    });
+    h+='</tbody>';
+    tbl.innerHTML=h;
+  }
+
+  const src=document.getElementById('ga4Source');
+  if(src) src.textContent='Source: Google Analytics 4 \u00B7 theracquetx.com \u00B7 Updated '+d.updated;
 }
 
 let gripYear = 26;
