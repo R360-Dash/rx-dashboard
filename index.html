@@ -2090,7 +2090,7 @@ function showPage(id){
   document.querySelectorAll('.nav-group').forEach(g=>{
     if(g.querySelector(`.nav-item[data-nav="${id}"]`))g.classList.remove('collapsed');
   });
-  document.getElementById('tog').style.display=(id==='sec-mkt'||id==='sec-cumfirm'||id==='sec-cumsp'||id==='sec-settings'||id==='sec-hsoverview'||id==='sec-hsdeals'||id==='sec-grip'||id==='sec-hsmix'||id==='sec-hsnew'||id==='sec-hsrebooks'||id==='sec-hsmom'||id==='sec-hscumsp'||id==='sec-hscumfirm'||id==='sec-partners')?'none':'flex';
+  document.getElementById('tog').style.display=(id==='sec-mkt'||id==='sec-cumfirm'||id==='sec-cumsp'||id==='sec-settings'||id==='sec-hsoverview'||id==='sec-hsdeals'||id==='sec-grip'||id==='sec-hsmix'||id==='sec-hsnew'||id==='sec-hsrebooks'||id==='sec-hsmom'||id==='sec-hscumsp'||id==='sec-hscumfirm'||id==='sec-partners'||id==='sec-linkedin')?'none':'flex';
   // Hide 2024 button on rebooks page
   const btn24=document.querySelector('.toggle button[data-s="2024"]');
   if(btn24) btn24.style.display=(id==='sec-rebooks')?'none':'';
