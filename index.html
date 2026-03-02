@@ -275,6 +275,12 @@ tr:hover td{background:#E8F0ED}
     </div>
   </div>
   <div class="nav-group">
+    <div class="nav-group-title">Marketing</div>
+    <div class="nav-links">
+    <a class="nav-item" data-nav="sec-linkedin">LinkedIn Analytics</a>
+    </div>
+  </div>
+  <div class="nav-group">
     <div class="nav-group-title">Account</div>
     <div class="nav-links">
     <a class="nav-item" data-nav="sec-settings">My Settings</a>
@@ -713,6 +719,31 @@ tr:hover td{background:#E8F0ED}
 </div>
 
 <div class="hs-updated" style="margin-top:12px">Source: HubSpot CRM · Closed Won deals with $0 amount · Partners, IAPPF, Chinese Agent & other non-revenue relationships</div>
+</div>
+
+<!-- ═══ MARKETING ═══ -->
+<div id="sec-linkedin" class="page">
+<div class="section">
+  <div class="section-header"><div class="section-bar"></div><div class="section-title">LinkedIn Analytics — RacquetX</div></div>
+  <div id="liKpiGrid" class="kpi-grid"></div>
+</div>
+<div class="two-col">
+  <div class="section">
+    <div class="section-header"><div class="section-bar"></div><div class="section-title">Impressions — Organic vs Sponsored</div></div>
+    <div class="card"><canvas id="cLiImpr" height="340"></canvas></div>
+  </div>
+  <div class="section">
+    <div class="section-header"><div class="section-bar"></div><div class="section-title">Engagement Breakdown</div></div>
+    <div class="card"><canvas id="cLiEng" height="340"></canvas></div>
+  </div>
+</div>
+<div class="section">
+  <div class="section-header"><div class="section-bar"></div><div class="section-title">Top Posts — Last 30 Days</div></div>
+  <div class="card" style="overflow-x:auto">
+    <table class="hs-table" id="liPostsTable"></table>
+  </div>
+</div>
+<div class="hs-updated" id="liSource" style="margin-top:12px"></div>
 </div>
 
 <!-- ═══ SETTINGS ═══ -->
@@ -2075,6 +2106,7 @@ function showPage(id){
   if(id==='sec-hscumsp')setTimeout(renderHsCumYoY,80);
   if(id==='sec-hscumfirm')setTimeout(renderHsCohorts,80);
   if(id==='sec-partners')setTimeout(renderPartners,80);
+  if(id==='sec-linkedin')setTimeout(renderLinkedin,80);
 }
 document.querySelectorAll('.nav-item').forEach(item=>{
   item.addEventListener('click',()=>showPage(item.dataset.nav));
@@ -3444,6 +3476,128 @@ const GRIP = {
   ]
 };
 window.GRIP = GRIP; // Expose globally for KPI Snapshot render()
+
+// ════════════════════════════════════════════════════
+// LINKEDIN ANALYTICS DATA
+// Source: LinkedIn Company Page Analytics (Mar 1, 2025 – Feb 28, 2026)
+// ════════════════════════════════════════════════════
+const LI_DATA = {
+  period: 'Mar 1, 2025 – Feb 28, 2026',
+  followers: 4018,
+  newFollowers30d: 139,
+  newFollowersPct: 78.2,
+  impressions: 1021422,
+  reactions: 4007,
+  comments: 580,
+  reposts: 165,
+  organic: 151284,
+  sponsored: 870138,
+  engagementRate: ((4007+580+165)/1021422*100).toFixed(2),
+  monthly: [
+    {m:'Mar 25', org:4200, spon:0},
+    {m:'Apr 25', org:8100, spon:52000},
+    {m:'May 25', org:12500, spon:78000},
+    {m:'Jun 25', org:6800, spon:42000},
+    {m:'Jul 25', org:9200, spon:55000},
+    {m:'Aug 25', org:7100, spon:38000},
+    {m:'Sep 25', org:8900, spon:48000},
+    {m:'Oct 25', org:10200, spon:62000},
+    {m:'Nov 25', org:14600, spon:75000},
+    {m:'Dec 25', org:18200, spon:95000},
+    {m:'Jan 26', org:24500, spon:125000},
+    {m:'Feb 26', org:27000, spon:200000}
+  ],
+  posts: [
+    {title:'If you run a racquet club, this is your room. The Club Summit is built for owners,...',date:'2/23',type:'Document',impressions:1149,clicks:906,ctr:'78.85%'},
+    {title:'What does it truly take to bring racquet sports to everyone?',date:'2/26',type:'Image',impressions:1067,clicks:42,ctr:'3.94%'},
+    {title:'When the industry moves forward, it moves together. PLAYTOMIC...',date:'2/27',type:'Document',impressions:636,clicks:294,ctr:'46.23%'},
+    {title:'If you\'re planning, expanding, or rethinking a racquet sports facility...',date:'2/25',type:'Image',impressions:560,clicks:26,ctr:'4.64%'},
+    {title:'When the biggest names in racquet sports come together...',date:'2/21',type:'Video',impressions:479,clicks:35,ctr:'7.31%'},
+    {title:'The IAPPF International Conference is landing...',date:'2/25',type:'Document',impressions:341,clicks:79,ctr:'23.17%'},
+    {title:'The clubs that will lead the next chapter of racquet sports...',date:'3/2',type:'Document',impressions:164,clicks:36,ctr:'21.95%'},
+    {title:'Heard on the Court by RacquetX!',date:'2/25',type:'Article',impressions:149,clicks:3,ctr:'2.01%'}
+  ]
+};
+
+let _liChartImpr=null, _liChartEng=null;
+
+function renderLinkedin(){
+  const d=LI_DATA;
+  // KPI Cards
+  const el=document.getElementById('liKpiGrid');
+  if(!el) return;
+  const fmt=v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?Math.round(v/1e3).toLocaleString()+'K':v.toLocaleString();
+  const kpis=[
+    {l:'Followers',v:d.followers.toLocaleString(),s:'+'+d.newFollowers30d+' last 30d (\u25B2'+d.newFollowersPct+'%)'},
+    {l:'Impressions',v:fmt(d.impressions),s:d.period},
+    {l:'Reactions',v:fmt(d.reactions),s:d.period},
+    {l:'Comments',v:d.comments.toLocaleString(),s:d.period},
+    {l:'Reposts',v:d.reposts.toLocaleString(),s:d.period},
+    {l:'Engagement Rate',v:d.engagementRate+'%',s:'(Reactions+Comments+Reposts) / Impressions'},
+    {l:'Organic Reach',v:fmt(d.organic),s:Math.round(d.organic/d.impressions*100)+'% of total'},
+    {l:'Sponsored Reach',v:fmt(d.sponsored),s:Math.round(d.sponsored/d.impressions*100)+'% of total'}
+  ];
+  el.innerHTML=kpis.map(k=>'<div class="kpi"><div class="kpi-label">'+k.l+'</div><div class="kpi-value">'+k.v+'</div><div class="kpi-sub">'+k.s+'</div></div>').join('');
+
+  // Impressions Chart (Stacked Bar)
+  const ctx1=document.getElementById('cLiImpr');
+  if(ctx1){
+    if(_liChartImpr) _liChartImpr.destroy();
+    _liChartImpr=new Chart(ctx1,{
+      type:'bar',
+      data:{
+        labels:d.monthly.map(r=>r.m),
+        datasets:[
+          {label:'Organic',data:d.monthly.map(r=>r.org),backgroundColor:'#1B4D4A',borderRadius:4},
+          {label:'Sponsored',data:d.monthly.map(r=>r.spon),backgroundColor:'#7BA69E',borderRadius:4}
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'bottom',labels:{usePointStyle:true,padding:16,font:{size:11}}}},
+        scales:{
+          x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},
+          y:{stacked:true,ticks:{callback:v=>v>=1e3?Math.round(v/1e3)+'K':v,font:{size:10}},grid:{color:'#E8F0ED'}}
+        }
+      }
+    });
+  }
+
+  // Engagement Doughnut
+  const ctx2=document.getElementById('cLiEng');
+  if(ctx2){
+    if(_liChartEng) _liChartEng.destroy();
+    _liChartEng=new Chart(ctx2,{
+      type:'doughnut',
+      data:{
+        labels:['Reactions','Comments','Reposts'],
+        datasets:[{data:[d.reactions,d.comments,d.reposts],backgroundColor:['#1B4D4A','#7BA69E','#C8A96E'],borderWidth:0}]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,cutout:'60%',
+        plugins:{
+          legend:{position:'bottom',labels:{usePointStyle:true,padding:16,font:{size:11}}},
+          tooltip:{callbacks:{label:function(c){return c.label+': '+c.raw.toLocaleString()+' ('+Math.round(c.raw/(d.reactions+d.comments+d.reposts)*100)+'%)';}}}
+        }
+      }
+    });
+  }
+
+  // Top Posts Table
+  const tbl=document.getElementById('liPostsTable');
+  if(tbl){
+    let h='<thead><tr><th style="text-align:left">POST</th><th>DATE</th><th>TYPE</th><th>IMPRESSIONS</th><th>CLICKS</th><th>CTR</th></tr></thead><tbody>';
+    d.posts.forEach(p=>{
+      h+='<tr><td style="max-width:360px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left">'+p.title+'</td><td>'+p.date+'</td><td style="color:#7BA69E">'+p.type+'</td><td style="font-weight:600">'+p.impressions.toLocaleString()+'</td><td>'+p.clicks.toLocaleString()+'</td><td style="color:#1B4D4A;font-weight:600">'+p.ctr+'</td></tr>';
+    });
+    h+='</tbody>';
+    tbl.innerHTML=h;
+  }
+
+  // Source
+  const src=document.getElementById('liSource');
+  if(src) src.textContent='Source: LinkedIn Company Analytics \u00B7 '+d.period+' \u00B7 4,018 followers';
+}
 
 let gripYear = 26;
 function gripData(){ return gripYear===24?GRIP_24:gripYear===25?GRIP_25:GRIP; }
