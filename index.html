@@ -108,8 +108,6 @@ tr:hover td{background:#E8F0ED}
 .login-btn:hover{background:linear-gradient(135deg,#2D7A6F,#3D9B8F);transform:translateY(-1px);box-shadow:0 4px 16px rgba(27,77,74,.3)}
 .login-btn:active{transform:translateY(0)}
 .login-error{color:#C0392B;font-size:12px;font-weight:600;margin-top:12px;min-height:18px;transition:opacity .2s}
-.login-divider{display:flex;align-items:center;gap:12px;margin:18px 0 14px;color:#7BA69E;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em}
-.login-divider::before,.login-divider::after{content:'';flex:1;height:1px;background:#D4E2DD}
 .login-user-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#0D2B29;background:#E8F0ED;padding:4px 10px;border-radius:6px;font-weight:600}
 .logout-btn{padding:8px 16px;font-size:12px;font-weight:600;color:#fff;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:8px;cursor:pointer;font-family:'Source Sans 3',system-ui,sans-serif;transition:all .2s;margin-left:12px}
 .logout-btn:hover{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.4)}
@@ -186,7 +184,6 @@ tr:hover td{background:#E8F0ED}
 .nav-group-hidden{display:none!important}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -207,8 +204,6 @@ tr:hover td{background:#E8F0ED}
       </div>
       <button type="submit" class="login-btn">Sign In</button>
     </form>
-    <div class="login-divider"><span>or</span></div>
-    <div id="googleSignInBtn" style="display:flex;justify-content:center"></div>
     <div class="login-error" id="loginError"></div>
   </div>
 </div>
@@ -746,20 +741,17 @@ tr:hover td{background:#E8F0ED}
 // USER CREDENTIALS — Edit this list to add/remove users
 // ════════════════════════════════════════════════════
 const AUTH_USERS = [
-  { username: 'admin',    password: 'RacquetX2026!', displayName: 'Admin',           role: 'Administrator' },
+  { username: 'admin',    password: 'RacquetX2026!', displayName: 'Admin',            role: 'Administrator' },
   { username: 'matias',   password: 'Matias2026!',   displayName: 'Matias Kerlakian', role: 'Owner' },
+  { username: 'robyn',    password: 'Robyn2026!',    displayName: 'Robyn',            role: 'Administrator' },
+  { username: 'luca',     password: 'Luca2026!',     displayName: 'Luca',             role: 'Viewer' },
+  { username: 'kay',      password: 'Kay2026!',      displayName: 'Kay',              role: 'Viewer' },
+  { username: 'bautista', password: 'Bautista2026!', displayName: 'Bautista',         role: 'Viewer' },
+  { username: 'giberti',  password: 'Giberti2026!',  displayName: 'M. Giberti',       role: 'Administrator' },
   { username: 'analyst',  password: 'Analyst2026!',  displayName: 'Analyst',          role: 'Viewer' },
   { username: 'sales',    password: 'Sales2026!',    displayName: 'Sales Team',       role: 'Sales' },
   { username: 'investor', password: 'Investor2026!', displayName: 'Investor',         role: 'Viewer' }
 ];
-
-const AUTH_GOOGLE = {
-  'robyn@theracquetx.com':    { displayName:'Robyn',       role:'Administrator' },
-  'luca@theracquetx.com':     { displayName:'Luca',        role:'Viewer' },
-  'kay@theracquetx.com':      { displayName:'Kay',         role:'Viewer' },
-  'bautista@theracquetx.com': { displayName:'Bautista',    role:'Viewer' },
-  'm@giberti.me':             { displayName:'M. Giberti',  role:'Administrator' }
-};
 
 // ════════════════════════════════════════════════════
 // ROLE PERMISSIONS — Which sections each role can access
@@ -831,24 +823,6 @@ function authenticate(username, password) {
   return null;
 }
 
-// Google Sign-In callback
-function handleGoogleSignIn(response) {
-  const payload = JSON.parse(atob(response.credential.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
-  const email = payload.email.toLowerCase();
-  const gUser = AUTH_GOOGLE[email];
-  if (!gUser) {
-    document.getElementById('loginError').textContent = 'Access denied. Email not authorized.';
-    return;
-  }
-  login({
-    username: email,
-    displayName: payload.name || gUser.displayName,
-    role: gUser.role,
-    _defaultUsername: email,
-    _googleAuth: true
-  });
-}
-
 // Get the current active username (override or default)
 function getActiveUsername(user) {
   const override = getUserOverrides(user._defaultUsername || user.username);
@@ -859,7 +833,7 @@ function login(user) {
   currentUser = user;
   const activeUsername = getActiveUsername(user);
   // Save session
-  sessionStorage.setItem('rx_auth', JSON.stringify({ defaultUsername: user._defaultUsername || user.username, username: activeUsername, displayName: user.displayName, role: user.role, googleAuth: !!user._googleAuth }));
+  sessionStorage.setItem('rx_auth', JSON.stringify({ defaultUsername: user._defaultUsername || user.username, username: activeUsername, displayName: user.displayName, role: user.role }));
   // Hide login overlay
   document.getElementById('loginOverlay').classList.add('hidden');
   // Show dashboard
@@ -1038,14 +1012,6 @@ document.getElementById('loginForm').addEventListener('submit', function(e) {
     try {
       const data = JSON.parse(saved);
       const defaultKey = data.defaultUsername || data.username;
-      // Restore Google-authenticated sessions
-      if (data.googleAuth) {
-        const gUser = AUTH_GOOGLE[defaultKey];
-        if (gUser) {
-          login({ username: defaultKey, displayName: data.displayName, role: gUser.role, _defaultUsername: defaultKey, _googleAuth: true });
-          return;
-        }
-      }
       const user = AUTH_USERS.find(u => u.username.toLowerCase() === defaultKey.toLowerCase());
       if (user) {
         login({ ...user, _defaultUsername: defaultKey });
@@ -1054,24 +1020,6 @@ document.getElementById('loginForm').addEventListener('submit', function(e) {
     } catch(e) {}
   }
   document.getElementById('loginOverlay').classList.remove('hidden');
-})();
-
-// Initialize Google Sign-In button
-(function initGoogleSignIn() {
-  function renderGBtn() {
-    if (typeof google !== 'undefined' && google.accounts) {
-      google.accounts.id.initialize({
-        client_id: 'GOOGLE_CLIENT_ID_HERE',
-        callback: handleGoogleSignIn
-      });
-      google.accounts.id.renderButton(
-        document.getElementById('googleSignInBtn'),
-        { theme:'outline', size:'large', width:320, text:'signin_with', shape:'pill' }
-      );
-    }
-  }
-  if (document.readyState === 'complete') renderGBtn();
-  else window.addEventListener('load', renderGBtn);
 })();
 
 // Enter key support
