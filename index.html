@@ -1235,8 +1235,8 @@ function drawHBars(id,data,valKey,fmt,barColor){
     if(i>=0){const d=data[i];return`<div class="tip-t">${d.cat}</div><div class="tip-r"><span>${fmt(d[valKey])}</span> · <b>${d.tix} tickets</b></div>`}});
 }
 
-const TkCat=[{cat:"General Admission",tix:149,rev:2868},{cat:"Sponsor Staff Plus",tix:113,rev:0},{cat:"Business Pass",tix:102,rev:9783},{cat:"Sponsor Staff",tix:83,rev:0},{cat:"Club Summit",tix:52,rev:18188},{cat:"IAPPF Conference",tix:27,rev:5482},{cat:"Premier Club+IAPPF",tix:4,rev:2397},{cat:"Other",tix:5,rev:0}];
-const TkCatRev=[{cat:"Club Summit",tix:52,rev:18188},{cat:"Business Pass",tix:102,rev:9783},{cat:"IAPPF Conference",tix:27,rev:5482},{cat:"General Admission",tix:149,rev:2868},{cat:"Premier Club+IAPPF",tix:4,rev:2397}];
+const TkCat=[{cat:"Attendee",tix:283,rev:4515},{cat:"Attendee VIP",tix:224,rev:14814},{cat:"Sponsor StaffPlus",tix:186,rev:0},{cat:"Other",tix:140,rev:0},{cat:"Attendee IAPPF",tix:113,rev:6379},{cat:"Attendee COS",tix:91,rev:23116},{cat:"Speaker",tix:79,rev:559},{cat:"Attendee Premium",tix:6,rev:2397}];
+const TkCatRev=[{cat:"Attendee COS",tix:91,rev:23116},{cat:"Attendee VIP",tix:224,rev:14814},{cat:"Attendee IAPPF",tix:113,rev:6379},{cat:"Attendee",tix:283,rev:4515},{cat:"Attendee Premium",tix:6,rev:2397},{cat:"Speaker",tix:79,rev:559}];
 
 const AR_CL=[{cl:"PSC Courts SA",b91:10000,b61:10000,b31:0,b1:0,cur:0,tot:20000,inv:2,sal:0},{cl:"Tap To Score",b91:0,b61:5000,b31:5000,b1:2500,cur:0,tot:12500,inv:3,sal:0},{cl:"Varlion GmbH",b91:0,b61:0,b31:0,b1:6000,cur:6000,tot:12000,inv:2,sal:0},{cl:"Zenniz",b91:0,b61:0,b31:0,b1:10000,cur:0,tot:10000,inv:1,sal:0},{cl:"Just Ten Padel",b91:5000,b61:5000,b31:0,b1:0,cur:0,tot:10000,inv:3,sal:0},{cl:"Hirostar Padel SRL",b91:0,b61:8500,b31:0,b1:0,cur:0,tot:8500,inv:1,sal:0},{cl:"The Recovery Experience",b91:0,b61:7500,b31:0,b1:0,cur:0,tot:7500,inv:1,sal:0},{cl:"PBC Labs Inc",b91:5000,b61:0,b31:0,b1:0,cur:0,tot:5000,inv:1,sal:0},{cl:"Wilson Sporting Goods",b91:0,b61:0,b31:0,b1:4000,cur:0,tot:4000,inv:1,sal:0},{cl:"Inspired Specialty Products Inc.",b91:0,b61:0,b31:0,b1:4000,cur:0,tot:4000,inv:1,sal:0},{cl:"Silent WALLS / WELDYBO BV",b91:0,b61:0,b31:2950,b1:0,cur:0,tot:2950,inv:1,sal:0},{cl:"PickleRoll, LLC",b91:0,b61:0,b31:0,b1:2500,cur:0,tot:2500,inv:1,sal:0},{cl:"MejorSet US Inc.",b91:-17950,b61:0,b31:0,b1:0,cur:0,tot:-17950,inv:1,sal:0}];
 
@@ -1246,7 +1246,7 @@ const MoM=[{lb:"May",s2024:5000,s2025:24500,s2026:150000},{lb:"Jun",s2024:0,s202
 
 const SvS=[{lb:"11mo out",s24:5000,s25:0,s26:75000},{lb:"10mo out",s24:0,s25:24500,s26:150000},{lb:"9mo out",s24:0,s25:50000,s26:51500},{lb:"8mo out",s24:0,s25:14000,s26:104000},{lb:"7mo out",s24:23800,s25:64500,s26:19000},{lb:"6mo out",s24:29500,s25:130500,s26:102500},{lb:"5mo out",s24:52000,s25:113000,s26:150400},{lb:"4mo out",s24:92500,s25:27000,s26:134500},{lb:"3mo out",s24:173000,s25:94400,s26:250400},{lb:"2mo out",s24:72750,s25:133900,s26:152000},{lb:"1mo out",s24:47750,s25:111050,s26:138650}];
 
-const TkYoY=[{lb:"7mo out",c24:3,c25:0,c26:0},{lb:"6mo out",c24:6,c25:2,c26:0},{lb:"5mo out",c24:11,c25:15,c26:4},{lb:"4mo out",c24:12,c25:19,c26:11},{lb:"3mo out",c24:20,c25:35,c26:28},{lb:"2mo out",c24:40,c25:77,c26:52},{lb:"1mo out",c24:87,c25:140,c26:107},{lb:"Show month",c24:359,c25:579,c26:778}];
+const TkYoY=[{lb:"7mo out",c24:3,c25:0,c26:0},{lb:"6mo out",c24:6,c25:2,c26:0},{lb:"5mo out",c24:11,c25:15,c26:4},{lb:"4mo out",c24:12,c25:19,c26:11},{lb:"3mo out",c24:20,c25:35,c26:28},{lb:"2mo out",c24:40,c25:77,c26:52},{lb:"1mo out",c24:87,c25:140,c26:107},{lb:"Show month",c24:359,c25:579,c26:1122}];
 
 const topClients={
 '2026':[{n:"Playtomic",v:150000},{n:"Lusotendas",v:55000},{n:"All Racquet Sports (AFP)",v:45000},{n:"Nox",v:40000},{n:"Mejor Set",v:36000},{n:"CourtReserve",v:27000},{n:"Playsight Interactive Inc",v:25500},{n:"Blanca Padel",v:25000},{n:"Padel Tech",v:25000},{n:"Off The Glass",v:25000}],
@@ -3490,21 +3490,21 @@ const GRIP = {
   event: 'RacquetX 2026',
   dates: 'March 13–15, 2026',
   venue: 'Broward County Convention Center, FL',
-  totalRevenue: 1394859.65,
-  ticketSales: 45409.65,
-  sponsorContract: 1349450,
-  attendees: 778,
-  speakers: 82,
-  sessions: 231,
+  totalRevenue: 1407230.20,
+  ticketSales: 51780.20,
+  sponsorContract: 1355450,
+  attendees: 1122,
+  speakers: 84,
+  sessions: 265,
   tickets: [
-    {cat:'Attendee COS',     price:699.00, revenue:20564.65, count:76},
-    {cat:'Attendee VIP',     price:195.00, revenue:12474.00, count:132},
-    {cat:'Attendee IAPPF',   price:399.00, revenue:6379.00,  count:62},
-    {cat:'Attendee',         price:50.00,  revenue:3595.00,  count:227},
+    {cat:'Attendee COS',     price:699.00, revenue:23116.00, count:91},
+    {cat:'Attendee VIP',     price:195.00, revenue:14814.00, count:224},
+    {cat:'Attendee IAPPF',   price:399.00, revenue:6379.00,  count:113},
+    {cat:'Attendee',         price:50.00,  revenue:4515.00,  count:283},
     {cat:'Attendee Premium', price:799.00, revenue:2397.00,  count:6},
-    {cat:'Sponsor StaffPlus',price:300.00, revenue:0,        count:148},
-    {cat:'Sponsor Staff',    price:50.00,  revenue:0,        count:102},
-    {cat:'Other',            price:0.00,   revenue:0,        count:25}
+    {cat:'Speaker',          price:0.00,   revenue:559.20,   count:79},
+    {cat:'Sponsor StaffPlus',price:300.00, revenue:0,        count:186},
+    {cat:'Other',            price:0.00,   revenue:0,        count:140}
   ]
 };
 window.GRIP = GRIP; // Expose globally for KPI Snapshot render()
