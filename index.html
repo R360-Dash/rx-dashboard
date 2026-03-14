@@ -3277,7 +3277,7 @@ function partnerCatColor(cat){
 }
 
 function getPartnerDeals(){
-  return HS.d.filter(d=>d.s==='closedwon'&&d.a===0);
+  return HS.d.filter(d=>d.s==='closedwon'&&!d.a);
 }
 
 function cleanPartnerName(name){
