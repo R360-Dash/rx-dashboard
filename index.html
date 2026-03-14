@@ -2202,6 +2202,7 @@ async function fetchLiveHubspotData(){
 
     // Re-render everything
     renderHsData();
+    if(typeof render==='function')render();
 
     // Show refresh button
     const rb=document.getElementById('hsRefreshBtn');
