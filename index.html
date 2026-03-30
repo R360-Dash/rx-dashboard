@@ -2181,6 +2181,8 @@ function hsDeals(yr){return HS.d.filter(d=>d.p===(yr||hsYear));}
 const HS_PROXY_URL='https://racquetx-hubspot-proxy.racquetx.workers.dev/api/deals';
 const HS_2024_DEALS=HS_STATIC.d.filter(d=>d.p===24);
 const HS_2024_STAGES=HS_STATIC.st['24'];
+const HS_2025_DEALS=HS_STATIC.d.filter(d=>d.p===25);
+const HS_2025_STAGES=HS_STATIC.st['25'];
 let _hsLiveFetched=false;
 
 async function fetchLiveHubspotData(){
@@ -2194,9 +2196,9 @@ async function fetchLiveHubspotData(){
     const live=await res.json();
     if(!live.d||!Array.isArray(live.d)||!live.st)throw new Error('Invalid response');
 
-    // Merge: live 2025+2026 + preserved static 2024
-    HS.d=[...live.d,...HS_2024_DEALS];
-    HS.st=Object.assign({},live.st,{'24':HS_2024_STAGES});
+    // Merge: live 2026 + preserved static 2025 & 2024
+    HS.d=[...live.d,...HS_2025_DEALS,...HS_2024_DEALS];
+    HS.st=Object.assign({},live.st,{'25':HS_2025_STAGES,'24':HS_2024_STAGES});
     HS.ts=live.ts;
     STAGE_MAP=HS.st;
 
@@ -2213,7 +2215,7 @@ async function fetchLiveHubspotData(){
     if(rb)rb.style.display='inline-block';
     window._hsRefresh=function(){_hsLiveFetched=false;fetchLiveHubspotData();};
 
-    console.log('[HS] Live data loaded:',live.d.length,'API deals +',HS_2024_DEALS.length,'static 2024 deals');
+    console.log('[HS] Live data loaded:',live.d.length,'API deals +',HS_2025_DEALS.length,'static 2025 deals +',HS_2024_DEALS.length,'static 2024 deals');
   }catch(err){
     console.warn('[HS] Live fetch failed, using embedded data:',err.message);
     if(updEl)updEl.textContent='Last synced: '+HS.ts+' (cached)';
