@@ -1311,7 +1311,7 @@ function drawLinesNum(id,data,series){
 
 function render(){
   const is27=AS==='2027';const is26=AS==='2026';const is25=AS==='2025';const is24=AS==='2024';const K=D.K;
-  const sp=is27?D.sp27:is26?(window._liveSpArr26||D.sp26):is25?D.sp25:D.sp24;const cum=is27?D.cum27:is26?D.cum26:is25?D.cum25:D.cum24;
+  const sp=is27?(window._liveSpArr27||D.sp27):is26?(window._liveSpArr26||D.sp26):is25?D.sp25:D.sp24;const cum=is27?D.cum27:is26?D.cum26:is25?D.cum25:D.cum24;
   const yr=AS.slice(2);
   const pipeYr=+yr;
 
@@ -1334,8 +1334,8 @@ function render(){
 
   let tSp,tTk,tR,tF,tSS,tTS,nwCt,rbCt,nwRv,rbRv,nwF,rbF,paidContracts;
 
-  if(_hsAvail&&is26){
-    // 2026: live HubSpot data
+  if(_hsAvail&&(is26||is27)){
+    // 2026/2027: live HubSpot data
     const wonStage=_wonStages[pipeYr];
     const allWon=window.HS.d.filter(d=>d.p===pipeYr&&d.s===wonStage);
     const paidWon=allWon.filter(d=>d.a>0);
@@ -2712,8 +2712,8 @@ function hsSpData(yr){
     rbFirms:rbFirmsN
   };
   // Expose spArr for Overview detail table (live data for 2026)
-  if(yr===26){
-    window._liveSpArr26=spArr.map(r=>({m:r.lb,mo:r.mo,v:r.v,ct:r.ct,nr:r.nr,rr:r.rr,nc:r.nc,rc:r.rc,uf:r.uf,nf:r.nf,rf:r.rf}));
+  if(yr===26||yr===27){
+    window['_liveSpArr'+yr]=spArr.map(r=>({m:r.lb,mo:r.mo,v:r.v,ct:r.ct,nr:r.nr,rr:r.rr,nc:r.nc,rc:r.rc,uf:r.uf,nf:r.nf,rf:r.rf}));
   }
   return _hsSp[yr];
 }
