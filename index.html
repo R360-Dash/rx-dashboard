@@ -2305,10 +2305,18 @@ function renderCharts(){
   const lbl=YEAR_LABELS[yr];
   const deals=hsDeals(yr);
 
-  // Rebook vs New Deal (doughnut)
-  const rebooks=deals.filter(d=>d.r==='Rebook');
-  const newDeals=deals.filter(d=>d.r==='New_Deal');
-  const noType=deals.filter(d=>!d.r||d.r==='');
+  // Rebook vs New Deal (doughnut) — fall back to name-based inference when property is empty
+  const _typeOf=d=>{
+    if(d.r==='Rebook')return 'rebook';
+    if(d.r==='New_Deal')return 'new';
+    const nl=(d.n||'').toLowerCase();
+    if(nl.includes('rebook'))return 'rebook';
+    if(nl.includes('new deal'))return 'new';
+    return 'none';
+  };
+  const rebooks=deals.filter(d=>_typeOf(d)==='rebook');
+  const newDeals=deals.filter(d=>_typeOf(d)==='new');
+  const noType=deals.filter(d=>_typeOf(d)==='none');
 
   document.getElementById('hsRebookTitle').textContent=lbl+' — Rebook vs New Deal';
   const ctx1=document.getElementById('hsChartRebook');
