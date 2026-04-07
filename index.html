@@ -2535,7 +2535,7 @@ document.getElementById('hsFilterChannel')?.addEventListener('change',renderDeal
 // ═══ INIT ═══
 // ═══ HUBSPOT SPONSORSHIP ANALYTICS ═══
 
-const SHOW_DATES={24:new Date(2024,2,15),25:new Date(2025,2,15),26:new Date(2026,2,13)};
+const SHOW_DATES={24:new Date(2024,2,15),25:new Date(2025,2,15),26:new Date(2026,2,13),27:new Date(2027,2,12)};
 const MN=['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const _hsSp={};
 
@@ -2552,8 +2552,8 @@ function hsInferType(d){
 
 function hsMBS(cd,yr){
   if(!cd)return null;
+  const show=SHOW_DATES[yr];if(!show)return null;
   const [y,m]=cd.split('-').map(Number);
-  const show=SHOW_DATES[yr];
   const diff=(show.getFullYear()*12+show.getMonth())-(y*12+(m-1));
   return Math.max(0,Math.min(diff,11));
 }
