@@ -2748,20 +2748,22 @@ function hsComputeCohorts(){
   });
 
   // Cohort = first year appeared
-  const cohorts={24:[],25:[],26:[]};
+  const cohorts={24:[],25:[],26:[],27:[]};
   Object.entries(co).forEach(([k,info])=>{
     const fy=Math.min(...info.pipes);
     cohorts[fy].push(info);
   });
 
-  const c24t=cohorts[24].length,c24r25=cohorts[24].filter(c=>c.pipes.has(25)).length,c24r26=cohorts[24].filter(c=>c.pipes.has(26)).length;
+  const c24t=cohorts[24].length,c24r25=cohorts[24].filter(c=>c.pipes.has(25)).length,c24r26=cohorts[24].filter(c=>c.pipes.has(26)).length,c24r27=cohorts[24].filter(c=>c.pipes.has(27)).length;
   const c24all3=cohorts[24].filter(c=>c.pipes.has(25)&&c.pipes.has(26)).length;
-  const c25t=cohorts[25].length,c25r26=cohorts[25].filter(c=>c.pipes.has(26)).length;
-  const c26t=cohorts[26].length;
+  const c25t=cohorts[25].length,c25r26=cohorts[25].filter(c=>c.pipes.has(26)).length,c25r27=cohorts[25].filter(c=>c.pipes.has(27)).length;
+  const c26t=cohorts[26].length,c26r27=cohorts[26].filter(c=>c.pipes.has(27)).length;
+  const c27t=cohorts[27].length;
 
-  const c24rv={y24:cohorts[24].reduce((s,c)=>s+(c.rev[24]||0),0),y25:cohorts[24].reduce((s,c)=>s+(c.rev[25]||0),0),y26:cohorts[24].reduce((s,c)=>s+(c.rev[26]||0),0)};
-  const c25rv={y25:cohorts[25].reduce((s,c)=>s+(c.rev[25]||0),0),y26:cohorts[25].reduce((s,c)=>s+(c.rev[26]||0),0)};
-  const c26rv={y26:cohorts[26].reduce((s,c)=>s+(c.rev[26]||0),0)};
+  const c24rv={y24:cohorts[24].reduce((s,c)=>s+(c.rev[24]||0),0),y25:cohorts[24].reduce((s,c)=>s+(c.rev[25]||0),0),y26:cohorts[24].reduce((s,c)=>s+(c.rev[26]||0),0),y27:cohorts[24].reduce((s,c)=>s+(c.rev[27]||0),0)};
+  const c25rv={y25:cohorts[25].reduce((s,c)=>s+(c.rev[25]||0),0),y26:cohorts[25].reduce((s,c)=>s+(c.rev[26]||0),0),y27:cohorts[25].reduce((s,c)=>s+(c.rev[27]||0),0)};
+  const c26rv={y26:cohorts[26].reduce((s,c)=>s+(c.rev[26]||0),0),y27:cohorts[26].reduce((s,c)=>s+(c.rev[27]||0),0)};
+  const c27rv={y27:cohorts[27].reduce((s,c)=>s+(c.rev[27]||0),0)};
 
   const allSp=Object.keys(co).length;
   // Use D.K totals for 2024/2025 consistency
@@ -2787,8 +2789,8 @@ function hsComputeCohorts(){
   returning.sort((a,b)=>b.tot-a.tot);
 
   return{
-    c24t,c24r25,c24r26,c24all3,c25t,c25r26,c26t,
-    c24rv,c25rv,c26rv,
+    c24t,c24r25,c24r26,c24r27,c24all3,c25t,c25r26,c25r27,c26t,c26r27,c27t,
+    c24rv,c25rv,c26rv,c27rv,
     allSp,totLTV,avgLTV:allSp>0?Math.round(totLTV/allSp):0,
     churnedFrom25,returning
   };
@@ -2983,19 +2985,26 @@ function renderHsCohorts(){
   // 2026 column: HubSpot live (no D.K override)
   const allRev26=ch.c24rv.y26+ch.c25rv.y26+ch.c26rv.y26;
   const allSp26=ch.c24r26+ch.c25r26+ch.c26t;
+  // 2027 column: HubSpot live
+  const allRev27=ch.c24rv.y27+ch.c25rv.y27+ch.c26rv.y27+ch.c27rv.y27;
+  const allSp27=ch.c24r27+ch.c25r27+ch.c26r27+ch.c27t;
 
   // Per-cohort LTV = total revenue across all years / cohort size
-  const c24ltv=dk24rev+c24inY25rev+ch.c24rv.y26;
-  const c25ltv=c25inY25rev+ch.c25rv.y26;
-  const c26ltv=ch.c26rv.y26;
+  const c24ltv=dk24rev+c24inY25rev+ch.c24rv.y26+ch.c24rv.y27;
+  const c25ltv=c25inY25rev+ch.c25rv.y26+ch.c25rv.y27;
+  const c26ltv=ch.c26rv.y26+ch.c26rv.y27;
+  const c27ltv=ch.c27rv.y27;
   const c24avgLtv=dk24t>0?Math.round(c24ltv/dk24t):0;
   const c25avgLtv=dk25newT>0?Math.round(c25ltv/dk25newT):0;
   const c26avgLtv=ch.c26t>0?Math.round(c26ltv/ch.c26t):0;
+  const c27avgLtv=ch.c27t>0?Math.round(c27ltv/ch.c27t):0;
   // Total cumulative revenue (consistent with table)
-  const totalCumRev=dk24rev+dk25rev+allRev26;
+  const totalCumRev=dk24rev+dk25rev+allRev26+allRev27;
   const overallAvgLtv=ch.allSp>0?Math.round(totalCumRev/ch.allSp):0;
 
-  const r2425=pct(ch.c24r25,dk24t),r2426=pct(ch.c24r26,dk24t),r2526=pct(ch.c25r26,dk25newT);
+  const r2425=pct(ch.c24r25,dk24t),r2426=pct(ch.c24r26,dk24t),r2427=pct(ch.c24r27,dk24t);
+  const r2526=pct(ch.c25r26,dk25newT),r2527=pct(ch.c25r27,dk25newT);
+  const r2627=pct(ch.c26r27,ch.c26t);
 
   // Cohort heatmap table — visual card layout
   const cs='text-align:center;padding:16px 12px;vertical-align:top';
@@ -3014,26 +3023,36 @@ function renderHsCohorts(){
 <th style="padding:10px;text-transform:uppercase;font-size:11px;letter-spacing:1px">2024 Show</th>
 <th style="padding:10px;text-transform:uppercase;font-size:11px;letter-spacing:1px">2025 Show</th>
 <th style="padding:10px;text-transform:uppercase;font-size:11px;letter-spacing:1px">2026 Show</th>
+<th style="padding:10px;text-transform:uppercase;font-size:11px;letter-spacing:1px">2027 Show</th>
 </tr></thead><tbody>`;
 
-  // 2024 Cohort row — D.K for 2024/2025 columns, HubSpot for 2026
+  // 2024 Cohort row — D.K for 2024/2025 columns, HubSpot for 2026/2027
   ht+=`<tr><td style="padding:12px;font-weight:600;vertical-align:middle"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${COL.a};margin-right:8px"></span>2024 Cohort</td>`;
   ht+=cell(dk24t,dk24rev,null);
   ht+=cell(ch.c24r25,c24inY25rev,r2425);
   ht+=cell(ch.c24r26,ch.c24rv.y26,r2426);
+  ht+=ch.c24r27>0?cell(ch.c24r27,ch.c24rv.y27,r2427):dash;
   ht+=`</tr>`;
 
-  // 2025 Cohort row — D.K for 2025 column, HubSpot for 2026
+  // 2025 Cohort row — D.K for 2025 column, HubSpot for 2026/2027
   ht+=`<tr><td style="padding:12px;font-weight:600;vertical-align:middle"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${COL.b};margin-right:8px"></span>2025 Cohort</td>`;
   ht+=dash;
   ht+=cell(dk25newT,c25inY25rev,null);
   ht+=cell(ch.c25r26,ch.c25rv.y26,r2526);
+  ht+=ch.c25r27>0?cell(ch.c25r27,ch.c25rv.y27,r2527):dash;
   ht+=`</tr>`;
 
   // 2026 Cohort row
   ht+=`<tr><td style="padding:12px;font-weight:600;vertical-align:middle"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#3D9B8F;margin-right:8px"></span>2026 Cohort</td>`;
   ht+=dash;ht+=dash;
   ht+=cell(ch.c26t,ch.c26rv.y26,null);
+  ht+=ch.c26r27>0?cell(ch.c26r27,ch.c26rv.y27,r2627):dash;
+  ht+=`</tr>`;
+
+  // 2027 Cohort row
+  ht+=`<tr><td style="padding:12px;font-weight:600;vertical-align:middle"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#A8C5BE;margin-right:8px"></span>2027 Cohort</td>`;
+  ht+=dash;ht+=dash;ht+=dash;
+  ht+=ch.c27t>0?cell(ch.c27t,ch.c27rv.y27,null):dash;
   ht+=`</tr>`;
 
   // All Sponsors summary row
@@ -3042,6 +3061,7 @@ function renderHsCohorts(){
 <td style="${cs}"><div style="font-size:20px;font-weight:800;color:${COL.a}">${dk24t}</div><div style="font-size:12px;color:${COL.d}">${$$(dk24rev)} total</div></td>
 <td style="${cs}"><div style="font-size:20px;font-weight:800;color:${COL.a}">${dk25t}</div><div style="font-size:12px;color:${COL.d}">${$$(dk25rev)} total</div></td>
 <td style="${cs}"><div style="font-size:20px;font-weight:800;color:${COL.a}">${allSp26}</div><div style="font-size:12px;color:${COL.d}">${$$(allRev26)} total</div></td>
+<td style="${cs}"><div style="font-size:20px;font-weight:800;color:${COL.a}">${allSp27}</div><div style="font-size:12px;color:${COL.d}">${$$(allRev27)} total</div></td>
 </tr>`;
 
   ht+='</tbody></table>';
@@ -3054,11 +3074,12 @@ function renderHsCohorts(){
 <div style="font-size:12px;color:${COL.d};margin-top:4px">per sponsor (${ch.allSp} all-time)</div>
 <div style="border-top:2px solid #E8EFED;margin:14px 0"></div>
 <div style="font-size:24px;font-weight:700;color:${COL.a}">${$$(totalCumRev)}</div>
-<div style="font-size:12px;color:${COL.d};margin-top:2px">total cumulative revenue (3 shows)</div>
+<div style="font-size:12px;color:${COL.d};margin-top:2px">total cumulative revenue (4 shows)</div>
 <div style="margin-top:14px;text-align:left">
 <div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #F0F6F4"><span style="color:${COL.a};font-weight:600"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COL.a};margin-right:6px"></span>2024 Cohort</span><span style="font-weight:700;color:${COL.a}">${$$(c24avgLtv)}</span></div>
 <div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #F0F6F4"><span style="color:${COL.b};font-weight:600"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COL.b};margin-right:6px"></span>2025 Cohort</span><span style="font-weight:700;color:${COL.a}">${$$(c25avgLtv)}</span></div>
 <div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #F0F6F4"><span style="color:#3D9B8F;font-weight:600"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#3D9B8F;margin-right:6px"></span>2026 Cohort</span><span style="font-weight:700;color:${COL.a}">${$$(c26avgLtv)}</span></div>
+<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #F0F6F4"><span style="color:#A8C5BE;font-weight:600"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#A8C5BE;margin-right:6px"></span>2027 Cohort</span><span style="font-weight:700;color:${COL.a}">${$$(c27avgLtv)}</span></div>
 </div>`;
 
   // Retention Box
@@ -3072,10 +3093,14 @@ function renderHsCohorts(){
 <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="font-weight:600">2024 → 2026</span><span style="font-weight:700;color:${COL.a}">${r2426}%</span></div>
 <div style="height:8px;background:#E8EFED;border-radius:4px;overflow:hidden"><div style="height:100%;width:${r2426}%;background:${COL.a};border-radius:4px"></div></div>
 <div style="font-size:11px;color:${COL.d};margin-top:3px">${ch.c24r26} of ${dk24t} returned (${ch.c24all3} all 3 years)</div></div>
-<div style="margin-bottom:4px">
+<div style="margin-bottom:14px">
 <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="font-weight:600">2025 → 2026</span><span style="font-weight:700;color:${COL.a}">${r2526}%</span></div>
 <div style="height:8px;background:#E8EFED;border-radius:4px;overflow:hidden"><div style="height:100%;width:${r2526}%;background:${COL.a};border-radius:4px"></div></div>
-<div style="font-size:11px;color:${COL.d};margin-top:3px">${ch.c25r26} of ${dk25newT} new 2025 sponsors returned</div></div>`;
+<div style="font-size:11px;color:${COL.d};margin-top:3px">${ch.c25r26} of ${dk25newT} new 2025 sponsors returned</div></div>
+<div style="margin-bottom:4px">
+<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="font-weight:600">2026 → 2027</span><span style="font-weight:700;color:${COL.a}">${r2627}%</span></div>
+<div style="height:8px;background:#E8EFED;border-radius:4px;overflow:hidden"><div style="height:100%;width:${r2627}%;background:${COL.a};border-radius:4px"></div></div>
+<div style="font-size:11px;color:${COL.d};margin-top:3px">${ch.c26r27} of ${ch.c26t} 2026 sponsors returned</div></div>`;
 
   // Revenue Lost Box
   const lostRev=ch.churnedFrom25.reduce((s,c)=>s+c.r25,0);
