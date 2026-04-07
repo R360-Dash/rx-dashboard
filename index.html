@@ -2787,10 +2787,18 @@ function hsComputeCohorts(){
 
 // ── Render: Revenue Mix ──
 function renderHsMix(){
-  const yr=hsYear;const d=hsSpData(yr);const sp=d.spArr;if(!sp.length)return;
+  const yr=hsYear;const d=hsSpData(yr);const sp=d.spArr;
   const YEAR_LBL=YEAR_LABELS[yr];
   document.getElementById('hsMixTitle').textContent='Revenue Mix — New vs Rebooks ('+YEAR_LBL+' Show)';
   document.getElementById('hsRPFTitle').textContent='Revenue per Firm ('+YEAR_LBL+' Show)';
+  if(!sp.length){
+    const cm=document.getElementById('hsCanMix');if(cm){const x=cm.getContext('2d');x.clearRect(0,0,cm.width,cm.height)}
+    const cr=document.getElementById('hsCanRPF');if(cr){const x=cr.getContext('2d');x.clearRect(0,0,cr.width,cr.height)}
+    const lm=document.getElementById('hsLMix');if(lm)lm.innerHTML='<div style="color:#7BA69E;font-size:12px;padding:8px">No data yet for '+YEAR_LBL+'</div>';
+    const lr=document.getElementById('hsLRPF');if(lr)lr.innerHTML='';
+    const avg=document.getElementById('hsRpfAvg');if(avg)avg.textContent='';
+    return;
+  }
 
   // Stacked bar: new + rebook
   const mixData=sp.map(r=>({lb:r.lb,nw:r.nr,rb:r.rr}));
@@ -2828,10 +2836,14 @@ function renderHsNew(){
   document.getElementById('hsNewMoTitle').textContent='New Sponsors — Revenue by Sales Cycle ('+YEAR_LBL+' Show)';
   document.getElementById('hsNewACVTitle').textContent='New Sponsors — Avg Contract Value ('+YEAR_LBL+' Show)';
 
+  const _clr=(id)=>{const c=document.getElementById(id);if(c){const x=c.getContext('2d');x.clearRect(0,0,c.width,c.height)}};
   const newMoF=d.newMo.filter(r=>r.v>0);
   if(newMoF.length){
     drawBars('hsCanNewMo',newMoF,[{k:'v',cl:COL.a,nm:'New Revenue'}],{noGrid:true,showVal:true});
     leg('hsLNewMo',[{n:YEAR_LBL+' Show — '+d.newCount+' new deals · '+$$(d.totalNew),c:COL.a}]);
+  } else {
+    _clr('hsCanNewMo');
+    const l=document.getElementById('hsLNewMo');if(l)l.innerHTML='<div style="color:#7BA69E;font-size:12px;padding:8px">No data yet for '+YEAR_LBL+'</div>';
   }
 
   if(d.newACV.length){
@@ -2840,6 +2852,9 @@ function renderHsNew(){
       {k:'ra',cl:COL.a,nm:'Rolling Avg',ln:true}
     ],{noGrid:true,showVal:true});
     leg('hsLNewACV',[{n:'Monthly ACV',c:COL.b},{n:'Rolling Average',c:COL.a}]);
+  } else {
+    _clr('hsCanNewACV');
+    const l=document.getElementById('hsLNewACV');if(l)l.innerHTML='';
   }
 }
 
@@ -2875,10 +2890,14 @@ function renderHsRebooks(){
   ];
   document.getElementById('hsRbKpis').innerHTML=kpis.map(k=>`<div class="kpi"><div class="kpi-label">${k.l}</div><div class="kpi-value">${k.v}</div><div class="kpi-sub">${k.s}</div></div>`).join('');
 
+  const _clr2=(id)=>{const c=document.getElementById(id);if(c){const x=c.getContext('2d');x.clearRect(0,0,c.width,c.height)}};
   const rbMoF=d.rbMo.filter(r=>r.v>0);
   if(rbMoF.length){
     drawBars('hsCanRbMo',rbMoF,[{k:'v',cl:COL.t,nm:'Rebook Revenue'}],{noGrid:true,showVal:true});
     leg('hsLRbMo',[{n:YEAR_LBL+' Show — '+d.rbCount+' rebook deals · '+$$(d.totalRb),c:COL.t}]);
+  } else {
+    _clr2('hsCanRbMo');
+    const l=document.getElementById('hsLRbMo');if(l)l.innerHTML='<div style="color:#7BA69E;font-size:12px;padding:8px">No rebook data yet for '+YEAR_LBL+'</div>';
   }
 
   if(d.rbACV.length){
@@ -2887,6 +2906,9 @@ function renderHsRebooks(){
       {k:'ra',cl:COL.t,nm:'Rolling Avg',ln:true}
     ],{noGrid:true,showVal:true});
     leg('hsLRbACV',[{n:'Monthly ACV',c:COL.d},{n:'Rolling Average',c:COL.t}]);
+  } else {
+    _clr2('hsCanRbACV');
+    const l=document.getElementById('hsLRbACV');if(l)l.innerHTML='';
   }
 }
 
