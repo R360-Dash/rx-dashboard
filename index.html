@@ -1311,7 +1311,7 @@ function drawLinesNum(id,data,series){
 
 function render(){
   const is27=AS==='2027';const is26=AS==='2026';const is25=AS==='2025';const is24=AS==='2024';const K=D.K;
-  const sp=is27?(window._liveSpArr27||D.sp27):is26?(window._liveSpArr26||D.sp26):is25?D.sp25:D.sp24;const cum=is27?D.cum27:is26?D.cum26:is25?D.cum25:D.cum24;
+  const sp=is27?((window._liveSpArr27&&window._liveSpArr27.length)?window._liveSpArr27:D.sp27):is26?(window._liveSpArr26||D.sp26):is25?D.sp25:D.sp24;const cum=is27?D.cum27:is26?D.cum26:is25?D.cum25:D.cum24;
   const yr=AS.slice(2);
   const pipeYr=+yr;
 
