@@ -1423,11 +1423,11 @@ function render(){
 
   // === COHORT MAP ===
   const cohort={
-    c24:{total:67,r25:29,r26:15,r27:0,all3:10,
-      rev:{y24:496300,y25:397000,y26:375000,y27:0},
+    c24:{total:67,r25:29,r26:15,r27:1,all3:10,
+      rev:{y24:496300,y25:397000,y26:375000,y27:36000},
       avgLtv:18930},
-    c25:{total:64,r26:16,r27:0,
-      rev:{y25:425650,y26:221500,y27:0},
+    c25:{total:64,r26:16,r27:1,
+      rev:{y25:425650,y26:221500,y27:5000},
       avgLtv:10112},
     c26:{total:67,r27:0,
       rev:{y26:599700,y27:0},
@@ -1435,20 +1435,20 @@ function render(){
     c27:{total:0,
       rev:{y27:0},
       avgLtv:0},
-    allTime:{sponsors:198,totalLtv:2515150,avgLtv:12703}
+    allTime:{sponsors:198,totalLtv:2556150,avgLtv:12910}
   };
   const ch=cohort;
   // Cohort retention heatmap
   const shows=['2024 Show','2025 Show','2026 Show','2027 Show'];
   const cohorts=[
     {lb:'2024 Cohort',y24:ch.c24.total,y25:ch.c24.r25,y26:ch.c24.r26,y27:ch.c24.r27,
-     r24:'$496K',r25:'$397K',r26:'$375K',r27:'$0',cl:'#1B4D4A'},
+     r24:'$496K',r25:'$397K',r26:'$375K',r27:'$36K',cl:'#1B4D4A'},
     {lb:'2025 Cohort',y24:0,y25:ch.c25.total,y26:ch.c25.r26,y27:ch.c25.r27,
-     r24:'—',r25:'$426K',r26:'$222K',r27:'$0',cl:'#2D7A6F'},
+     r24:'—',r25:'$426K',r26:'$222K',r27:'$5K',cl:'#2D7A6F'},
     {lb:'2026 Cohort',y24:0,y25:0,y26:ch.c26.total,y27:ch.c26.r27,
-     r24:'—',r25:'—',r26:'$600K',r27:'$0',cl:'#3D9B8F'},
+     r24:'—',r25:'—',r26:'$600K',r27:'—',cl:'#3D9B8F'},
     {lb:'2027 Cohort',y24:0,y25:0,y26:0,y27:ch.c27.total,
-     r24:'—',r25:'—',r26:'—',r27:'$0',cl:'#A8C5BE'}
+     r24:'—',r25:'—',r26:'—',r27:'—',cl:'#A8C5BE'}
   ];
   let cm='<table style="width:100%;border-collapse:collapse;font-size:13px">';
   cm+='<thead><tr><th style="text-align:left;padding:12px 16px;border-bottom:2px solid #D4E2DD;color:#7BA69E;font-weight:600;width:160px">Cohort</th>';
@@ -1457,7 +1457,14 @@ function render(){
   cohorts.forEach((c,ci)=>{
     cm+='<tr>';
     cm+=`<td style="padding:12px 16px;font-weight:700;color:${c.cl};border-bottom:1px solid #F0F6F4"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${c.cl};margin-right:8px"></span>${c.lb}</td>`;
-    const vals=[{ct:c.y24,rv:c.r24,base:ci===0?c.y24:0},{ct:c.y25,rv:c.r25,base:ci<=1?(ci===0?c.y24:c.y25):0},{ct:c.y26,rv:c.r26,base:ci===0?c.y24:ci===1?c.y25:c.y26}];
+    // Base for retention % is the cohort's own "home" year count
+    const home=ci===0?c.y24:ci===1?c.y25:ci===2?c.y26:c.y27;
+    const vals=[
+      {ct:c.y24,rv:c.r24,base:ci===0?home:0},
+      {ct:c.y25,rv:c.r25,base:ci<=1?home:0},
+      {ct:c.y26,rv:c.r26,base:ci<=2?home:0},
+      {ct:c.y27,rv:c.r27,base:home}
+    ];
     vals.forEach((v,vi)=>{
       if(v.ct===0){
         cm+=`<td style="padding:12px 16px;text-align:center;border-bottom:1px solid #F0F6F4;color:#D4E2DD">—</td>`;
@@ -1479,6 +1486,7 @@ function render(){
   cm+=`<td style="padding:12px 16px;text-align:center"><div style="font-size:18px;font-weight:700;color:#0D2B29">67</div><div style="font-size:11px;color:#7BA69E">$496K total</div></td>`;
   cm+=`<td style="padding:12px 16px;text-align:center"><div style="font-size:18px;font-weight:700;color:#0D2B29">93</div><div style="font-size:11px;color:#7BA69E">$823K total</div></td>`;
   cm+=`<td style="padding:12px 16px;text-align:center"><div style="font-size:18px;font-weight:700;color:#0D2B29">100</div><div style="font-size:11px;color:#7BA69E">$1.33M total</div></td>`;
+  cm+=`<td style="padding:12px 16px;text-align:center"><div style="font-size:18px;font-weight:700;color:#0D2B29">2</div><div style="font-size:11px;color:#7BA69E">$41K total</div></td>`;
   cm+='</tr></tbody></table>';
   document.getElementById('cohortMap').innerHTML=cm;
 
@@ -1489,11 +1497,12 @@ function render(){
     <div style="font-size:11px;color:#7BA69E;margin-top:4px">per sponsor (${ch.allTime.sponsors} all-time)</div>
     <div style="width:60px;height:2px;background:#1B4D4A;margin:14px auto;border-radius:2px"></div>
     <div style="font-size:18px;font-weight:700;color:#1B4D4A">$${(ch.allTime.totalLtv/1e6).toFixed(1)}M</div>
-    <div style="font-size:11px;color:#7BA69E">total cumulative revenue (3 shows)</div>
+    <div style="font-size:11px;color:#7BA69E">total cumulative revenue (4 shows)</div>
     <div style="margin-top:16px;text-align:left;font-size:12px">
     <div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #F0F6F4"><span style="color:#1B4D4A;font-weight:600">⬤ 2024 Cohort</span><span style="font-weight:700;color:#0D2B29">$${ch.c24.avgLtv.toLocaleString()}</span></div>
     <div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #F0F6F4"><span style="color:#2D7A6F;font-weight:600">⬤ 2025 Cohort</span><span style="font-weight:700;color:#0D2B29">$${ch.c25.avgLtv.toLocaleString()}</span></div>
     <div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #F0F6F4"><span style="color:#3D9B8F;font-weight:600">⬤ 2026 Cohort</span><span style="font-weight:700;color:#0D2B29">$${ch.c26.avgLtv.toLocaleString()}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #F0F6F4"><span style="color:#A8C5BE;font-weight:600">⬤ 2027 Cohort</span><span style="font-weight:700;color:#0D2B29">$${ch.c27.avgLtv.toLocaleString()}</span></div>
     </div>`;
 
   // Retention Box
