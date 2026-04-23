@@ -4491,11 +4491,32 @@ window.renderScenario=renderScenario;
 (function(){
 
 const QBO_PROXY='https://racquetx-qbo-proxy.racquetx.workers.dev';
+
+// QBO Account Name → RX Category mapping (from Excel mapping file)
+const QBO_MAPPING = {"City Series Sales":"City Series Tickets","Rebooking Sales":"Show Sponsors","Revenue - Merch":"Merch","Sales - Clubs Summit":"City Series Sponsors","Sponsorship Sales":"Show Sponsors","Tickets Sales":"Show Tickets","COGS - City Series":"City Series Costs","Cost of Goods Sold":"Show Costs","Additional Staff":"Show Costs","AV Labor":"Show Costs","Booth Packages":"Show Costs","Catering":"Show Costs","Club Summit":"Show Costs","Creators Corner":"Show Costs","Decoration":"Show Costs","Digital signage":"Show Costs","Emerging Designers":"Show Costs","Evening Event Night Day 1":"Show Costs","Evening Event Night Day 2":"Show Costs","Freight":"Show Costs","Hotel & Accomodation":"Show Costs","Hotel Attrition":"Show Costs","Innovation Showcase":"Show Costs","Internet":"Show Costs","Keynote":"Show Costs","Pod Cast Studio":"Show Costs","Registration":"Show Costs","Show Decorator":"Show Costs","Showfloor Theater":"Show Costs","Signage":"Show Costs","Venue Rental":"Show Costs","Travel COGS":"Show Costs","Bank Charges":"SG&A","Contractors":"SG&A","Expense Reimbursement":"SG&A","Insurance":"SG&A","Interest Paid":"SG&A","Legal & Professional Services":"SG&A","Accounting Services":"SG&A","Consulting Fees":"SG&A","IT Services":"SG&A","Management Fees":"SG&A","Recruitment Fees":"SG&A","Tax Services":"SG&A","Licenses & Dues":"SG&A","Marketing Expenses":"Marketing Costs","Audience Marketing":"Marketing Costs","Brand Marketing":"Marketing Costs","Marketing Partner":"Marketing Costs","Conference Content":"Marketing Costs","Sales Marketing":"Marketing Costs","SEM/SEO":"Marketing Costs","Social Media":"Marketing Costs","Merchant Fees":"SG&A","QuickBooks Payments Fees":"SG&A","Shipping, Freight & Delivery":"SG&A","Software & Apps Subscriptions":"SG&A","Travel":"SG&A","Uncategorized Expense":"SG&A","Commissions":"SG&A","Exhange Rate Difference":"SG&A","Other Miscellaneous Expense":"SG&A","Suscriptions and fees":"SG&A","Team Meals":"SG&A"};
+
+// Display order and styling for categories within each P&L section
+const CAT_STYLE = {
+  // Income
+  'Show Sponsors':       {order:1, color:'#1B4D4A'},
+  'Show Tickets':        {order:2, color:'#2D7A6F'},
+  'City Series Sponsors':{order:3, color:'#3D9B8F'},
+  'City Series Tickets': {order:4, color:'#5BA08A'},
+  'Merch':               {order:5, color:'#7BA69E'},
+  // COGS
+  'Show Costs':          {order:1, color:'#C0392B'},
+  'City Series Costs':   {order:2, color:'#E67E22'},
+  // Expenses
+  'SG&A':                {order:1, color:'#B8860B'},
+  'Marketing Costs':     {order:2, color:'#8E44AD'},
+  // Catch-all
+  'Uncategorized':       {order:99,color:'#7BA69E'}
+};
+
 const _$=v=>v==null?'—':v<0?'-$'+Math.abs(v).toLocaleString('en-US',{maximumFractionDigits:0}):'$'+v.toLocaleString('en-US',{maximumFractionDigits:0});
 const _$k=v=>{if(v==null)return '—';const a=Math.abs(v);const s=v<0?'-':'';return a>=1e6?`${s}$${(a/1e6).toFixed(2)}M`:a>=1e3?`${s}$${(a/1e3).toFixed(1)}K`:`${s}$${Math.round(a)}`};
-const _MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-// ── Cache fetched reports by year to avoid re-fetching on toggle ──
+// ── Fetch cache ──
 const _qboCache = { pl:{}, cf:{} };
 
 async function fetchQbo(path){
@@ -4504,67 +4525,86 @@ async function fetchQbo(path){
   return res.json();
 }
 
-// ── Parse a QBO Report row tree into a flat structure ──
-// Returns: { sections: [{type, label, monthly:[...], total, rows:[{label, monthly:[...], total}]}], monthLabels: [...] }
+// ── Recursively walk QBO report, collect all leaf accounts ──
+// Returns: { topSections: [{label, leafs:[{label, monthly:[...], total, category}], total, monthly:[...]}], monthLabels: [...] }
 function parseQboReport(report){
   if(!report||!report.Columns||!report.Rows) return null;
   const cols = report.Columns.Column;
-  // Strip first (Account) column and last (Total) column to get month columns
   const monthLabels = cols.slice(1, -1).map(c=>c.ColTitle||'');
-  const totalIndex = cols.length - 1;
-  const sections = [];
+  const totalIdx = cols.length - 1;
 
-  function readDataRow(r){
-    const cd = r.ColData||[];
+  function extractRow(r){
+    const cd = r.ColData || [];
     const label = cd[0]?.value || '';
     const monthly = cd.slice(1, -1).map(c=>parseFloat(c.value||0)||0);
-    const total = parseFloat(cd[totalIndex]?.value||0)||0;
+    const total = parseFloat(cd[totalIdx]?.value||0)||0;
     return { label, monthly, total };
   }
-  function readSummaryRow(r){
-    const cd = r.Summary?.ColData||[];
+  function extractSummary(r){
+    const cd = r.Summary?.ColData || [];
     const label = cd[0]?.value || '';
     const monthly = cd.slice(1, -1).map(c=>parseFloat(c.value||0)||0);
-    const total = parseFloat(cd[totalIndex]?.value||0)||0;
+    const total = parseFloat(cd[totalIdx]?.value||0)||0;
     return { label, monthly, total };
   }
 
-  (report.Rows.Row||[]).forEach(r=>{
+  // Recursively walk into a Row, collecting all leaf-level data rows
+  function collectLeafs(node, leafs){
+    if(node.ColData){
+      // Leaf data row
+      leafs.push(extractRow(node));
+    } else if(node.Header && node.Rows){
+      // Section with sub-rows — recurse
+      (node.Rows.Row || []).forEach(sub => collectLeafs(sub, leafs));
+    }
+    // Skip pure summary rows inside a section (they're auto-computed)
+  }
+
+  const topSections = [];
+  const summaries = []; // Gross Profit, Net Income, etc.
+
+  (report.Rows.Row || []).forEach(r => {
     if(r.Header && r.Rows){
-      // Section with sub-rows
-      const label = r.Header.ColData[0]?.value || '';
-      const rows = [];
-      (r.Rows.Row||[]).forEach(sub=>{
-        if(sub.ColData) rows.push(readDataRow(sub));
-        else if(sub.Summary) rows.push(readSummaryRow(sub));
+      // Top-level section: Income / COGS / Expenses / Other Expenses
+      const hdrLabel = r.Header.ColData[0]?.value || '';
+      const leafs = [];
+      (r.Rows.Row || []).forEach(sub => collectLeafs(sub, leafs));
+      const summary = r.Summary ? extractSummary(r) : null;
+      // Apply mapping to each leaf
+      leafs.forEach(leaf => {
+        leaf.category = QBO_MAPPING[leaf.label] || 'Uncategorized';
       });
-      const summary = r.Summary ? readSummaryRow(r) : null;
-      sections.push({
-        type: 'section',
-        label,
-        rows,
+      topSections.push({
+        label: hdrLabel,
+        leafs,
         total: summary ? summary.total : 0,
         monthly: summary ? summary.monthly : Array(monthLabels.length).fill(0)
       });
-    } else if(r.Summary) {
-      // Top-level summary (e.g. Gross Profit, Net Income)
-      const s = readSummaryRow(r);
-      sections.push({ type:'summary', label:s.label, total:s.total, monthly:s.monthly, rows:[] });
-    } else if(r.ColData) {
-      // Flat data row at top level (rare)
-      const d = readDataRow(r);
-      sections.push({ type:'data', label:d.label, total:d.total, monthly:d.monthly, rows:[] });
+    } else if(r.Summary){
+      summaries.push(extractSummary(r));
     }
   });
 
-  return { sections, monthLabels };
+  return { topSections, summaries, monthLabels };
 }
 
-// ── Find a section or summary by label (fuzzy) ──
-function findSection(parsed, labelRegex){
-  if(!parsed) return null;
-  const re = labelRegex instanceof RegExp ? labelRegex : new RegExp(labelRegex, 'i');
-  return parsed.sections.find(s=>re.test(s.label));
+// ── Group leafs by mapping category ──
+function groupByCategory(leafs){
+  const byCat = {};
+  leafs.forEach(leaf => {
+    const cat = leaf.category;
+    if(!byCat[cat]) byCat[cat] = { category: cat, leafs: [], total: 0, monthly: Array(leaf.monthly.length).fill(0) };
+    byCat[cat].leafs.push(leaf);
+    byCat[cat].total += leaf.total;
+    leaf.monthly.forEach((v, i) => byCat[cat].monthly[i] += v);
+  });
+  // Sort by category display order, then descending total
+  return Object.values(byCat).sort((a, b) => {
+    const oa = (CAT_STYLE[a.category]||{}).order || 50;
+    const ob = (CAT_STYLE[b.category]||{}).order || 50;
+    if(oa !== ob) return oa - ob;
+    return Math.abs(b.total) - Math.abs(a.total);
+  });
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -4591,39 +4631,42 @@ async function renderPL(){
       return;
     }
 
-    const income = findSection(parsed, /^Income$/i);
-    const cogs = findSection(parsed, /^Cost of Goods Sold|^COGS/i);
-    const grossProfit = findSection(parsed, /^Gross Profit/i);
-    const expenses = findSection(parsed, /^Expenses$/i);
-    const netOp = findSection(parsed, /^Net Operating Income/i);
-    const netIncome = findSection(parsed, /^Net Income/i);
+    // Find main sections by common QBO naming
+    const income = parsed.topSections.find(s => /^Income$/i.test(s.label));
+    const cogs = parsed.topSections.find(s => /^Cost of Goods Sold|^COGS/i.test(s.label));
+    const expenses = parsed.topSections.find(s => /^Expenses$/i.test(s.label));
+    const otherExp = parsed.topSections.find(s => /^Other Expenses/i.test(s.label));
+    const grossProfit = parsed.summaries.find(s => /^Gross Profit/i.test(s.label));
+    const netOp = parsed.summaries.find(s => /^Net Operating Income/i.test(s.label));
+    const netIncome = parsed.summaries.find(s => /^Net Income/i.test(s.label));
 
     const totRev = income ? income.total : 0;
     const totCogs = cogs ? cogs.total : 0;
     const totGP = grossProfit ? grossProfit.total : (totRev - totCogs);
     const totExp = expenses ? expenses.total : 0;
+    const totOtherExp = otherExp ? otherExp.total : 0;
     const totNetOp = netOp ? netOp.total : (totGP - totExp);
-    const totNet = netIncome ? netIncome.total : totNetOp;
+    const totNet = netIncome ? netIncome.total : (totNetOp - totOtherExp);
     const gpMargin = totRev>0 ? totGP/totRev : 0;
     const netMargin = totRev>0 ? totNet/totRev : 0;
 
     // KPI cards
     const kpis = [
-      {i:'💰',t:'Total Revenue',v:_$k(totRev),s:income?`${income.rows.length} accounts`:'',cl:'#1B7A3D'},
+      {i:'💰',t:'Total Revenue',v:_$k(totRev),s:income?`${income.leafs.length} accounts`:'',cl:'#1B7A3D'},
       {i:'📉',t:'Cost of Goods Sold',v:_$k(totCogs),s:totRev>0?((totCogs/totRev)*100).toFixed(1)+'% of revenue':'',cl:'#B8860B'},
       {i:'💵',t:'Gross Profit',v:_$k(totGP),s:(gpMargin*100).toFixed(1)+'% margin',cl:'#2D7A6F'},
-      {i:'🏷️',t:'Operating Expenses',v:_$k(totExp),s:expenses?`${expenses.rows.length} categories`:'',cl:'#C0392B'},
+      {i:'🏷️',t:'Operating Expenses',v:_$k(totExp),s:expenses?`${expenses.leafs.length} accounts`:'',cl:'#C0392B'},
       {i:'📊',t:'Net Operating Income',v:_$k(totNetOp),s:totRev>0?((totNetOp/totRev)*100).toFixed(1)+'% margin':'',cl:totNetOp>=0?'#1B7A3D':'#C0392B'},
       {i:'🎯',t:'Net Income',v:_$k(totNet),s:(netMargin*100).toFixed(1)+'% margin',cl:totNet>=0?'#1B7A3D':'#C0392B'}
     ];
     document.getElementById('plKpis').innerHTML = kpis.map(k=>`<div class="kpi" style="border-left-color:${k.cl}"><div class="kpi-label">${k.i} ${k.t}</div><div class="kpi-value" style="color:${k.cl}">${k.v}</div><div class="kpi-sub">${k.s}</div></div>`).join('');
 
-    // Monthly trend: Revenue, Expenses, Net Income
+    // Monthly trend
     document.getElementById('plTrendTitle').textContent = `Monthly Trend — ${_plYear}`;
     const trendData = parsed.monthLabels.map((lb,i)=>({
-      lb: lb.split(' ')[0],  // just "Jan", "Feb"...
+      lb: lb.split(' ')[0],
       rev: income ? (income.monthly[i]||0) : 0,
-      exp: (cogs?(cogs.monthly[i]||0):0) + (expenses?(expenses.monthly[i]||0):0),
+      exp: (cogs?(cogs.monthly[i]||0):0) + (expenses?(expenses.monthly[i]||0):0) + (otherExp?(otherExp.monthly[i]||0):0),
       net: netIncome ? (netIncome.monthly[i]||0) : 0
     }));
     if(typeof drawLines === 'function'){
@@ -4631,16 +4674,16 @@ async function renderPL(){
         {k:'rev', cl:'#1B7A3D', nm:'Revenue'},
         {k:'exp', cl:'#C0392B', nm:'Expenses'},
         {k:'net', cl:'#1B4D4A', nm:'Net Income'}
-      ], {noGrid:false});
+      ]);
       if(typeof leg === 'function') leg('plLTrend', [
         {n:'Revenue', c:'#1B7A3D', v:_$k(totRev)},
-        {n:'Expenses', c:'#C0392B', v:_$k(totCogs+totExp)},
+        {n:'Expenses', c:'#C0392B', v:_$k(totCogs+totExp+totOtherExp)},
         {n:'Net Income', c:'#1B4D4A', v:_$k(totNet)}
       ]);
     }
 
-    // Detail table
-    renderPLTable(parsed);
+    // Categorized detail table
+    renderCategorizedTable('plTable', parsed, income, cogs, grossProfit, expenses, netOp, otherExp, netIncome);
   } catch(err){
     console.error('P&L render failed:', err);
     if(updEl) updEl.innerHTML = '<span style="color:#C0392B">Error: '+err.message+'</span>';
@@ -4648,59 +4691,106 @@ async function renderPL(){
   }
 }
 
-function renderPLTable(parsed){
-  const table = document.getElementById('plTable');
+function renderCategorizedTable(tableId, parsed, income, cogs, grossProfit, expenses, netOp, otherExp, netIncome){
+  const table = document.getElementById(tableId);
   if(!table) return;
   const mLabels = parsed.monthLabels;
-  const cs = 'text-align:right;padding:8px 10px;font-size:11px';
-  let html = `<thead><tr><th style="text-align:left">Account</th>`;
+  const nMonths = mLabels.length;
+  const cs = 'text-align:right;padding:8px 10px;font-size:11px;font-family:\'Source Sans 3\',monospace';
+
+  let html = `<thead><tr><th style="text-align:left;padding:10px 12px">Account</th>`;
   mLabels.forEach(m=>html+=`<th style="${cs}">${m.split(' ')[0]}</th>`);
   html += `<th style="${cs};border-left:2px solid #1B4D4A;color:#1B4D4A">Total</th></tr></thead><tbody>`;
 
   const fmt = v => v===0 ? '<span style="color:#D4E2DD">—</span>' : (v<0 ? `<span style="color:#C0392B">(${_$k(Math.abs(v))})</span>` : _$k(v));
 
-  parsed.sections.forEach(sec=>{
-    if(sec.type === 'section'){
-      // Section header row
-      html += `<tr style="background:#F0F6F4;border-top:2px solid #1B4D4A"><td style="padding:10px 12px;font-weight:700;color:#1B4D4A">${sec.label}</td>`;
-      sec.monthly.forEach(v=>html+=`<td style="${cs};font-weight:700;color:#1B4D4A">${fmt(v)}</td>`);
-      html += `<td style="${cs};font-weight:700;border-left:2px solid #1B4D4A;color:#1B4D4A">${fmt(sec.total)}</td></tr>`;
-      // Sub-rows (indented)
-      sec.rows.forEach(r=>{
-        html += `<tr><td style="padding:6px 12px 6px 28px;color:#0D2B29;font-size:12px">${r.label}</td>`;
-        r.monthly.forEach(v=>html+=`<td style="${cs}">${fmt(v)}</td>`);
-        html += `<td style="${cs};border-left:2px solid #D4E2DD;font-weight:600">${fmt(r.total)}</td></tr>`;
+  function sectionRow(label, monthly, total, color){
+    let r = `<tr style="background:#F0F6F4;border-top:3px solid ${color}"><td style="padding:12px;font-weight:800;color:${color};font-size:13px;text-transform:uppercase;letter-spacing:0.05em">${label}</td>`;
+    monthly.forEach(v=>r+=`<td style="${cs};font-weight:700;color:${color}">${fmt(v)}</td>`);
+    r += `<td style="${cs};font-weight:800;border-left:2px solid ${color};color:${color}">${fmt(total)}</td></tr>`;
+    return r;
+  }
+  function categoryRow(cat){
+    const style = CAT_STYLE[cat.category] || {color:'#7BA69E'};
+    let r = `<tr style="background:#F7F9F8;border-top:1px solid #D4E2DD"><td style="padding:10px 12px 10px 20px;font-weight:700;color:${style.color};font-size:12px">${cat.category}<span style="color:#A8C5BE;font-weight:400;margin-left:6px">(${cat.leafs.length})</span></td>`;
+    cat.monthly.forEach(v=>r+=`<td style="${cs};font-weight:600;color:${style.color}">${fmt(v)}</td>`);
+    r += `<td style="${cs};font-weight:700;border-left:2px solid ${style.color};color:${style.color}">${fmt(cat.total)}</td></tr>`;
+    return r;
+  }
+  function leafRow(leaf){
+    let r = `<tr><td style="padding:6px 12px 6px 40px;color:#0D2B29;font-size:11px">${leaf.label}</td>`;
+    leaf.monthly.forEach(v=>r+=`<td style="${cs};color:#7BA69E">${fmt(v)}</td>`);
+    r += `<td style="${cs};border-left:2px solid #EDF2F0;color:#0D2B29">${fmt(leaf.total)}</td></tr>`;
+    return r;
+  }
+  function summaryRow(label, monthly, total){
+    const col = total >= 0 ? '#1B7A3D' : '#C0392B';
+    let r = `<tr style="background:#E8F0ED;border-top:2px solid ${col};border-bottom:2px solid ${col}"><td style="padding:12px;font-weight:800;color:${col};font-size:13px">${label}</td>`;
+    monthly.forEach(v=>r+=`<td style="${cs};font-weight:700;color:${v>=0?'#1B7A3D':'#C0392B'}">${fmt(v)}</td>`);
+    r += `<td style="${cs};font-weight:800;border-left:2px solid ${col};color:${col}">${fmt(total)}</td></tr>`;
+    return r;
+  }
+
+  // ── INCOME ──
+  if(income){
+    html += sectionRow('Income', income.monthly, income.total, '#1B7A3D');
+    const cats = groupByCategory(income.leafs);
+    cats.forEach(cat => {
+      html += categoryRow(cat);
+      cat.leafs.sort((a,b)=>Math.abs(b.total)-Math.abs(a.total)).forEach(leaf => {
+        html += leafRow(leaf);
       });
-    } else if(sec.type === 'summary'){
-      // Summary row (Gross Profit, Net Income, etc.)
-      const isGood = sec.total >= 0;
-      const col = isGood ? '#1B7A3D' : '#C0392B';
-      html += `<tr style="background:#E8F0ED;border-top:2px solid ${col}"><td style="padding:10px 12px;font-weight:800;color:${col}">${sec.label}</td>`;
-      sec.monthly.forEach(v=>html+=`<td style="${cs};font-weight:700;color:${v>=0?'#1B7A3D':'#C0392B'}">${fmt(v)}</td>`);
-      html += `<td style="${cs};font-weight:800;border-left:2px solid ${col};color:${col}">${fmt(sec.total)}</td></tr>`;
-    }
-  });
+    });
+  }
+
+  // ── COGS ──
+  if(cogs){
+    html += sectionRow('Cost of Goods Sold', cogs.monthly, cogs.total, '#B8860B');
+    const cats = groupByCategory(cogs.leafs);
+    cats.forEach(cat => {
+      html += categoryRow(cat);
+      cat.leafs.sort((a,b)=>Math.abs(b.total)-Math.abs(a.total)).forEach(leaf => {
+        html += leafRow(leaf);
+      });
+    });
+  }
+
+  if(grossProfit) html += summaryRow('Gross Profit', grossProfit.monthly, grossProfit.total);
+
+  // ── EXPENSES ──
+  if(expenses){
+    html += sectionRow('Operating Expenses', expenses.monthly, expenses.total, '#C0392B');
+    const cats = groupByCategory(expenses.leafs);
+    cats.forEach(cat => {
+      html += categoryRow(cat);
+      cat.leafs.sort((a,b)=>Math.abs(b.total)-Math.abs(a.total)).forEach(leaf => {
+        html += leafRow(leaf);
+      });
+    });
+  }
+
+  if(netOp) html += summaryRow('Net Operating Income', netOp.monthly, netOp.total);
+
+  // ── OTHER EXPENSES ──
+  if(otherExp){
+    html += sectionRow('Other Expenses', otherExp.monthly, otherExp.total, '#8E44AD');
+    const cats = groupByCategory(otherExp.leafs);
+    cats.forEach(cat => {
+      html += categoryRow(cat);
+      cat.leafs.sort((a,b)=>Math.abs(b.total)-Math.abs(a.total)).forEach(leaf => {
+        html += leafRow(leaf);
+      });
+    });
+  }
+
+  if(netIncome) html += summaryRow('Net Income', netIncome.monthly, netIncome.total);
 
   html += `</tbody>`;
   table.innerHTML = html;
 }
 
-// ── Year toggle wiring ──
-function _bindYearToggle(toggleId, setter, rerender){
-  const el = document.getElementById(toggleId);
-  if(!el) return;
-  el.querySelectorAll('button').forEach(b=>{
-    b.addEventListener('click', ()=>{
-      const y = parseInt(b.dataset.yr, 10);
-      setter(y);
-      el.querySelectorAll('button').forEach(bb=>bb.classList.toggle('active', parseInt(bb.dataset.yr,10)===y));
-      rerender();
-    });
-  });
-}
-
 // ──────────────────────────────────────────────────────────────
-//  CASH FLOW
+//  CASH FLOW (unchanged structure — uses raw QBO section labels)
 // ──────────────────────────────────────────────────────────────
 
 let _cfYear = 2026;
@@ -4723,10 +4813,10 @@ async function renderCashFlow(){
       return;
     }
 
-    const op = findSection(parsed, /Operating Activities/i);
-    const inv = findSection(parsed, /Investing Activities/i);
-    const fin = findSection(parsed, /Financing Activities/i);
-    const netChange = findSection(parsed, /Net cash|Net Increase|Ending Cash|Net change/i);
+    const op = parsed.topSections.find(s => /Operating Activities/i.test(s.label));
+    const inv = parsed.topSections.find(s => /Investing Activities/i.test(s.label));
+    const fin = parsed.topSections.find(s => /Financing Activities/i.test(s.label));
+    const netChange = parsed.summaries.find(s => /Net cash|Net Increase|Ending Cash|Net change/i.test(s.label));
 
     const totOp = op ? op.total : 0;
     const totInv = inv ? inv.total : 0;
@@ -4734,14 +4824,13 @@ async function renderCashFlow(){
     const totNet = netChange ? netChange.total : (totOp + totInv + totFin);
 
     const kpis = [
-      {i:'⚙️',t:'Operating Activities',v:_$k(totOp),s:op?`${op.rows.length} items`:'',cl:totOp>=0?'#1B7A3D':'#C0392B'},
-      {i:'🏗️',t:'Investing Activities',v:_$k(totInv),s:inv?`${inv.rows.length} items`:'',cl:totInv>=0?'#1B7A3D':'#C0392B'},
-      {i:'🏦',t:'Financing Activities',v:_$k(totFin),s:fin?`${fin.rows.length} items`:'',cl:totFin>=0?'#1B7A3D':'#C0392B'},
+      {i:'⚙️',t:'Operating Activities',v:_$k(totOp),s:op?`${op.leafs.length} items`:'',cl:totOp>=0?'#1B7A3D':'#C0392B'},
+      {i:'🏗️',t:'Investing Activities',v:_$k(totInv),s:inv?`${inv.leafs.length} items`:'',cl:totInv>=0?'#1B7A3D':'#C0392B'},
+      {i:'🏦',t:'Financing Activities',v:_$k(totFin),s:fin?`${fin.leafs.length} items`:'',cl:totFin>=0?'#1B7A3D':'#C0392B'},
       {i:'💧',t:'Net Change in Cash',v:_$k(totNet),s:`${_cfYear} calendar year`,cl:totNet>=0?'#1B7A3D':'#C0392B'}
     ];
     document.getElementById('cfKpis').innerHTML = kpis.map(k=>`<div class="kpi" style="border-left-color:${k.cl}"><div class="kpi-label">${k.i} ${k.t}</div><div class="kpi-value" style="color:${k.cl}">${k.v}</div><div class="kpi-sub">${k.s}</div></div>`).join('');
 
-    // Monthly trend
     document.getElementById('cfTrendTitle').textContent = `Monthly Cash Flow — ${_cfYear}`;
     const trendData = parsed.monthLabels.map((lb,i)=>({
       lb: lb.split(' ')[0],
@@ -4765,20 +4854,7 @@ async function renderCashFlow(){
       ]);
     }
 
-    // Detail table (reuse P&L table format)
-    const tableEl = document.getElementById('cfTable');
-    if(tableEl){
-      // Temporarily swap the id so renderPLTable targets the right table
-      const origId = tableEl.id;
-      tableEl.id = 'plTable';
-      // Save plTable's current content so we don't destroy it
-      const plTbl = document.querySelectorAll('#plTable');
-      renderPLTable(parsed);
-      tableEl.id = origId;
-      // The function wrote to whichever #plTable it found first. To be safe, directly target:
-      // (Actually, above hack is fragile — let's just inline render instead)
-      tableEl.innerHTML = buildReportTableHTML(parsed);
-    }
+    renderRawTable('cfTable', parsed);
   } catch(err){
     console.error('Cash Flow render failed:', err);
     if(updEl) updEl.innerHTML = '<span style="color:#C0392B">Error: '+err.message+'</span>';
@@ -4786,49 +4862,53 @@ async function renderCashFlow(){
   }
 }
 
-// Build report HTML (extracted so both P&L and Cash Flow can use it)
-function buildReportTableHTML(parsed){
+// Non-categorized table for Cash Flow (shows raw QBO sections and leafs)
+function renderRawTable(tableId, parsed){
+  const table = document.getElementById(tableId);
+  if(!table) return;
   const mLabels = parsed.monthLabels;
-  const cs = 'text-align:right;padding:8px 10px;font-size:11px';
-  let html = `<thead><tr><th style="text-align:left">Account</th>`;
+  const cs = 'text-align:right;padding:8px 10px;font-size:11px;font-family:\'Source Sans 3\',monospace';
+  const fmt = v => v===0 ? '<span style="color:#D4E2DD">—</span>' : (v<0 ? `<span style="color:#C0392B">(${_$k(Math.abs(v))})</span>` : _$k(v));
+
+  let html = `<thead><tr><th style="text-align:left;padding:10px 12px">Account</th>`;
   mLabels.forEach(m=>html+=`<th style="${cs}">${m.split(' ')[0]}</th>`);
   html += `<th style="${cs};border-left:2px solid #1B4D4A;color:#1B4D4A">Total</th></tr></thead><tbody>`;
 
-  const fmt = v => v===0 ? '<span style="color:#D4E2DD">—</span>' : (v<0 ? `<span style="color:#C0392B">(${_$k(Math.abs(v))})</span>` : _$k(v));
+  parsed.topSections.forEach(sec => {
+    html += `<tr style="background:#F0F6F4;border-top:3px solid #1B4D4A"><td style="padding:12px;font-weight:800;color:#1B4D4A;font-size:13px;text-transform:uppercase;letter-spacing:0.05em">${sec.label}</td>`;
+    sec.monthly.forEach(v=>html+=`<td style="${cs};font-weight:700;color:#1B4D4A">${fmt(v)}</td>`);
+    html += `<td style="${cs};font-weight:800;border-left:2px solid #1B4D4A;color:#1B4D4A">${fmt(sec.total)}</td></tr>`;
+    sec.leafs.forEach(leaf => {
+      html += `<tr><td style="padding:6px 12px 6px 28px;font-size:12px">${leaf.label}</td>`;
+      leaf.monthly.forEach(v=>html+=`<td style="${cs}">${fmt(v)}</td>`);
+      html += `<td style="${cs};border-left:2px solid #D4E2DD;font-weight:600">${fmt(leaf.total)}</td></tr>`;
+    });
+  });
 
-  parsed.sections.forEach(sec=>{
-    if(sec.type === 'section'){
-      html += `<tr style="background:#F0F6F4;border-top:2px solid #1B4D4A"><td style="padding:10px 12px;font-weight:700;color:#1B4D4A">${sec.label}</td>`;
-      sec.monthly.forEach(v=>html+=`<td style="${cs};font-weight:700;color:#1B4D4A">${fmt(v)}</td>`);
-      html += `<td style="${cs};font-weight:700;border-left:2px solid #1B4D4A;color:#1B4D4A">${fmt(sec.total)}</td></tr>`;
-      sec.rows.forEach(r=>{
-        html += `<tr><td style="padding:6px 12px 6px 28px;color:#0D2B29;font-size:12px">${r.label}</td>`;
-        r.monthly.forEach(v=>html+=`<td style="${cs}">${fmt(v)}</td>`);
-        html += `<td style="${cs};border-left:2px solid #D4E2DD;font-weight:600">${fmt(r.total)}</td></tr>`;
-      });
-    } else if(sec.type === 'summary'){
-      const isGood = sec.total >= 0;
-      const col = isGood ? '#1B7A3D' : '#C0392B';
-      html += `<tr style="background:#E8F0ED;border-top:2px solid ${col}"><td style="padding:10px 12px;font-weight:800;color:${col}">${sec.label}</td>`;
-      sec.monthly.forEach(v=>html+=`<td style="${cs};font-weight:700;color:${v>=0?'#1B7A3D':'#C0392B'}">${fmt(v)}</td>`);
-      html += `<td style="${cs};font-weight:800;border-left:2px solid ${col};color:${col}">${fmt(sec.total)}</td></tr>`;
-    }
+  parsed.summaries.forEach(s => {
+    const col = s.total >= 0 ? '#1B7A3D' : '#C0392B';
+    html += `<tr style="background:#E8F0ED;border-top:2px solid ${col}"><td style="padding:12px;font-weight:800;color:${col}">${s.label}</td>`;
+    s.monthly.forEach(v=>html+=`<td style="${cs};font-weight:700;color:${v>=0?'#1B7A3D':'#C0392B'}">${fmt(v)}</td>`);
+    html += `<td style="${cs};font-weight:800;border-left:2px solid ${col};color:${col}">${fmt(s.total)}</td></tr>`;
   });
 
   html += `</tbody>`;
-  return html;
+  table.innerHTML = html;
 }
 
-// Use the extracted function for P&L too (cleanup)
-function renderPLTable(parsed){
-  const table = document.getElementById('plTable');
-  if(!table) return;
-  table.innerHTML = buildReportTableHTML(parsed);
+// ── Year toggle ──
+function _bindYearToggle(toggleId, setter, rerender){
+  const el = document.getElementById(toggleId);
+  if(!el) return;
+  el.querySelectorAll('button').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const y = parseInt(b.dataset.yr, 10);
+      setter(y);
+      el.querySelectorAll('button').forEach(bb=>bb.classList.toggle('active', parseInt(bb.dataset.yr,10)===y));
+      rerender();
+    });
+  });
 }
-
-// ──────────────────────────────────────────────────────────────
-//  INIT
-// ──────────────────────────────────────────────────────────────
 
 _bindYearToggle('plYearToggle', y=>_plYear=y, renderPL);
 _bindYearToggle('cfYearToggle', y=>_cfYear=y, renderCashFlow);
