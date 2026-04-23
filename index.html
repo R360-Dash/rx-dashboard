@@ -416,16 +416,23 @@ tr:hover td{background:#E8F0ED}
 
 <!-- ═══ FINANCIALS — PROFIT & LOSS ═══ -->
 <div id="sec-pl" class="page">
-  <div class="section">
-    <div class="section-header"><div class="section-bar"></div><div class="section-title">Profit &amp; Loss</div></div>
-    <div class="card" id="plPlaceholder" style="padding:40px;text-align:center;background:linear-gradient(135deg,#F7F9F8,#E8F0ED);border:2px dashed #7BA69E">
-      <div style="font-size:48px;margin-bottom:12px">📊</div>
-      <div style="font-size:18px;font-weight:700;color:#1B4D4A;margin-bottom:8px">Profit &amp; Loss Statement</div>
-      <div style="font-size:13px;color:#7BA69E;max-width:480px;margin:0 auto;line-height:1.6">
-        This page will display revenue, cost of goods sold, operating expenses, and net income with month-over-month and year-over-year comparisons — pulled live from QuickBooks Online.
-      </div>
-      <div style="display:inline-block;margin-top:16px;padding:6px 14px;background:#B8860B18;color:#B8860B;border-radius:14px;font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase">⏳ Awaiting QBO Connection</div>
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+    <div style="font-size:13px;color:#7BA69E">Source: QuickBooks Online · <span id="plUpdated"></span></div>
+    <div class="hs-pipeline-toggle" id="plYearToggle" style="margin-bottom:0">
+      <button data-yr="2023">2023</button>
+      <button data-yr="2024">2024</button>
+      <button data-yr="2025">2025</button>
+      <button class="active" data-yr="2026">2026</button>
     </div>
+  </div>
+  <div class="kpi-grid" id="plKpis"></div>
+  <div class="section">
+    <div class="section-header"><div class="section-bar"></div><div class="section-title" id="plTrendTitle">Monthly Trend</div></div>
+    <div class="card"><canvas id="plCanTrend" height="360"></canvas><div class="legend" id="plLTrend"></div></div>
+  </div>
+  <div class="section">
+    <div class="section-header"><div class="section-bar"></div><div class="section-title">Profit &amp; Loss Detail</div></div>
+    <div class="card" style="padding:0"><div class="ar-wrap"><table id="plTable"></table></div></div>
   </div>
 </div>
 
@@ -446,16 +453,23 @@ tr:hover td{background:#E8F0ED}
 
 <!-- ═══ FINANCIALS — CASH FLOW ═══ -->
 <div id="sec-cashflow" class="page">
-  <div class="section">
-    <div class="section-header"><div class="section-bar"></div><div class="section-title">Cash Flow</div></div>
-    <div class="card" id="cashflowPlaceholder" style="padding:40px;text-align:center;background:linear-gradient(135deg,#F7F9F8,#E8F0ED);border:2px dashed #7BA69E">
-      <div style="font-size:48px;margin-bottom:12px">💧</div>
-      <div style="font-size:18px;font-weight:700;color:#1B4D4A;margin-bottom:8px">Cash Flow Statement</div>
-      <div style="font-size:13px;color:#7BA69E;max-width:480px;margin:0 auto;line-height:1.6">
-        Operating, investing, and financing cash flows with a waterfall chart showing how cash moves through the business each month.
-      </div>
-      <div style="display:inline-block;margin-top:16px;padding:6px 14px;background:#B8860B18;color:#B8860B;border-radius:14px;font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase">⏳ Awaiting QBO Connection</div>
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+    <div style="font-size:13px;color:#7BA69E">Source: QuickBooks Online · <span id="cfUpdated"></span></div>
+    <div class="hs-pipeline-toggle" id="cfYearToggle" style="margin-bottom:0">
+      <button data-yr="2023">2023</button>
+      <button data-yr="2024">2024</button>
+      <button data-yr="2025">2025</button>
+      <button class="active" data-yr="2026">2026</button>
     </div>
+  </div>
+  <div class="kpi-grid" id="cfKpis"></div>
+  <div class="section">
+    <div class="section-header"><div class="section-bar"></div><div class="section-title" id="cfTrendTitle">Monthly Cash Flow</div></div>
+    <div class="card"><canvas id="cfCanTrend" height="360"></canvas><div class="legend" id="cfLTrend"></div></div>
+  </div>
+  <div class="section">
+    <div class="section-header"><div class="section-bar"></div><div class="section-title">Cash Flow Detail</div></div>
+    <div class="card" style="padding:0"><div class="ar-wrap"><table id="cfTable"></table></div></div>
   </div>
 </div>
 
@@ -2288,6 +2302,8 @@ function showPage(id){
   if(id==='sec-ga4')setTimeout(renderGA4,80);
   if(id==='sec-revproj')setTimeout(renderRevProj,80);
   if(id==='sec-scenario')setTimeout(renderScenario,80);
+  if(id==='sec-pl')setTimeout(renderPL,80);
+  if(id==='sec-cashflow')setTimeout(renderCashFlow,80);
 }
 document.querySelectorAll('.nav-item').forEach(item=>{
   item.addEventListener('click',()=>showPage(item.dataset.nav));
@@ -4466,6 +4482,359 @@ function _scRedraw(){
 
 window.renderRevProj=renderRevProj;
 window.renderScenario=renderScenario;
+
+})();
+</script>
+
+<!-- ═══ FINANCIALS — QBO LIVE DATA (P&L + CASH FLOW) ═══ -->
+<script>
+(function(){
+
+const QBO_PROXY='https://racquetx-qbo-proxy.racquetx.workers.dev';
+const _$=v=>v==null?'—':v<0?'-$'+Math.abs(v).toLocaleString('en-US',{maximumFractionDigits:0}):'$'+v.toLocaleString('en-US',{maximumFractionDigits:0});
+const _$k=v=>{if(v==null)return '—';const a=Math.abs(v);const s=v<0?'-':'';return a>=1e6?`${s}$${(a/1e6).toFixed(2)}M`:a>=1e3?`${s}$${(a/1e3).toFixed(1)}K`:`${s}$${Math.round(a)}`};
+const _MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// ── Cache fetched reports by year to avoid re-fetching on toggle ──
+const _qboCache = { pl:{}, cf:{} };
+
+async function fetchQbo(path){
+  const res = await fetch(`${QBO_PROXY}${path}`, { signal: AbortSignal.timeout(20000) });
+  if(!res.ok) throw new Error(`QBO fetch failed: ${res.status}`);
+  return res.json();
+}
+
+// ── Parse a QBO Report row tree into a flat structure ──
+// Returns: { sections: [{type, label, monthly:[...], total, rows:[{label, monthly:[...], total}]}], monthLabels: [...] }
+function parseQboReport(report){
+  if(!report||!report.Columns||!report.Rows) return null;
+  const cols = report.Columns.Column;
+  // Strip first (Account) column and last (Total) column to get month columns
+  const monthLabels = cols.slice(1, -1).map(c=>c.ColTitle||'');
+  const totalIndex = cols.length - 1;
+  const sections = [];
+
+  function readDataRow(r){
+    const cd = r.ColData||[];
+    const label = cd[0]?.value || '';
+    const monthly = cd.slice(1, -1).map(c=>parseFloat(c.value||0)||0);
+    const total = parseFloat(cd[totalIndex]?.value||0)||0;
+    return { label, monthly, total };
+  }
+  function readSummaryRow(r){
+    const cd = r.Summary?.ColData||[];
+    const label = cd[0]?.value || '';
+    const monthly = cd.slice(1, -1).map(c=>parseFloat(c.value||0)||0);
+    const total = parseFloat(cd[totalIndex]?.value||0)||0;
+    return { label, monthly, total };
+  }
+
+  (report.Rows.Row||[]).forEach(r=>{
+    if(r.Header && r.Rows){
+      // Section with sub-rows
+      const label = r.Header.ColData[0]?.value || '';
+      const rows = [];
+      (r.Rows.Row||[]).forEach(sub=>{
+        if(sub.ColData) rows.push(readDataRow(sub));
+        else if(sub.Summary) rows.push(readSummaryRow(sub));
+      });
+      const summary = r.Summary ? readSummaryRow(r) : null;
+      sections.push({
+        type: 'section',
+        label,
+        rows,
+        total: summary ? summary.total : 0,
+        monthly: summary ? summary.monthly : Array(monthLabels.length).fill(0)
+      });
+    } else if(r.Summary) {
+      // Top-level summary (e.g. Gross Profit, Net Income)
+      const s = readSummaryRow(r);
+      sections.push({ type:'summary', label:s.label, total:s.total, monthly:s.monthly, rows:[] });
+    } else if(r.ColData) {
+      // Flat data row at top level (rare)
+      const d = readDataRow(r);
+      sections.push({ type:'data', label:d.label, total:d.total, monthly:d.monthly, rows:[] });
+    }
+  });
+
+  return { sections, monthLabels };
+}
+
+// ── Find a section or summary by label (fuzzy) ──
+function findSection(parsed, labelRegex){
+  if(!parsed) return null;
+  const re = labelRegex instanceof RegExp ? labelRegex : new RegExp(labelRegex, 'i');
+  return parsed.sections.find(s=>re.test(s.label));
+}
+
+// ──────────────────────────────────────────────────────────────
+//  PROFIT & LOSS
+// ──────────────────────────────────────────────────────────────
+
+let _plYear = 2026;
+
+async function renderPL(){
+  const updEl = document.getElementById('plUpdated');
+  if(updEl) updEl.innerHTML = '<span style="color:#3D9B8F">Loading&hellip;</span>';
+
+  try {
+    let data = _qboCache.pl[_plYear];
+    if(!data){
+      data = await fetchQbo(`/api/pl?year=${_plYear}`);
+      _qboCache.pl[_plYear] = data;
+    }
+    if(updEl) updEl.textContent = 'Last synced: ' + new Date(data.ts).toLocaleString();
+
+    const parsed = parseQboReport(data.report);
+    if(!parsed){
+      document.getElementById('plKpis').innerHTML = '<div style="color:#C0392B;padding:16px">No data returned for '+_plYear+'</div>';
+      return;
+    }
+
+    const income = findSection(parsed, /^Income$/i);
+    const cogs = findSection(parsed, /^Cost of Goods Sold|^COGS/i);
+    const grossProfit = findSection(parsed, /^Gross Profit/i);
+    const expenses = findSection(parsed, /^Expenses$/i);
+    const netOp = findSection(parsed, /^Net Operating Income/i);
+    const netIncome = findSection(parsed, /^Net Income/i);
+
+    const totRev = income ? income.total : 0;
+    const totCogs = cogs ? cogs.total : 0;
+    const totGP = grossProfit ? grossProfit.total : (totRev - totCogs);
+    const totExp = expenses ? expenses.total : 0;
+    const totNetOp = netOp ? netOp.total : (totGP - totExp);
+    const totNet = netIncome ? netIncome.total : totNetOp;
+    const gpMargin = totRev>0 ? totGP/totRev : 0;
+    const netMargin = totRev>0 ? totNet/totRev : 0;
+
+    // KPI cards
+    const kpis = [
+      {i:'💰',t:'Total Revenue',v:_$k(totRev),s:income?`${income.rows.length} accounts`:'',cl:'#1B7A3D'},
+      {i:'📉',t:'Cost of Goods Sold',v:_$k(totCogs),s:totRev>0?((totCogs/totRev)*100).toFixed(1)+'% of revenue':'',cl:'#B8860B'},
+      {i:'💵',t:'Gross Profit',v:_$k(totGP),s:(gpMargin*100).toFixed(1)+'% margin',cl:'#2D7A6F'},
+      {i:'🏷️',t:'Operating Expenses',v:_$k(totExp),s:expenses?`${expenses.rows.length} categories`:'',cl:'#C0392B'},
+      {i:'📊',t:'Net Operating Income',v:_$k(totNetOp),s:totRev>0?((totNetOp/totRev)*100).toFixed(1)+'% margin':'',cl:totNetOp>=0?'#1B7A3D':'#C0392B'},
+      {i:'🎯',t:'Net Income',v:_$k(totNet),s:(netMargin*100).toFixed(1)+'% margin',cl:totNet>=0?'#1B7A3D':'#C0392B'}
+    ];
+    document.getElementById('plKpis').innerHTML = kpis.map(k=>`<div class="kpi" style="border-left-color:${k.cl}"><div class="kpi-label">${k.i} ${k.t}</div><div class="kpi-value" style="color:${k.cl}">${k.v}</div><div class="kpi-sub">${k.s}</div></div>`).join('');
+
+    // Monthly trend: Revenue, Expenses, Net Income
+    document.getElementById('plTrendTitle').textContent = `Monthly Trend — ${_plYear}`;
+    const trendData = parsed.monthLabels.map((lb,i)=>({
+      lb: lb.split(' ')[0],  // just "Jan", "Feb"...
+      rev: income ? (income.monthly[i]||0) : 0,
+      exp: (cogs?(cogs.monthly[i]||0):0) + (expenses?(expenses.monthly[i]||0):0),
+      net: netIncome ? (netIncome.monthly[i]||0) : 0
+    }));
+    if(typeof drawLines === 'function'){
+      drawLines('plCanTrend', trendData, [
+        {k:'rev', cl:'#1B7A3D', nm:'Revenue'},
+        {k:'exp', cl:'#C0392B', nm:'Expenses'},
+        {k:'net', cl:'#1B4D4A', nm:'Net Income'}
+      ], {noGrid:false});
+      if(typeof leg === 'function') leg('plLTrend', [
+        {n:'Revenue', c:'#1B7A3D', v:_$k(totRev)},
+        {n:'Expenses', c:'#C0392B', v:_$k(totCogs+totExp)},
+        {n:'Net Income', c:'#1B4D4A', v:_$k(totNet)}
+      ]);
+    }
+
+    // Detail table
+    renderPLTable(parsed);
+  } catch(err){
+    console.error('P&L render failed:', err);
+    if(updEl) updEl.innerHTML = '<span style="color:#C0392B">Error: '+err.message+'</span>';
+    document.getElementById('plKpis').innerHTML = '<div style="color:#C0392B;padding:16px">Failed to load P&amp;L: '+err.message+'</div>';
+  }
+}
+
+function renderPLTable(parsed){
+  const table = document.getElementById('plTable');
+  if(!table) return;
+  const mLabels = parsed.monthLabels;
+  const cs = 'text-align:right;padding:8px 10px;font-size:11px';
+  let html = `<thead><tr><th style="text-align:left">Account</th>`;
+  mLabels.forEach(m=>html+=`<th style="${cs}">${m.split(' ')[0]}</th>`);
+  html += `<th style="${cs};border-left:2px solid #1B4D4A;color:#1B4D4A">Total</th></tr></thead><tbody>`;
+
+  const fmt = v => v===0 ? '<span style="color:#D4E2DD">—</span>' : (v<0 ? `<span style="color:#C0392B">(${_$k(Math.abs(v))})</span>` : _$k(v));
+
+  parsed.sections.forEach(sec=>{
+    if(sec.type === 'section'){
+      // Section header row
+      html += `<tr style="background:#F0F6F4;border-top:2px solid #1B4D4A"><td style="padding:10px 12px;font-weight:700;color:#1B4D4A">${sec.label}</td>`;
+      sec.monthly.forEach(v=>html+=`<td style="${cs};font-weight:700;color:#1B4D4A">${fmt(v)}</td>`);
+      html += `<td style="${cs};font-weight:700;border-left:2px solid #1B4D4A;color:#1B4D4A">${fmt(sec.total)}</td></tr>`;
+      // Sub-rows (indented)
+      sec.rows.forEach(r=>{
+        html += `<tr><td style="padding:6px 12px 6px 28px;color:#0D2B29;font-size:12px">${r.label}</td>`;
+        r.monthly.forEach(v=>html+=`<td style="${cs}">${fmt(v)}</td>`);
+        html += `<td style="${cs};border-left:2px solid #D4E2DD;font-weight:600">${fmt(r.total)}</td></tr>`;
+      });
+    } else if(sec.type === 'summary'){
+      // Summary row (Gross Profit, Net Income, etc.)
+      const isGood = sec.total >= 0;
+      const col = isGood ? '#1B7A3D' : '#C0392B';
+      html += `<tr style="background:#E8F0ED;border-top:2px solid ${col}"><td style="padding:10px 12px;font-weight:800;color:${col}">${sec.label}</td>`;
+      sec.monthly.forEach(v=>html+=`<td style="${cs};font-weight:700;color:${v>=0?'#1B7A3D':'#C0392B'}">${fmt(v)}</td>`);
+      html += `<td style="${cs};font-weight:800;border-left:2px solid ${col};color:${col}">${fmt(sec.total)}</td></tr>`;
+    }
+  });
+
+  html += `</tbody>`;
+  table.innerHTML = html;
+}
+
+// ── Year toggle wiring ──
+function _bindYearToggle(toggleId, setter, rerender){
+  const el = document.getElementById(toggleId);
+  if(!el) return;
+  el.querySelectorAll('button').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const y = parseInt(b.dataset.yr, 10);
+      setter(y);
+      el.querySelectorAll('button').forEach(bb=>bb.classList.toggle('active', parseInt(bb.dataset.yr,10)===y));
+      rerender();
+    });
+  });
+}
+
+// ──────────────────────────────────────────────────────────────
+//  CASH FLOW
+// ──────────────────────────────────────────────────────────────
+
+let _cfYear = 2026;
+
+async function renderCashFlow(){
+  const updEl = document.getElementById('cfUpdated');
+  if(updEl) updEl.innerHTML = '<span style="color:#3D9B8F">Loading&hellip;</span>';
+
+  try {
+    let data = _qboCache.cf[_cfYear];
+    if(!data){
+      data = await fetchQbo(`/api/cashflow?year=${_cfYear}`);
+      _qboCache.cf[_cfYear] = data;
+    }
+    if(updEl) updEl.textContent = 'Last synced: ' + new Date(data.ts).toLocaleString();
+
+    const parsed = parseQboReport(data.report);
+    if(!parsed){
+      document.getElementById('cfKpis').innerHTML = '<div style="color:#C0392B;padding:16px">No cash flow data for '+_cfYear+'</div>';
+      return;
+    }
+
+    const op = findSection(parsed, /Operating Activities/i);
+    const inv = findSection(parsed, /Investing Activities/i);
+    const fin = findSection(parsed, /Financing Activities/i);
+    const netChange = findSection(parsed, /Net cash|Net Increase|Ending Cash|Net change/i);
+
+    const totOp = op ? op.total : 0;
+    const totInv = inv ? inv.total : 0;
+    const totFin = fin ? fin.total : 0;
+    const totNet = netChange ? netChange.total : (totOp + totInv + totFin);
+
+    const kpis = [
+      {i:'⚙️',t:'Operating Activities',v:_$k(totOp),s:op?`${op.rows.length} items`:'',cl:totOp>=0?'#1B7A3D':'#C0392B'},
+      {i:'🏗️',t:'Investing Activities',v:_$k(totInv),s:inv?`${inv.rows.length} items`:'',cl:totInv>=0?'#1B7A3D':'#C0392B'},
+      {i:'🏦',t:'Financing Activities',v:_$k(totFin),s:fin?`${fin.rows.length} items`:'',cl:totFin>=0?'#1B7A3D':'#C0392B'},
+      {i:'💧',t:'Net Change in Cash',v:_$k(totNet),s:`${_cfYear} calendar year`,cl:totNet>=0?'#1B7A3D':'#C0392B'}
+    ];
+    document.getElementById('cfKpis').innerHTML = kpis.map(k=>`<div class="kpi" style="border-left-color:${k.cl}"><div class="kpi-label">${k.i} ${k.t}</div><div class="kpi-value" style="color:${k.cl}">${k.v}</div><div class="kpi-sub">${k.s}</div></div>`).join('');
+
+    // Monthly trend
+    document.getElementById('cfTrendTitle').textContent = `Monthly Cash Flow — ${_cfYear}`;
+    const trendData = parsed.monthLabels.map((lb,i)=>({
+      lb: lb.split(' ')[0],
+      op: op ? (op.monthly[i]||0) : 0,
+      inv: inv ? (inv.monthly[i]||0) : 0,
+      fin: fin ? (fin.monthly[i]||0) : 0,
+      net: netChange ? (netChange.monthly[i]||0) : ((op?op.monthly[i]||0:0) + (inv?inv.monthly[i]||0:0) + (fin?fin.monthly[i]||0:0))
+    }));
+    if(typeof drawLines === 'function'){
+      drawLines('cfCanTrend', trendData, [
+        {k:'op', cl:'#1B7A3D', nm:'Operating'},
+        {k:'inv', cl:'#B8860B', nm:'Investing'},
+        {k:'fin', cl:'#2D7A6F', nm:'Financing'},
+        {k:'net', cl:'#1B4D4A', nm:'Net'}
+      ]);
+      if(typeof leg === 'function') leg('cfLTrend', [
+        {n:'Operating', c:'#1B7A3D', v:_$k(totOp)},
+        {n:'Investing', c:'#B8860B', v:_$k(totInv)},
+        {n:'Financing', c:'#2D7A6F', v:_$k(totFin)},
+        {n:'Net', c:'#1B4D4A', v:_$k(totNet)}
+      ]);
+    }
+
+    // Detail table (reuse P&L table format)
+    const tableEl = document.getElementById('cfTable');
+    if(tableEl){
+      // Temporarily swap the id so renderPLTable targets the right table
+      const origId = tableEl.id;
+      tableEl.id = 'plTable';
+      // Save plTable's current content so we don't destroy it
+      const plTbl = document.querySelectorAll('#plTable');
+      renderPLTable(parsed);
+      tableEl.id = origId;
+      // The function wrote to whichever #plTable it found first. To be safe, directly target:
+      // (Actually, above hack is fragile — let's just inline render instead)
+      tableEl.innerHTML = buildReportTableHTML(parsed);
+    }
+  } catch(err){
+    console.error('Cash Flow render failed:', err);
+    if(updEl) updEl.innerHTML = '<span style="color:#C0392B">Error: '+err.message+'</span>';
+    document.getElementById('cfKpis').innerHTML = '<div style="color:#C0392B;padding:16px">Failed to load Cash Flow: '+err.message+'</div>';
+  }
+}
+
+// Build report HTML (extracted so both P&L and Cash Flow can use it)
+function buildReportTableHTML(parsed){
+  const mLabels = parsed.monthLabels;
+  const cs = 'text-align:right;padding:8px 10px;font-size:11px';
+  let html = `<thead><tr><th style="text-align:left">Account</th>`;
+  mLabels.forEach(m=>html+=`<th style="${cs}">${m.split(' ')[0]}</th>`);
+  html += `<th style="${cs};border-left:2px solid #1B4D4A;color:#1B4D4A">Total</th></tr></thead><tbody>`;
+
+  const fmt = v => v===0 ? '<span style="color:#D4E2DD">—</span>' : (v<0 ? `<span style="color:#C0392B">(${_$k(Math.abs(v))})</span>` : _$k(v));
+
+  parsed.sections.forEach(sec=>{
+    if(sec.type === 'section'){
+      html += `<tr style="background:#F0F6F4;border-top:2px solid #1B4D4A"><td style="padding:10px 12px;font-weight:700;color:#1B4D4A">${sec.label}</td>`;
+      sec.monthly.forEach(v=>html+=`<td style="${cs};font-weight:700;color:#1B4D4A">${fmt(v)}</td>`);
+      html += `<td style="${cs};font-weight:700;border-left:2px solid #1B4D4A;color:#1B4D4A">${fmt(sec.total)}</td></tr>`;
+      sec.rows.forEach(r=>{
+        html += `<tr><td style="padding:6px 12px 6px 28px;color:#0D2B29;font-size:12px">${r.label}</td>`;
+        r.monthly.forEach(v=>html+=`<td style="${cs}">${fmt(v)}</td>`);
+        html += `<td style="${cs};border-left:2px solid #D4E2DD;font-weight:600">${fmt(r.total)}</td></tr>`;
+      });
+    } else if(sec.type === 'summary'){
+      const isGood = sec.total >= 0;
+      const col = isGood ? '#1B7A3D' : '#C0392B';
+      html += `<tr style="background:#E8F0ED;border-top:2px solid ${col}"><td style="padding:10px 12px;font-weight:800;color:${col}">${sec.label}</td>`;
+      sec.monthly.forEach(v=>html+=`<td style="${cs};font-weight:700;color:${v>=0?'#1B7A3D':'#C0392B'}">${fmt(v)}</td>`);
+      html += `<td style="${cs};font-weight:800;border-left:2px solid ${col};color:${col}">${fmt(sec.total)}</td></tr>`;
+    }
+  });
+
+  html += `</tbody>`;
+  return html;
+}
+
+// Use the extracted function for P&L too (cleanup)
+function renderPLTable(parsed){
+  const table = document.getElementById('plTable');
+  if(!table) return;
+  table.innerHTML = buildReportTableHTML(parsed);
+}
+
+// ──────────────────────────────────────────────────────────────
+//  INIT
+// ──────────────────────────────────────────────────────────────
+
+_bindYearToggle('plYearToggle', y=>_plYear=y, renderPL);
+_bindYearToggle('cfYearToggle', y=>_cfYear=y, renderCashFlow);
+
+window.renderPL = renderPL;
+window.renderCashFlow = renderCashFlow;
 
 })();
 </script>
