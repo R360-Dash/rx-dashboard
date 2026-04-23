@@ -4493,7 +4493,7 @@ window.renderScenario=renderScenario;
 const QBO_PROXY='https://racquetx-qbo-proxy.racquetx.workers.dev';
 
 // QBO Account Name → RX Category mapping (from Excel mapping file)
-const QBO_MAPPING = {"City Series Sales":"City Series Tickets","Rebooking Sales":"Show Sponsors","Revenue - Merch":"Merch","Sales - Clubs Summit":"City Series Sponsors","Sponsorship Sales":"Show Sponsors","Tickets Sales":"Show Tickets","COGS - City Series":"City Series Costs","Cost of Goods Sold":"Show Costs","Additional Staff":"Show Costs","AV Labor":"Show Costs","Booth Packages":"Show Costs","Catering":"Show Costs","Club Summit":"Show Costs","Creators Corner":"Show Costs","Decoration":"Show Costs","Digital signage":"Show Costs","Emerging Designers":"Show Costs","Evening Event Night Day 1":"Show Costs","Evening Event Night Day 2":"Show Costs","Freight":"Show Costs","Hotel & Accomodation":"Show Costs","Hotel Attrition":"Show Costs","Innovation Showcase":"Show Costs","Internet":"Show Costs","Keynote":"Show Costs","Pod Cast Studio":"Show Costs","Registration":"Show Costs","Show Decorator":"Show Costs","Showfloor Theater":"Show Costs","Signage":"Show Costs","Venue Rental":"Show Costs","Travel COGS":"Show Costs","Bank Charges":"SG&A","Contractors":"SG&A","Expense Reimbursement":"SG&A","Insurance":"SG&A","Interest Paid":"SG&A","Legal & Professional Services":"SG&A","Accounting Services":"SG&A","Consulting Fees":"SG&A","IT Services":"SG&A","Management Fees":"SG&A","Recruitment Fees":"SG&A","Tax Services":"SG&A","Licenses & Dues":"SG&A","Marketing Expenses":"Marketing Costs","Audience Marketing":"Marketing Costs","Brand Marketing":"Marketing Costs","Marketing Partner":"Marketing Costs","Conference Content":"Marketing Costs","Sales Marketing":"Marketing Costs","SEM/SEO":"Marketing Costs","Social Media":"Marketing Costs","Merchant Fees":"SG&A","QuickBooks Payments Fees":"SG&A","Shipping, Freight & Delivery":"SG&A","Software & Apps Subscriptions":"SG&A","Travel":"SG&A","Uncategorized Expense":"SG&A","Commissions":"SG&A","Exhange Rate Difference":"SG&A","Other Miscellaneous Expense":"SG&A","Suscriptions and fees":"SG&A","Team Meals":"SG&A"};
+const QBO_MAPPING = {"City Series Sales":"City Series Tickets","Rebooking Sales":"Show Sponsors","Revenue - Merch":"Merch","Sales - Clubs Summit":"City Series Sponsors","Sales - City Series Sponsorship":"City Series Sponsors","Sponsorship Sales":"Show Sponsors","Tickets Sales":"Show Tickets","COGS - City Series":"City Series Costs","Cost of Goods Sold":"Show Costs","Additional Staff":"Show Costs","AV Labor":"Show Costs","Booth Packages":"Show Costs","Catering":"Show Costs","Club Summit":"Show Costs","Creators Corner":"Show Costs","Decoration":"Show Costs","Digital signage":"Show Costs","Emerging Designers":"Show Costs","Evening Event Night Day 1":"Show Costs","Evening Event Night Day 2":"Show Costs","Freight":"Show Costs","Hotel & Accomodation":"Show Costs","Hotel Attrition":"Show Costs","Innovation Showcase":"Show Costs","Internet":"Show Costs","Keynote":"Show Costs","Pod Cast Studio":"Show Costs","Registration":"Show Costs","Show Decorator":"Show Costs","Showfloor Theater":"Show Costs","Signage":"Show Costs","Venue Rental":"Show Costs","Travel COGS":"Show Costs","Stripe fees":"SG&A","Bank Charges":"SG&A","Contractors":"SG&A","Expense Reimbursement":"SG&A","Insurance":"SG&A","Interest Paid":"SG&A","Legal & Professional Services":"SG&A","Accounting Services":"SG&A","Consulting Fees":"SG&A","IT Services":"SG&A","Management Fees":"SG&A","Recruitment Fees":"SG&A","Tax Services":"SG&A","Licenses":"SG&A","Licenses & Dues":"SG&A","Marketing Expenses":"Marketing Costs","Audience Marketing":"Marketing Costs","Brand Marketing":"Marketing Costs","Marketing Partner":"Marketing Costs","Conference Content":"Marketing Costs","Sales Marketing":"Marketing Costs","SEM/SEO":"Marketing Costs","Social Media":"Marketing Costs","Merchant Fees":"SG&A","QuickBooks Payments Fees":"SG&A","Shipping, Freight & Delivery":"SG&A","Software & Apps Subscriptions":"SG&A","Travel":"SG&A","Uncategorized Expense":"SG&A","Commissions":"SG&A","Corporate Expense Allocation":"Corporate Expense Allocation","Exhange Rate Difference":"SG&A","Other Miscellaneous Expense":"SG&A","Suscriptions and fees":"SG&A","Team Meals":"SG&A"};
 
 // Display order and styling for categories within each P&L section
 const CAT_STYLE = {
@@ -4509,6 +4509,8 @@ const CAT_STYLE = {
   // Expenses
   'SG&A':                {order:1, color:'#B8860B'},
   'Marketing Costs':     {order:2, color:'#8E44AD'},
+  // Below EBITDA
+  'Corporate Expense Allocation':{order:50, color:'#7BA69E'},
   // Catch-all
   'Uncategorized':       {order:99,color:'#7BA69E'}
 };
@@ -4554,7 +4556,22 @@ function parseQboReport(report){
       // Leaf data row
       leafs.push(extractRow(node));
     } else if(node.Header && node.Rows){
-      // Section with sub-rows — recurse
+      // Section with sub-rows — QBO sometimes puts parent-account transactions in the
+      // Header's ColData (transactions posted directly to the parent account, separate
+      // from sub-account totals). Capture those as a synthetic leaf with the section label.
+      const hdr = node.Header.ColData || [];
+      if(hdr.length > 1){
+        const parentMonthly = hdr.slice(1, totalIdx).map(c=>parseFloat(c.value||0)||0);
+        const parentTotal = parseFloat(hdr[totalIdx]?.value||0)||0;
+        if(parentTotal !== 0 || parentMonthly.some(v=>v!==0)){
+          leafs.push({
+            label: hdr[0]?.value || '',
+            monthly: parentMonthly,
+            total: parentTotal
+          });
+        }
+      }
+      // Then recurse into sub-rows
       (node.Rows.Row || []).forEach(sub => collectLeafs(sub, leafs));
     }
     // Skip pure summary rows inside a section (they're auto-computed)
@@ -4679,7 +4696,11 @@ async function renderPL(){
     const sgaByCat = sumByCategory([expenses, otherExp], ['SG&A']);
     const sgaTot = sumCategories(sgaByCat);
 
-    // UNCATEGORIZED (below-the-line items — not included in EBITDA)
+    // CORPORATE EXPENSE ALLOCATION = separate below-EBITDA line
+    const ceaByCat = sumByCategory([cogs, expenses, otherExp], ['Corporate Expense Allocation']);
+    const ceaTot = sumCategories(ceaByCat);
+
+    // UNCATEGORIZED (anything else we missed — flag if non-zero)
     const uncatByCat = sumByCategory([cogs, expenses, otherExp], ['Uncategorized']);
     const uncatTot = sumCategories(uncatByCat);
 
@@ -4687,9 +4708,12 @@ async function renderPL(){
     const gpTot = { total: revTot.total - dcTot.total, monthly: revTot.monthly.map((v,i)=>v - dcTot.monthly[i]) };
     // EBITDA = Gross Profit − SG&A
     const ebitda = { total: gpTot.total - sgaTot.total, monthly: gpTot.monthly.map((v,i)=>v - sgaTot.monthly[i]) };
+    // NET INCOME = EBITDA − Corporate Expense Allocation
+    const netInc = { total: ebitda.total - ceaTot.total, monthly: ebitda.monthly.map((v,i)=>v - ceaTot.monthly[i]) };
 
     const gpMargin = revTot.total>0 ? gpTot.total/revTot.total : 0;
     const ebitdaMargin = revTot.total>0 ? ebitda.total/revTot.total : 0;
+    const netMargin = revTot.total>0 ? netInc.total/revTot.total : 0;
 
     // KPI cards
     const kpis = [
@@ -4698,7 +4722,7 @@ async function renderPL(){
       {i:'💵',t:'Gross Profit',v:_$k(gpTot.total),s:(gpMargin*100).toFixed(1)+'% margin',cl:gpTot.total>=0?'#2D7A6F':'#C0392B'},
       {i:'🏷️',t:'SG&A',v:_$k(sgaTot.total),s:revTot.total>0?((sgaTot.total/revTot.total)*100).toFixed(1)+'% of revenue':'',cl:'#8E44AD'},
       {i:'📊',t:'EBITDA',v:_$k(ebitda.total),s:(ebitdaMargin*100).toFixed(1)+'% margin',cl:ebitda.total>=0?'#1B7A3D':'#C0392B'},
-      {i:'🎯',t:'Uncategorized',v:_$k(uncatTot.total),s:'Not included in EBITDA',cl:'#7BA69E'}
+      {i:'🎯',t:'Net Income',v:_$k(netInc.total),s:(netMargin*100).toFixed(1)+'% margin · EBITDA − CEA',cl:netInc.total>=0?'#1B7A3D':'#C0392B'}
     ];
     document.getElementById('plKpis').innerHTML = kpis.map(k=>`<div class="kpi" style="border-left-color:${k.cl}"><div class="kpi-label">${k.i} ${k.t}</div><div class="kpi-value" style="color:${k.cl}">${k.v}</div><div class="kpi-sub">${k.s}</div></div>`).join('');
 
@@ -4707,24 +4731,27 @@ async function renderPL(){
     const trendData = parsed.monthLabels.map((lb,i)=>({
       lb: lb.split(' ')[0],
       rev: revTot.monthly[i]||0,
-      exp: (dcTot.monthly[i]||0) + (sgaTot.monthly[i]||0),
-      ebitda: ebitda.monthly[i]||0
+      exp: (dcTot.monthly[i]||0) + (sgaTot.monthly[i]||0) + (ceaTot.monthly[i]||0),
+      ebitda: ebitda.monthly[i]||0,
+      net: netInc.monthly[i]||0
     }));
     if(typeof drawLines === 'function'){
       drawLines('plCanTrend', trendData, [
         {k:'rev', cl:'#1B7A3D', nm:'Revenue'},
-        {k:'exp', cl:'#C0392B', nm:'Direct Costs + SG&A'},
-        {k:'ebitda', cl:'#1B4D4A', nm:'EBITDA'}
+        {k:'exp', cl:'#C0392B', nm:'Total Expenses'},
+        {k:'ebitda', cl:'#2D7A6F', nm:'EBITDA'},
+        {k:'net', cl:'#1B4D4A', nm:'Net Income'}
       ]);
       if(typeof leg === 'function') leg('plLTrend', [
         {n:'Revenue', c:'#1B7A3D', v:_$k(revTot.total)},
-        {n:'Direct Costs + SG&A', c:'#C0392B', v:_$k(dcTot.total+sgaTot.total)},
-        {n:'EBITDA', c:'#1B4D4A', v:_$k(ebitda.total)}
+        {n:'Total Expenses', c:'#C0392B', v:_$k(dcTot.total+sgaTot.total+ceaTot.total)},
+        {n:'EBITDA', c:'#2D7A6F', v:_$k(ebitda.total)},
+        {n:'Net Income', c:'#1B4D4A', v:_$k(netInc.total)}
       ]);
     }
 
     // Condensed P&L table
-    renderCondensedPL('plTable', parsed, revByCat, revTot, dcByCat, dcTot, gpTot, sgaByCat, sgaTot, ebitda, uncatByCat, uncatTot);
+    renderCondensedPL('plTable', parsed, revByCat, revTot, dcByCat, dcTot, gpTot, sgaByCat, sgaTot, ebitda, ceaTot, netInc, uncatByCat, uncatTot);
   } catch(err){
     console.error('P&L render failed:', err);
     if(updEl) updEl.innerHTML = '<span style="color:#C0392B">Error: '+err.message+'</span>';
@@ -4732,7 +4759,7 @@ async function renderPL(){
   }
 }
 
-function renderCondensedPL(tableId, parsed, revByCat, revTot, dcByCat, dcTot, gpTot, sgaByCat, sgaTot, ebitda, uncatByCat, uncatTot){
+function renderCondensedPL(tableId, parsed, revByCat, revTot, dcByCat, dcTot, gpTot, sgaByCat, sgaTot, ebitda, ceaTot, netInc, uncatByCat, uncatTot){
   const table = document.getElementById(tableId);
   if(!table) return;
   const mLabels = parsed.monthLabels;
@@ -4817,11 +4844,22 @@ function renderCondensedPL(tableId, parsed, revByCat, revTot, dcByCat, dcTot, gp
 
   // ── EBITDA ──
   html += summaryRow('EBITDA', ebitda);
+  html += spacerRow();
 
-  // ── Below-the-line: Uncategorized ──
+  // ── Corporate Expense Allocation (below EBITDA) ──
+  if(ceaTot.total !== 0){
+    const ceaAsCat = { category:'Corporate Expense Allocation', monthly:ceaTot.monthly, total:ceaTot.total };
+    html += catRow(ceaAsCat);
+    html += spacerRow();
+  }
+
+  // ── NET INCOME = EBITDA − CEA ──
+  html += summaryRow('Net Income', netInc);
+
+  // ── Any remaining uncategorized items (flagged) ──
   if(uncatTot.total !== 0){
     html += spacerRow();
-    html += sectionHeader('Below EBITDA (Uncategorized)', '#7BA69E');
+    html += sectionHeader('⚠️ Unmapped Accounts', '#C0392B');
     html += catRow({category:'Uncategorized', monthly:uncatTot.monthly, total:uncatTot.total});
   }
 
