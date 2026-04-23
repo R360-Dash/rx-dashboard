@@ -265,6 +265,17 @@ tr:hover td{background:#E8F0ED}
     </div>
   </div>
   <div class="nav-group">
+    <div class="nav-group-title">Financials</div>
+    <div class="nav-links">
+    <a class="nav-item" data-nav="sec-pl">Profit &amp; Loss</a>
+    <a class="nav-item" data-nav="sec-bva">Budget vs Actual</a>
+    <a class="nav-item" data-nav="sec-cashflow">Cash Flow</a>
+    <a class="nav-item" data-nav="sec-revproj">Revenue Projections</a>
+    <a class="nav-item" data-nav="sec-scenario">Scenario Modeling</a>
+    <a class="nav-item" data-nav="sec-expenses">Expense Breakdown</a>
+    </div>
+  </div>
+  <div class="nav-group">
     <div class="nav-group-title">Tickets</div>
     <div class="nav-links">
     <a class="nav-item" data-nav="sec-grip">Registration & Tickets</a>
@@ -402,6 +413,111 @@ tr:hover td{background:#E8F0ED}
 <div id="sec-arcl" class="page"><div class="section"><div class="section-header"><div class="section-bar"></div><div class="section-title">Accounts Receivable — By Client</div></div><div id="arTotals"></div><div class="card" style="padding:0"><div class="ar-wrap"><table id="tblAR"></table></div></div></div></div>
 
 <div id="sec-arinv" class="page"><div class="section"><div class="section-header"><div class="section-bar"></div><div class="section-title">Accounts Receivable — By Invoice</div></div><div class="card" style="padding:0"><div class="ar-wrap"><table id="tblARInv"></table></div></div></div></div>
+
+<!-- ═══ FINANCIALS — PROFIT & LOSS ═══ -->
+<div id="sec-pl" class="page">
+  <div class="section">
+    <div class="section-header"><div class="section-bar"></div><div class="section-title">Profit &amp; Loss</div></div>
+    <div class="card" id="plPlaceholder" style="padding:40px;text-align:center;background:linear-gradient(135deg,#F7F9F8,#E8F0ED);border:2px dashed #7BA69E">
+      <div style="font-size:48px;margin-bottom:12px">📊</div>
+      <div style="font-size:18px;font-weight:700;color:#1B4D4A;margin-bottom:8px">Profit &amp; Loss Statement</div>
+      <div style="font-size:13px;color:#7BA69E;max-width:480px;margin:0 auto;line-height:1.6">
+        This page will display revenue, cost of goods sold, operating expenses, and net income with month-over-month and year-over-year comparisons — pulled live from QuickBooks Online.
+      </div>
+      <div style="display:inline-block;margin-top:16px;padding:6px 14px;background:#B8860B18;color:#B8860B;border-radius:14px;font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase">⏳ Awaiting QBO Connection</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ FINANCIALS — BUDGET VS ACTUAL ═══ -->
+<div id="sec-bva" class="page">
+  <div class="section">
+    <div class="section-header"><div class="section-bar"></div><div class="section-title">Budget vs Actual</div></div>
+    <div class="card" id="bvaPlaceholder" style="padding:40px;text-align:center;background:linear-gradient(135deg,#F7F9F8,#E8F0ED);border:2px dashed #7BA69E">
+      <div style="font-size:48px;margin-bottom:12px">🎯</div>
+      <div style="font-size:18px;font-weight:700;color:#1B4D4A;margin-bottom:8px">Budget vs Actual Variance</div>
+      <div style="font-size:13px;color:#7BA69E;max-width:480px;margin:0 auto;line-height:1.6">
+        Side-by-side budget and actual figures by category, with variance bars (green/red) showing where the business is over or under plan.
+      </div>
+      <div style="display:inline-block;margin-top:16px;padding:6px 14px;background:#B8860B18;color:#B8860B;border-radius:14px;font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase">⏳ Awaiting QBO Connection</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ FINANCIALS — CASH FLOW ═══ -->
+<div id="sec-cashflow" class="page">
+  <div class="section">
+    <div class="section-header"><div class="section-bar"></div><div class="section-title">Cash Flow</div></div>
+    <div class="card" id="cashflowPlaceholder" style="padding:40px;text-align:center;background:linear-gradient(135deg,#F7F9F8,#E8F0ED);border:2px dashed #7BA69E">
+      <div style="font-size:48px;margin-bottom:12px">💧</div>
+      <div style="font-size:18px;font-weight:700;color:#1B4D4A;margin-bottom:8px">Cash Flow Statement</div>
+      <div style="font-size:13px;color:#7BA69E;max-width:480px;margin:0 auto;line-height:1.6">
+        Operating, investing, and financing cash flows with a waterfall chart showing how cash moves through the business each month.
+      </div>
+      <div style="display:inline-block;margin-top:16px;padding:6px 14px;background:#B8860B18;color:#B8860B;border-radius:14px;font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase">⏳ Awaiting QBO Connection</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ FINANCIALS — REVENUE PROJECTIONS ═══ -->
+<div id="sec-revproj" class="page">
+  <div class="section">
+    <div class="section-header"><div class="section-bar"></div><div class="section-title">Revenue Projections — 2027 Show</div></div>
+    <p style="font-size:12px;color:#7BA69E;margin-bottom:16px">Forecast based on HubSpot weighted pipeline, Grip ticket trends, and historical conversion rates.</p>
+    <div class="kpi-grid" id="rpKpis"></div>
+    <div class="two-col">
+      <div class="section">
+        <div class="section-header"><div class="section-bar"></div><div class="section-title">Pipeline Weighted Forecast</div></div>
+        <div class="card"><canvas id="cRpPipeline" height="380"></canvas><div class="legend" id="lRpPipeline"></div></div>
+      </div>
+      <div class="section">
+        <div class="section-header"><div class="section-bar"></div><div class="section-title">Run-Rate vs Last Show</div></div>
+        <div class="card"><canvas id="cRpRunRate" height="380"></canvas><div class="legend" id="lRpRunRate"></div></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-header"><div class="section-bar"></div><div class="section-title">Methodology</div></div>
+      <div class="card" id="rpMethodology" style="padding:20px;font-size:13px;line-height:1.7;color:#0D2B29"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ FINANCIALS — SCENARIO MODELING ═══ -->
+<div id="sec-scenario" class="page">
+  <div class="section">
+    <div class="section-header"><div class="section-bar"></div><div class="section-title">Scenario Modeling — 2027 Show</div></div>
+    <p style="font-size:12px;color:#7BA69E;margin-bottom:16px">Adjust the sliders to model best-case, base-case, and worst-case revenue outcomes.</p>
+    <div class="card" style="padding:24px;margin-bottom:20px">
+      <div id="scInputs" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px"></div>
+    </div>
+    <div class="kpi-grid" id="scKpis"></div>
+    <div class="two-col">
+      <div class="section">
+        <div class="section-header"><div class="section-bar"></div><div class="section-title">Three-Scenario Comparison</div></div>
+        <div class="card"><canvas id="cScCompare" height="380"></canvas><div class="legend" id="lScCompare"></div></div>
+      </div>
+      <div class="section">
+        <div class="section-header"><div class="section-bar"></div><div class="section-title">Revenue Composition (Base Case)</div></div>
+        <div class="card"><canvas id="cScComp" height="380"></canvas><div class="legend" id="lScComp"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ FINANCIALS — EXPENSE BREAKDOWN ═══ -->
+<div id="sec-expenses" class="page">
+  <div class="section">
+    <div class="section-header"><div class="section-bar"></div><div class="section-title">Expense Breakdown</div></div>
+    <div class="card" id="expPlaceholder" style="padding:40px;text-align:center;background:linear-gradient(135deg,#F7F9F8,#E8F0ED);border:2px dashed #7BA69E">
+      <div style="font-size:48px;margin-bottom:12px">💸</div>
+      <div style="font-size:18px;font-weight:700;color:#1B4D4A;margin-bottom:8px">Expense Breakdown by Category</div>
+      <div style="font-size:13px;color:#7BA69E;max-width:480px;margin:0 auto;line-height:1.6">
+        Donut chart and detailed table of expenses by category (venue, marketing, payroll, travel, etc.) pulled from QBO P&amp;L expense lines.
+      </div>
+      <div style="display:inline-block;margin-top:16px;padding:6px 14px;background:#B8860B18;color:#B8860B;border-radius:14px;font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase">⏳ Awaiting QBO Connection</div>
+    </div>
+  </div>
+</div>
 
 <div id="sec-mkt" class="page">
 <div class="section"><div class="section-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
@@ -2152,7 +2268,7 @@ function showPage(id){
   document.querySelectorAll('.nav-group').forEach(g=>{
     if(g.querySelector(`.nav-item[data-nav="${id}"]`))g.classList.remove('collapsed');
   });
-  document.getElementById('tog').style.display=(id==='sec-mkt'||id==='sec-cumfirm'||id==='sec-cumsp'||id==='sec-settings'||id==='sec-hsoverview'||id==='sec-hsdeals'||id==='sec-grip'||id==='sec-hsmix'||id==='sec-hsnew'||id==='sec-hsrebooks'||id==='sec-hsmom'||id==='sec-hscumsp'||id==='sec-hscumfirm'||id==='sec-partners'||id==='sec-linkedin'||id==='sec-ga4')?'none':'flex';
+  document.getElementById('tog').style.display=(id==='sec-mkt'||id==='sec-cumfirm'||id==='sec-cumsp'||id==='sec-settings'||id==='sec-hsoverview'||id==='sec-hsdeals'||id==='sec-grip'||id==='sec-hsmix'||id==='sec-hsnew'||id==='sec-hsrebooks'||id==='sec-hsmom'||id==='sec-hscumsp'||id==='sec-hscumfirm'||id==='sec-partners'||id==='sec-linkedin'||id==='sec-ga4'||id==='sec-pl'||id==='sec-bva'||id==='sec-cashflow'||id==='sec-revproj'||id==='sec-scenario'||id==='sec-expenses')?'none':'flex';
   // Hide 2024 button on rebooks page
   const btn24=document.querySelector('.toggle button[data-s="2024"]');
   if(btn24) btn24.style.display=(id==='sec-rebooks')?'none':'';
@@ -2170,6 +2286,8 @@ function showPage(id){
   if(id==='sec-partners')setTimeout(renderPartners,80);
   if(id==='sec-linkedin')setTimeout(renderLinkedin,80);
   if(id==='sec-ga4')setTimeout(renderGA4,80);
+  if(id==='sec-revproj')setTimeout(renderRevProj,80);
+  if(id==='sec-scenario')setTimeout(renderScenario,80);
 }
 document.querySelectorAll('.nav-item').forEach(item=>{
   item.addEventListener('click',()=>showPage(item.dataset.nav));
@@ -4094,5 +4212,263 @@ else{setTimeout(initGrip,150);}
 
 })();
 </script>
+
+<!-- ═══ FINANCIALS — REVENUE PROJECTIONS & SCENARIO MODELING ═══ -->
+<script>
+(function(){
+
+// Stage probability weights (typical SaaS-style; tuned for trade-show sponsorship)
+const STAGE_WEIGHTS_27 = {
+  'closedwon': 1.00,
+  '101597223': 0.85,         // Contract Sent
+  '101597222': 0.55,         // Negotiating
+  'presentationscheduled': 0.30, // Qualified Meeting
+  'appointmentscheduled': 0.10,  // Contact
+  '1037013850': 0.00,        // Non Qualified Meeting
+  'closedlost': 0.00
+};
+
+const _$=v=>v>=1e6?`$${(v/1e6).toFixed(2)}M`:v>=1e3?`$${(v/1e3).toFixed(1)}K`:`$${v.toFixed(0)}`;
+const _$$=v=>'$'+v.toLocaleString('en-US',{maximumFractionDigits:0});
+const _P=v=>(v>=0?'+':'')+(v*100).toFixed(0)+'%';
+
+// ── REVENUE PROJECTIONS ──────────────────────────────
+function renderRevProj(){
+  const yr=27;
+  const wonStage=(window.WON_STAGE&&window.WON_STAGE[yr])||'closedwon';
+  const deals=(window.HS&&window.HS.d)?window.HS.d.filter(d=>d.p===yr):[];
+
+  // Closed won (locked-in revenue)
+  const won=deals.filter(d=>d.s===wonStage&&d.a>0);
+  const wonRev=won.reduce((s,d)=>s+d.a,0);
+  const wonCt=won.length;
+
+  // Open pipeline (weighted)
+  const open=deals.filter(d=>d.s!==wonStage&&d.s!=='closedlost');
+  let pipelineRaw=0,pipelineWeighted=0;
+  open.forEach(d=>{
+    const w=STAGE_WEIGHTS_27[d.s]||0.05;
+    const amt=d.a||0;
+    pipelineRaw+=amt;
+    pipelineWeighted+=amt*w;
+  });
+
+  // Estimate amount for $0 deals using avg won deal value
+  const avgWonAmt=wonCt>0?wonRev/wonCt:20000;
+  const zeroAmtOpen=open.filter(d=>!d.a||d.a===0);
+  const zeroAmtEstimate=zeroAmtOpen.reduce((s,d)=>{
+    const w=STAGE_WEIGHTS_27[d.s]||0.05;
+    return s+(avgWonAmt*w);
+  },0);
+
+  // Historical run-rate (ratio of total final / current as-of cycle position)
+  // 2026 final: D.K.tsp26 ($1.35M sponsorship)
+  // Compute "what % of final revenue came from current cycle position"
+  // Currently April 2026 → roughly 11mo before March 2027 show
+  // For 2026 show (Mar 2026), 11mo before was April 2025 → cum26 first entry
+  const D=window.D;
+  const cum26final=(D&&D.K&&D.K.tsp26)||1353450;
+  const cum26at11mo=(D&&D.cum26&&D.cum26.length>0)?D.cum26[0].r:75000;
+  const runRateMultiplier=cum26final/Math.max(cum26at11mo,1);
+  const projectedFromRunRate=wonRev*runRateMultiplier;
+
+  // Final projection: weighted pipeline + closed won + zero-amt estimates
+  const projectedTotal=wonRev+pipelineWeighted+zeroAmtEstimate;
+
+  // Sponsorship target (placeholder — could be set by user later)
+  const target=1500000;
+  const pctOfTarget=Math.round(projectedTotal/target*100);
+
+  // KPIs
+  const kpis=[
+    {i:'🔒',t:'Locked-In Revenue',v:_$(wonRev),s:`${wonCt} closed-won deals`,cl:'#1B7A3D'},
+    {i:'⚖️',t:'Weighted Pipeline',v:_$(pipelineWeighted+zeroAmtEstimate),s:`${open.length} open deals`,cl:'#3D9B8F'},
+    {i:'📈',t:'Projected Total',v:_$(projectedTotal),s:'Won + weighted pipeline',cl:'#1B4D4A'},
+    {i:'🎯',t:'vs $1.5M Target',v:pctOfTarget+'%',s:`Gap: ${_$(Math.max(0,target-projectedTotal))}`,cl:pctOfTarget>=75?'#1B7A3D':pctOfTarget>=50?'#B8860B':'#C0392B'},
+    {i:'🚀',t:'Run-Rate Forecast',v:_$(projectedFromRunRate),s:`Based on 2026 cycle pacing (${runRateMultiplier.toFixed(1)}x multiplier)`,cl:'#2D7A6F'},
+    {i:'💼',t:'Open Pipeline (raw)',v:_$(pipelineRaw),s:`Unweighted, ${open.filter(d=>d.a>0).length} priced deals`,cl:'#7BA69E'}
+  ];
+  document.getElementById('rpKpis').innerHTML=kpis.map(k=>`<div class="kpi" style="border-left-color:${k.cl}"><div class="kpi-label">${k.i} ${k.t}</div><div class="kpi-value" style="color:${k.cl}">${k.v}</div><div class="kpi-sub">${k.s}</div></div>`).join('');
+
+  // Pipeline weighted forecast chart (bar by stage)
+  const stageLabels={
+    'closedwon':'Closed Won',
+    '101597223':'Contract Sent',
+    '101597222':'Negotiating',
+    'presentationscheduled':'Qualified Meeting',
+    'appointmentscheduled':'Contact',
+    '1037013850':'Non Qualified',
+    'closedlost':'Closed Lost'
+  };
+  const stageData=Object.keys(STAGE_WEIGHTS_27).map(sid=>{
+    const sDeals=deals.filter(d=>d.s===sid);
+    const raw=sDeals.reduce((s,d)=>s+(d.a||0),0);
+    const ct=sDeals.length;
+    const ctZero=sDeals.filter(d=>!d.a||d.a===0).length;
+    const w=STAGE_WEIGHTS_27[sid];
+    const weighted=raw*w + (avgWonAmt*ctZero*w);
+    return {lb:stageLabels[sid]||sid, raw, weighted, ct};
+  }).filter(s=>s.ct>0);
+
+  if(typeof drawBars==='function'&&stageData.length){
+    drawBars('cRpPipeline',stageData,[
+      {k:'raw',cl:'#D4E2DD',nm:'Raw Pipeline'},
+      {k:'weighted',cl:'#1B4D4A',nm:'Weighted'}
+    ],{noGrid:true,showVal:true});
+    if(typeof leg==='function')leg('lRpPipeline',[
+      {n:'Raw $',c:'#D4E2DD'},{n:'Probability-weighted $',c:'#1B4D4A'}
+    ]);
+  }
+
+  // Run-rate vs last show — line chart comparing cumulative positions
+  // 2026 cycle (Apr'25 → Feb'26) vs 2027 cycle (so far)
+  const cum26arr=(D&&D.cum26)||[];
+  const cum27arr=(D&&D.cum27)||[];
+  const labels=['11mo','10mo','9mo','8mo','7mo','6mo','5mo','4mo','3mo','2mo','1mo'];
+  const runRateData=labels.map((lb,i)=>({
+    lb,
+    y26:cum26arr[i]?cum26arr[i].r:null,
+    y27:cum27arr[i]?cum27arr[i].r:null
+  }));
+  if(typeof drawLines==='function'){
+    drawLines('cRpRunRate',runRateData,[
+      {k:'y26',cl:'#1B4D4A',nm:'2026 Show (actual)'},
+      {k:'y27',cl:'#3D9B8F',nm:'2027 Show (current)',da:true}
+    ],{noGrid:true});
+    if(typeof leg==='function')leg('lRpRunRate',[
+      {n:'2026 Show — actual cumulative',c:'#1B4D4A'},
+      {n:'2027 Show — current cumulative',c:'#3D9B8F'}
+    ]);
+  }
+
+  // Methodology
+  document.getElementById('rpMethodology').innerHTML=`
+    <p style="margin-bottom:10px"><b style="color:#1B4D4A">Locked-In Revenue:</b> Sum of all HubSpot deals in "Closed Won" stage with event_year=2027.</p>
+    <p style="margin-bottom:10px"><b style="color:#1B4D4A">Weighted Pipeline:</b> Each open deal multiplied by its stage probability:<br>
+    &nbsp;&nbsp;• Contract Sent: 85%&nbsp;&nbsp;• Negotiating: 55%&nbsp;&nbsp;• Qualified Meeting: 30%&nbsp;&nbsp;• Contact: 10%</p>
+    <p style="margin-bottom:10px"><b style="color:#1B4D4A">Zero-Amount Deals:</b> Deals without an amount get an estimated value of <code>${_$(avgWonAmt)}</code> (the average closed-won deal value), then probability-weighted.</p>
+    <p style="margin-bottom:10px"><b style="color:#1B4D4A">Run-Rate Forecast:</b> Locked-in revenue × historical multiplier (final 2026 revenue ÷ 2026 revenue at this same cycle position = <code>${runRateMultiplier.toFixed(1)}x</code>).</p>
+    <p style="font-size:11px;color:#7BA69E;margin-top:14px;padding-top:12px;border-top:1px solid #EDF2F0">⚠️ Stage probabilities are heuristics. Tune them as you build a deal-stage conversion history for the 2027 show.</p>
+  `;
+}
+
+// ── SCENARIO MODELING ──────────────────────────────
+const SC_DEFAULTS = {
+  newSponsors: 75,    // # new sponsorship contracts
+  newACV: 9500,       // avg contract value for new
+  rebooks: 30,        // # rebook contracts
+  rebookACV: 16000,   // avg rebook value (rebooks tend to be larger)
+  tickets: 3000,      // total ticket sales
+  ticketACV: 25       // avg ticket price
+};
+
+const SC_RANGES = {
+  newSponsors:  {min:30,  max:150, step:5,    label:'New Sponsors',     fmt:v=>v+' contracts'},
+  newACV:       {min:5000,max:20000,step:500, label:'New Avg Contract', fmt:v=>_$(v)},
+  rebooks:      {min:10,  max:60,  step:1,    label:'Rebooks',          fmt:v=>v+' contracts'},
+  rebookACV:    {min:8000,max:30000,step:500, label:'Rebook Avg Contract',fmt:v=>_$(v)},
+  tickets:      {min:1000,max:5000,step:100,  label:'Total Tickets',    fmt:v=>v.toLocaleString()},
+  ticketACV:    {min:10,  max:50,  step:1,    label:'Avg Ticket Price', fmt:v=>'$'+v}
+};
+
+let SC_STATE = {...SC_DEFAULTS};
+
+function _scComputeRevenue(s){
+  return {
+    spNew: s.newSponsors*s.newACV,
+    spReb: s.rebooks*s.rebookACV,
+    tk:    s.tickets*s.ticketACV,
+    total: s.newSponsors*s.newACV + s.rebooks*s.rebookACV + s.tickets*s.ticketACV
+  };
+}
+
+function renderScenario(){
+  // Build sliders
+  const inp=document.getElementById('scInputs');
+  if(!inp)return;
+  inp.innerHTML=Object.keys(SC_RANGES).map(key=>{
+    const r=SC_RANGES[key];
+    const v=SC_STATE[key];
+    return `<div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <label style="font-size:12px;font-weight:600;color:#1B4D4A;text-transform:uppercase;letter-spacing:0.05em">${r.label}</label>
+        <span id="scVal_${key}" style="font-size:13px;font-weight:700;color:#0D2B29">${r.fmt(v)}</span>
+      </div>
+      <input type="range" id="scInp_${key}" min="${r.min}" max="${r.max}" step="${r.step}" value="${v}"
+        style="width:100%;accent-color:#1B4D4A;cursor:pointer">
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:#7BA69E;margin-top:4px">
+        <span>${r.fmt(r.min)}</span><span>${r.fmt(r.max)}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Wire up sliders
+  Object.keys(SC_RANGES).forEach(key=>{
+    const el=document.getElementById('scInp_'+key);
+    if(!el)return;
+    el.addEventListener('input',e=>{
+      SC_STATE[key]=parseFloat(e.target.value);
+      document.getElementById('scVal_'+key).textContent=SC_RANGES[key].fmt(SC_STATE[key]);
+      _scRedraw();
+    });
+  });
+
+  _scRedraw();
+}
+
+function _scRedraw(){
+  const base=_scComputeRevenue(SC_STATE);
+
+  // Worst case: 60% of base, Best case: 130% of base
+  const worst=_scComputeRevenue({...SC_STATE, newSponsors:Math.round(SC_STATE.newSponsors*0.6), rebooks:Math.round(SC_STATE.rebooks*0.6), tickets:Math.round(SC_STATE.tickets*0.6)});
+  const best=_scComputeRevenue({...SC_STATE, newSponsors:Math.round(SC_STATE.newSponsors*1.3), rebooks:Math.round(SC_STATE.rebooks*1.3), tickets:Math.round(SC_STATE.tickets*1.3)});
+
+  // KPIs
+  const kpis=[
+    {i:'🔻',t:'Worst Case',v:_$(worst.total),s:'-40% on volume',cl:'#C0392B'},
+    {i:'🎯',t:'Base Case',v:_$(base.total),s:'Current slider values',cl:'#1B4D4A'},
+    {i:'🚀',t:'Best Case',v:_$(best.total),s:'+30% on volume',cl:'#1B7A3D'},
+    {i:'💰',t:'Sponsorship',v:_$(base.spNew+base.spReb),s:`${SC_STATE.newSponsors+SC_STATE.rebooks} contracts`,cl:'#2D7A6F'},
+    {i:'🎫',t:'Ticket Revenue',v:_$(base.tk),s:`${SC_STATE.tickets.toLocaleString()} tickets`,cl:'#3D9B8F'},
+    {i:'📊',t:'Range Spread',v:_$(best.total-worst.total),s:'Best minus worst',cl:'#7BA69E'}
+  ];
+  document.getElementById('scKpis').innerHTML=kpis.map(k=>`<div class="kpi" style="border-left-color:${k.cl}"><div class="kpi-label">${k.i} ${k.t}</div><div class="kpi-value" style="color:${k.cl}">${k.v}</div><div class="kpi-sub">${k.s}</div></div>`).join('');
+
+  // 3-scenario comparison bar chart
+  const cmp=[
+    {lb:'Worst', v:worst.total, sp:worst.spNew+worst.spReb, tk:worst.tk},
+    {lb:'Base',  v:base.total,  sp:base.spNew+base.spReb,   tk:base.tk},
+    {lb:'Best',  v:best.total,  sp:best.spNew+best.spReb,   tk:best.tk}
+  ];
+  if(typeof drawBars==='function'){
+    drawBars('cScCompare',cmp,[
+      {k:'sp',cl:'#1B4D4A',nm:'Sponsorship'},
+      {k:'tk',cl:'#3D9B8F',nm:'Tickets'}
+    ],{noGrid:true,showVal:true});
+    if(typeof leg==='function')leg('lScCompare',[
+      {n:'Sponsorship',c:'#1B4D4A'},{n:'Tickets',c:'#3D9B8F'}
+    ]);
+  }
+
+  // Composition bar (base case)
+  const comp=[
+    {lb:'New Sponsors',  v:base.spNew},
+    {lb:'Rebooks',       v:base.spReb},
+    {lb:'Tickets',       v:base.tk}
+  ];
+  if(typeof drawBars==='function'){
+    drawBars('cScComp',comp,[{k:'v',cl:'#2D7A6F',nm:'Revenue'}],{noGrid:true,showVal:true});
+    if(typeof leg==='function')leg('lScComp',[
+      {n:`Total: ${_$(base.total)}`,c:'#2D7A6F'}
+    ]);
+  }
+}
+
+window.renderRevProj=renderRevProj;
+window.renderScenario=renderScenario;
+
+})();
+</script>
+
 </body>
 </html>
