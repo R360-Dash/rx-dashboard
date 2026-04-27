@@ -480,12 +480,12 @@ tr:hover td{background:#E8F0ED}
   </div>
   <div class="section" id="cfForecastSection" style="display:none">
     <div class="section-header"><div class="section-bar"></div><div class="section-title">Forecast Burn Rate (Editable)</div></div>
-    <div class="card" style="padding:18px">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px">
-        <div style="font-size:12px;color:#7BA69E">Type a value (in dollars) for each future month. Negative = cash outflow. Changes are saved automatically.</div>
+    <div class="card" style="padding:0">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding:14px 16px;border-bottom:1px solid #EDF2F0">
+        <div style="font-size:12px;color:#7BA69E">Edit values (in dollars) for each future month. Costs are entered as positives; the table subtracts them from Revenue Collections to compute Total Burn. Changes save automatically.</div>
         <button id="cfResetForecast" style="font-size:11px;padding:6px 12px;background:#fff;border:1px solid #D4E2DD;color:#1B4D4A;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600">↻ Reset to Suggestions</button>
       </div>
-      <div id="cfForecastInputs" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px"></div>
+      <div class="ar-wrap" style="overflow-x:auto"><table id="cfForecastTable" style="width:100%"></table></div>
     </div>
   </div>
   <div class="section">
@@ -5222,20 +5222,35 @@ let _cfYear = 2026;
 // Latest known state — populated by renderCashFlow, used by forecast input handlers
 let _cfState = null;
 
-// LocalStorage keys
-const _cfStorageKey = (year) => `rx_cf_forecast_${year}`;
+// Forecast lines (5 categories that compose the monthly burn)
+// Net Burn = revColl - showCosts - cityCosts - marketing - sga
+const _CF_LINES = [
+  { key: 'revColl',   label: 'Revenue Collections', sign: +1, color: '#1B7A3D' },
+  { key: 'showCosts', label: 'Show Costs',          sign: -1, color: '#C0392B' },
+  { key: 'cityCosts', label: 'City Series Costs',   sign: -1, color: '#E67E22' },
+  { key: 'marketing', label: 'Marketing Costs',     sign: -1, color: '#8E44AD' },
+  { key: 'sga',       label: 'SG&A',                sign: -1, color: '#B8860B' }
+];
 
-// Load saved forecast burns for a year (returns array of 12 numbers, or null)
+// LocalStorage keys (v2 schema = object of line arrays, not flat array)
+const _cfStorageKey = (year) => `rx_cf_forecast_${year}_v2`;
+
+// Load saved forecast for a year. Returns { revColl: [12], showCosts: [12], ... } or null.
 function _cfLoadForecast(year){
   try {
     const raw = localStorage.getItem(_cfStorageKey(year));
     if(!raw) return null;
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) && arr.length === 12 ? arr : null;
+    const obj = JSON.parse(raw);
+    if(!obj || typeof obj !== 'object') return null;
+    // Validate shape
+    for(const line of _CF_LINES){
+      if(!Array.isArray(obj[line.key]) || obj[line.key].length !== 12) return null;
+    }
+    return obj;
   } catch(e){ return null; }
 }
-function _cfSaveForecast(year, burns){
-  try { localStorage.setItem(_cfStorageKey(year), JSON.stringify(burns)); } catch(e){}
+function _cfSaveForecast(year, lineMap){
+  try { localStorage.setItem(_cfStorageKey(year), JSON.stringify(lineMap)); } catch(e){}
 }
 function _cfClearForecast(year){
   try { localStorage.removeItem(_cfStorageKey(year)); } catch(e){}
@@ -5265,13 +5280,11 @@ function _cfExtractBankBalances(bsReport){
   return null;
 }
 
-// Compute suggested forecast burn = trailing 3-month avg of actuals (excluding event months)
-// Event month detected as any month with absolute value > 5x median of others
-function _cfSuggestedBurn(actualBurns, lastActualIdx){
+// Compute trailing 3-month average of actuals for any monthly array, with simple outlier filter
+function _cfTrailingAvg(monthlyArr, lastActualIdx){
   if(lastActualIdx < 0) return 0;
-  const recent = actualBurns.slice(Math.max(0, lastActualIdx - 2), lastActualIdx + 1);
+  const recent = monthlyArr.slice(Math.max(0, lastActualIdx - 2), lastActualIdx + 1).filter(v => v != null);
   if(!recent.length) return 0;
-  // Drop outliers if any single month is >3x the others
   const sorted = [...recent].sort((a,b)=>Math.abs(a)-Math.abs(b));
   const median = sorted[Math.floor(sorted.length/2)];
   const filtered = recent.filter(v => !median || Math.abs(v) <= Math.abs(median) * 3);
@@ -5279,15 +5292,47 @@ function _cfSuggestedBurn(actualBurns, lastActualIdx){
   return Math.round(arr.reduce((a,b)=>a+b,0) / arr.length);
 }
 
+// Build monthly arrays per forecast line from the year's P&L breakdown.
+// All values are returned as POSITIVES (costs are absolute amounts; sign is applied at calc time).
+function _cfBuildLineActuals(plBreakdown){
+  const empty = Array(12).fill(0);
+  if(!plBreakdown){
+    return _CF_LINES.reduce((acc, l) => { acc[l.key] = empty.slice(); return acc; }, {});
+  }
+  return {
+    revColl:   plBreakdown.revTot.monthly.slice(),
+    showCosts: (plBreakdown.dcByCat['Show Costs']?.monthly || empty).slice(),
+    cityCosts: (plBreakdown.dcByCat['City Series Costs']?.monthly || empty).slice(),
+    marketing: (plBreakdown.dcByCat['Marketing Costs']?.monthly || empty).slice(),
+    sga:       plBreakdown.sgaTot.monthly.slice()
+  };
+}
+
+// Compute net burn per month from line values: revColl - showCosts - cityCosts - marketing - sga
+function _cfComputeNetBurn(lineMap){
+  return Array.from({length: 12}, (_, i) => {
+    let net = 0;
+    _CF_LINES.forEach(l => {
+      net += l.sign * (lineMap[l.key]?.[i] || 0);
+    });
+    return net;
+  });
+}
+
 async function renderCashFlow(){
   const updEl = document.getElementById('cfUpdated');
   if(updEl) updEl.innerHTML = '<span style="color:#3D9B8F">Loading&hellip;</span>';
 
   try {
-    // Fetch CashFlow + BalanceSheet in parallel
-    const [cfData, bsData] = await Promise.all([
-      _qboCache.cf[_cfYear] ? Promise.resolve(_qboCache.cf[_cfYear]) : fetchQbo(`/api/cashflow?year=${_cfYear}`).then(d => { _qboCache.cf[_cfYear] = d; return d; }),
-      _qboCache.bs[_cfYear] ? Promise.resolve(_qboCache.bs[_cfYear]) : fetchQbo(`/api/balancesheet?year=${_cfYear}`).then(d => { _qboCache.bs[_cfYear] = d; return d; })
+    // Fetch CashFlow + BalanceSheet + P&L (for forecast line defaults) in parallel
+    const fetchOrCached = (cacheBucket, year, path) =>
+      _qboCache[cacheBucket][year]
+        ? Promise.resolve(_qboCache[cacheBucket][year])
+        : fetchQbo(path).then(d => { _qboCache[cacheBucket][year] = d; return d; });
+    const [cfData, bsData, plData] = await Promise.all([
+      fetchOrCached('cf', _cfYear, `/api/cashflow?year=${_cfYear}`),
+      fetchOrCached('bs', _cfYear, `/api/balancesheet?year=${_cfYear}`),
+      fetchOrCached('pl', _cfYear, `/api/pl?year=${_cfYear}`).catch(e => { console.warn('P&L fetch for cash flow failed:', e); return null; })
     ]);
     if(updEl) updEl.textContent = 'Last synced: ' + new Date(cfData.ts).toLocaleString();
 
@@ -5304,31 +5349,59 @@ async function renderCashFlow(){
     // Bank balance per month from Balance Sheet
     const bankBalances = _cfExtractBankBalances(bsData.report) || Array(12).fill(0);
 
-    // Detect last actual month: last index where Net Change is non-zero
-    // (Balance Sheet repeats the last balance for future months, so we can't use it)
+    // Detect last actual month
     let lastActualIdx = -1;
     for(let i = actualBurns.length - 1; i >= 0; i--){
       if(Math.abs(actualBurns[i]) > 0.01){ lastActualIdx = i; break; }
     }
-    // For past years, all 12 are actuals
     const now = new Date();
     if(_cfYear < now.getFullYear()) lastActualIdx = 11;
 
-    // Beginning cash = first month's balance minus first month's net change
     const beginCash = bankBalances[0] - actualBurns[0];
-    // Latest actual ending cash
     const latestActualCash = lastActualIdx >= 0 ? bankBalances[lastActualIdx] : beginCash;
 
-    // Load user's saved forecast for this year, or compute defaults
-    const savedForecast = _cfLoadForecast(_cfYear);
-    const suggestedBurn = _cfSuggestedBurn(actualBurns, lastActualIdx);
+    // Build per-line monthly actuals from P&L (for trailing-avg suggestions)
+    let plBreakdown = null;
+    if(plData){
+      const plParsed = parseQboReport(plData.report);
+      if(plParsed) plBreakdown = _buildPLBreakdown(plParsed);
+    }
+    const lineActuals = _cfBuildLineActuals(plBreakdown);
+
+    // Suggested per-line monthly value = trailing 3-month avg of actuals for that line
+    const suggested = {};
+    _CF_LINES.forEach(l => {
+      suggested[l.key] = _cfTrailingAvg(lineActuals[l.key], lastActualIdx);
+    });
+
+    // Load saved forecast (object of line → monthly[12]) or build defaults
+    const saved = _cfLoadForecast(_cfYear);
+    const forecast = {};
+    _CF_LINES.forEach(l => {
+      forecast[l.key] = Array(12).fill(0);
+      // Past months: copy actuals from P&L (so the totals tie out)
+      for(let i = 0; i <= lastActualIdx; i++){
+        forecast[l.key][i] = lineActuals[l.key][i] || 0;
+      }
+      // Future months: use saved value if exists, else suggested default
+      for(let i = Math.max(0, lastActualIdx + 1); i < 12; i++){
+        forecast[l.key][i] = (saved && saved[l.key] && saved[l.key][i] != null)
+          ? saved[l.key][i]
+          : suggested[l.key];
+      }
+    });
+
+    // Compute net burn per month from forecast lines.
+    // For PAST months we keep the actual QBO net change (more accurate than the line sum,
+    // since it includes balance sheet movements like AR, prepaid, etc.).
     const forecastBurns = Array(12).fill(0);
     for(let i = 0; i <= lastActualIdx; i++) forecastBurns[i] = actualBurns[i];
+    const computedFutureBurns = _cfComputeNetBurn(forecast);
     for(let i = Math.max(0, lastActualIdx + 1); i < 12; i++){
-      forecastBurns[i] = (savedForecast && savedForecast[i] != null) ? savedForecast[i] : suggestedBurn;
+      forecastBurns[i] = computedFutureBurns[i];
     }
 
-    // Compute cash position per month (mix of actual + forecast)
+    // Compute cash position per month
     const cashPos = Array(12).fill(0);
     for(let i = 0; i < 12; i++){
       if(i <= lastActualIdx) cashPos[i] = bankBalances[i];
@@ -5339,7 +5412,7 @@ async function renderCashFlow(){
     const projectedYearEnd = cashPos[11];
 
     // Save state for forecast handlers
-    _cfState = { year: _cfYear, actualBurns, forecastBurns, bankBalances, beginCash, latestActualCash, lastActualIdx, cashPos, suggestedBurn };
+    _cfState = { year: _cfYear, actualBurns, forecastBurns, bankBalances, beginCash, latestActualCash, lastActualIdx, cashPos, lineActuals, forecast, suggested };
 
     // KPI cards
     const kpis = [
@@ -5494,45 +5567,94 @@ function _cfDrawBarChart(canvasId, data, opts){
 }
 
 // Render editable forecast inputs (one per future month)
+// Compute per-line totals (across visible columns) and column totals (across lines)
+function _cfComputeForecastTotals(state, monthIndices){
+  // Returns: { lineTotals: {revColl: ..., showCosts: ..., ...}, monthTotals: [m0, m1, ...], grandTotal }
+  const lineTotals = {};
+  _CF_LINES.forEach(l => { lineTotals[l.key] = 0; });
+  const monthTotals = monthIndices.map(idx => {
+    let m = 0;
+    _CF_LINES.forEach(l => {
+      const v = state.forecast[l.key]?.[idx] || 0;
+      lineTotals[l.key] += v;
+      m += l.sign * v;
+    });
+    return m;
+  });
+  // Grand total = sum of monthly net burns across visible months
+  const grandTotal = monthTotals.reduce((a,b)=>a+b, 0);
+  return { lineTotals, monthTotals, grandTotal };
+}
+
 function _cfRenderForecastInputs(){
   const s = _cfState;
-  const wrap = document.getElementById('cfForecastInputs');
+  const tableEl = document.getElementById('cfForecastTable');
   const section = document.getElementById('cfForecastSection');
-  if(!wrap || !section) return;
+  if(!tableEl || !section) return;
 
-  // Hide section if no future months exist (year is fully past)
-  if(s.lastActualIdx >= 11 || s.lastActualIdx < 0){
+  // Hide if no future months (full year of actuals)
+  if(s.lastActualIdx >= 11){
     section.style.display = 'none';
     return;
   }
   section.style.display = '';
 
-  let html = '';
-  for(let i = s.lastActualIdx + 1; i < 12; i++){
-    const v = Math.round(s.forecastBurns[i]);
-    html += `<div>
-      <label style="font-size:10px;font-weight:600;color:#7BA69E;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:4px">${_MN[i]} ${s.year}</label>
-      <input type="number" data-mo="${i}" value="${v}" step="100" style="width:100%;padding:7px 9px;border:1px solid #D4E2DD;border-radius:6px;font-family:inherit;font-size:13px;color:#0D2B29;background:#fff">
-    </div>`;
-  }
-  wrap.innerHTML = html;
+  // Visible (future) month indices
+  const monthIndices = [];
+  for(let i = Math.max(0, s.lastActualIdx + 1); i < 12; i++) monthIndices.push(i);
 
-  // Wire up events
-  wrap.querySelectorAll('input').forEach(inp => {
+  const { lineTotals, monthTotals, grandTotal } = _cfComputeForecastTotals(s, monthIndices);
+
+  // Build table HTML
+  const cs = 'text-align:right;padding:5px 8px;font-size:11px;font-family:\'Source Sans 3\',monospace';
+  const inpStyle = 'width:90px;padding:4px 6px;border:1px solid #D4E2DD;border-radius:4px;font-family:inherit;font-size:11px;color:#0D2B29;background:#fff;text-align:right';
+  const totalCs = `${cs};font-weight:700;color:#1B4D4A;background:#F4F8F6`;
+
+  let html = `<thead><tr>
+    <th style="text-align:left;padding:8px 12px;font-size:10px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;background:#F7F9F8">Line</th>`;
+  monthIndices.forEach(i => {
+    html += `<th style="text-align:right;padding:8px 8px;font-size:10px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;background:#F7F9F8">${_MN[i]}</th>`;
+  });
+  html += `<th style="text-align:right;padding:8px 12px;font-size:10px;color:#1B4D4A;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;background:#E8F0ED;border-left:2px solid #1B4D4A">Total</th>`;
+  html += `</tr></thead><tbody>`;
+
+  // One row per line
+  _CF_LINES.forEach(line => {
+    html += `<tr><td style="padding:5px 12px;font-size:11px;font-weight:600;color:${line.color}">${line.label}</td>`;
+    monthIndices.forEach(i => {
+      const v = Math.round(s.forecast[line.key][i] || 0);
+      html += `<td style="padding:3px 4px;text-align:right"><input type="number" data-line="${line.key}" data-mo="${i}" value="${v}" step="100" style="${inpStyle}"></td>`;
+    });
+    html += `<td style="${totalCs}" data-line-total="${line.key}">${_$k(lineTotals[line.key])}</td></tr>`;
+  });
+
+  // Total row (net burn per month, grand total at right)
+  html += `<tr style="background:#E8F0ED;border-top:2px solid #1B4D4A">
+    <td style="padding:7px 12px;font-size:11px;font-weight:800;color:#1B4D4A;text-transform:uppercase;letter-spacing:0.04em">Total Burn</td>`;
+  monthIndices.forEach((i, j) => {
+    const v = monthTotals[j];
+    const color = v >= 0 ? '#1B7A3D' : '#C0392B';
+    html += `<td style="${cs};font-weight:800;color:${color}" data-month-total="${i}">${_cfFmtBurn(v)}</td>`;
+  });
+  const gtColor = grandTotal >= 0 ? '#1B7A3D' : '#C0392B';
+  html += `<td style="${totalCs};color:${gtColor};border-left:2px solid #1B4D4A" data-grand-total>${_cfFmtBurn(grandTotal)}</td></tr>`;
+  html += `</tbody>`;
+
+  tableEl.innerHTML = html;
+
+  // Wire input handlers
+  tableEl.querySelectorAll('input[data-line]').forEach(inp => {
     inp.addEventListener('input', e => {
+      const lineKey = e.target.dataset.line;
       const idx = parseInt(e.target.dataset.mo, 10);
       const v = parseFloat(e.target.value || 0) || 0;
-      _cfState.forecastBurns[idx] = v;
-      // Recompute cash position from idx onward
-      for(let i = idx; i < 12; i++){
-        _cfState.cashPos[i] = (i === 0 ? _cfState.beginCash : _cfState.cashPos[i-1]) + _cfState.forecastBurns[i];
-      }
-      // Save to localStorage (only the future-month values)
-      const toSave = _cfState.forecastBurns.slice();
-      _cfSaveForecast(_cfState.year, toSave);
-      // Redraw charts and update KPI for projected year-end
+      _cfState.forecast[lineKey][idx] = v;
+      _cfRecomputeForecast();
+      _cfUpdateForecastTotals();
       _cfDrawCharts();
       _cfUpdateProjectedKpi();
+      // Save (only the line-map structure, not derived burns)
+      _cfSaveForecast(_cfState.year, _cfState.forecast);
     });
   });
 
@@ -5541,19 +5663,68 @@ function _cfRenderForecastInputs(){
   if(resetBtn){
     resetBtn.onclick = () => {
       _cfClearForecast(_cfState.year);
-      // Reset all future months to suggested
-      for(let i = _cfState.lastActualIdx + 1; i < 12; i++){
-        _cfState.forecastBurns[i] = _cfState.suggestedBurn;
-      }
-      // Recompute cash position
-      for(let i = _cfState.lastActualIdx + 1; i < 12; i++){
-        _cfState.cashPos[i] = (i === 0 ? _cfState.beginCash : _cfState.cashPos[i-1]) + _cfState.forecastBurns[i];
-      }
+      // Reset all future months to suggested for each line
+      _CF_LINES.forEach(line => {
+        for(let i = _cfState.lastActualIdx + 1; i < 12; i++){
+          _cfState.forecast[line.key][i] = _cfState.suggested[line.key];
+        }
+      });
+      _cfRecomputeForecast();
       _cfRenderForecastInputs();
       _cfDrawCharts();
       _cfUpdateProjectedKpi();
     };
   }
+}
+
+// Recompute forecastBurns + cashPos from current line forecast
+function _cfRecomputeForecast(){
+  const s = _cfState;
+  const computedBurns = _cfComputeNetBurn(s.forecast);
+  for(let i = s.lastActualIdx + 1; i < 12; i++){
+    s.forecastBurns[i] = computedBurns[i];
+  }
+  // Recompute cash position from first future month onward
+  for(let i = Math.max(0, s.lastActualIdx + 1); i < 12; i++){
+    s.cashPos[i] = (i === 0 ? s.beginCash : s.cashPos[i-1]) + s.forecastBurns[i];
+  }
+}
+
+// Update only the totals cells in the forecast table without re-rendering inputs
+function _cfUpdateForecastTotals(){
+  const s = _cfState;
+  const tableEl = document.getElementById('cfForecastTable');
+  if(!tableEl) return;
+  const monthIndices = [];
+  for(let i = Math.max(0, s.lastActualIdx + 1); i < 12; i++) monthIndices.push(i);
+  const { lineTotals, monthTotals, grandTotal } = _cfComputeForecastTotals(s, monthIndices);
+
+  // Update line totals
+  _CF_LINES.forEach(l => {
+    const cell = tableEl.querySelector(`[data-line-total="${l.key}"]`);
+    if(cell) cell.textContent = _$k(lineTotals[l.key]);
+  });
+  // Update month totals
+  monthIndices.forEach((i, j) => {
+    const cell = tableEl.querySelector(`[data-month-total="${i}"]`);
+    if(cell){
+      const v = monthTotals[j];
+      cell.textContent = _cfFmtBurn(v);
+      cell.style.color = v >= 0 ? '#1B7A3D' : '#C0392B';
+    }
+  });
+  // Grand total
+  const gt = tableEl.querySelector('[data-grand-total]');
+  if(gt){
+    gt.textContent = _cfFmtBurn(grandTotal);
+    gt.style.color = grandTotal >= 0 ? '#1B7A3D' : '#C0392B';
+  }
+}
+
+// Format a burn value (signed, K abbrev, parens for negative)
+function _cfFmtBurn(v){
+  if(!v) return '<span style="color:#D4E2DD">—</span>';
+  return v < 0 ? `(${_$k(Math.abs(v))})` : _$k(v);
 }
 
 // Update only the "Projected Year-End" KPI (called as user edits forecast)
