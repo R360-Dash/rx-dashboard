@@ -427,11 +427,11 @@ tr:hover td{background:#E8F0ED}
   </div>
   <div class="kpi-grid" id="plKpis"></div>
   <div class="section">
-    <div class="section-header"><div class="section-bar"></div><div class="section-title" id="plTrendTitle">Monthly Trend</div></div>
-    <div class="card"><canvas id="plCanTrend" height="360"></canvas><div class="legend" id="plLTrend"></div></div>
+    <div class="section-header"><div class="section-bar"></div><div class="section-title" id="plYoyTitle">Year-over-Year Comparison</div></div>
+    <div class="card" style="padding:0"><div class="ar-wrap"><table id="plYoyTable"></table></div></div>
   </div>
   <div class="section">
-    <div class="section-header"><div class="section-bar"></div><div class="section-title">Profit &amp; Loss Detail</div></div>
+    <div class="section-header"><div class="section-bar"></div><div class="section-title">Profit &amp; Loss Detail (Monthly)</div></div>
     <div class="card" style="padding:0"><div class="ar-wrap"><table id="plTable"></table></div></div>
   </div>
 </div>
@@ -4771,37 +4771,163 @@ async function renderPL(){
     ];
     document.getElementById('plKpis').innerHTML = kpis.map(k=>`<div class="kpi" style="border-left-color:${k.cl}"><div class="kpi-label">${k.i} ${k.t}</div><div class="kpi-value" style="color:${k.cl}">${k.v}</div><div class="kpi-sub">${k.s}</div></div>`).join('');
 
-    // Monthly trend
-    document.getElementById('plTrendTitle').textContent = `Monthly Trend — ${_plYear}`;
-    const trendData = parsed.monthLabels.map((lb,i)=>({
-      lb: lb.split(' ')[0],
-      rev: cur.revTot.monthly[i]||0,
-      exp: (cur.dcTot.monthly[i]||0) + (cur.sgaTot.monthly[i]||0) + (cur.ceaTot.monthly[i]||0),
-      ebitda: cur.ebitda.monthly[i]||0,
-      net: cur.netInc.monthly[i]||0
-    }));
-    if(typeof drawLines === 'function'){
-      drawLines('plCanTrend', trendData, [
-        {k:'rev', cl:'#1B7A3D', nm:'Revenue'},
-        {k:'exp', cl:'#C0392B', nm:'Total Expenses'},
-        {k:'ebitda', cl:'#2D7A6F', nm:'EBITDA'},
-        {k:'net', cl:'#1B4D4A', nm:'Net Income'}
-      ]);
-      if(typeof leg === 'function') leg('plLTrend', [
-        {n:'Revenue', c:'#1B7A3D', v:_$k(cur.revTot.total)},
-        {n:'Total Expenses', c:'#C0392B', v:_$k(cur.dcTot.total+cur.sgaTot.total+cur.ceaTot.total)},
-        {n:'EBITDA', c:'#2D7A6F', v:_$k(cur.ebitda.total)},
-        {n:'Net Income', c:'#1B4D4A', v:_$k(cur.netInc.total)}
-      ]);
-    }
+    // Year-over-year comparison summary
+    document.getElementById('plYoyTitle').textContent = `Year-over-Year Comparison — ${priorYear} vs ${_plYear}`;
+    renderPLYoYTable('plYoyTable', cur, prior, _plYear, priorYear);
 
-    // Condensed P&L table with YoY column + drill-down
+    // Detailed monthly breakdown with drill-down
     renderCondensedPL('plTable', cur, prior, priorYear);
   } catch(err){
     console.error('P&L render failed:', err);
     if(updEl) updEl.innerHTML = '<span style="color:#C0392B">Error: '+err.message+'</span>';
     document.getElementById('plKpis').innerHTML = '<div style="color:#C0392B;padding:16px">Failed to load P&amp;L: '+err.message+'</div>';
   }
+}
+
+// ── Year-over-Year Comparison Summary ──
+// Compact table showing prior year, current year, $ variance, and % variance
+// for every line on the P&L (categories + summaries).
+function renderPLYoYTable(tableId, cur, prior, curYear, priorYear){
+  const table = document.getElementById(tableId);
+  if(!table) return;
+
+  const cs = 'text-align:right;padding:10px 14px;font-size:12px;font-family:\'Source Sans 3\',monospace';
+  const hdrCs = 'text-align:right;padding:11px 14px;font-size:11px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.05em';
+
+  const fmt$ = v => v == null ? '<span style="color:#D4E2DD">—</span>' : (v < 0 ? `<span style="color:#C0392B">(${_$k(Math.abs(v))})</span>` : _$k(v));
+  const fmtVar = v => {
+    if(v == null) return '<span style="color:#D4E2DD">—</span>';
+    if(v === 0) return '<span style="color:#D4E2DD">—</span>';
+    const color = v >= 0 ? '#1B7A3D' : '#C0392B';
+    const sign = v >= 0 ? '+' : '−';
+    return `<span style="color:${color};font-weight:600">${sign}${_$k(Math.abs(v))}</span>`;
+  };
+  const fmtPct = (cur, pri) => {
+    if(pri == null || pri === undefined) return '<span style="color:#D4E2DD">—</span>';
+    if(pri === 0){
+      if(cur === 0) return '<span style="color:#D4E2DD">—</span>';
+      return '<span style="color:#7BA69E;font-weight:600">new</span>';
+    }
+    const pct = (cur - pri) / Math.abs(pri) * 100;
+    const color = pct >= 0 ? '#1B7A3D' : '#C0392B';
+    const arrow = pct >= 0 ? '▲' : '▼';
+    const sign = pct >= 0 ? '+' : '';
+    return `<span style="color:${color};font-weight:600">${arrow} ${sign}${pct.toFixed(1)}%</span>`;
+  };
+
+  // Build rows. Each row: { label, curVal, priorVal, kind: 'section'|'category'|'summary' }
+  const rows = [];
+  const REV_ORDER = ['Show Tickets','Show Sponsors','City Series Sponsors','City Series Tickets','Merch','Uncategorized'];
+  const DC_ORDER = ['Show Costs','City Series Costs','Marketing Costs'];
+
+  rows.push({ kind: 'section', label: 'Revenues' });
+  REV_ORDER.forEach(name => {
+    const c = cur.revByCat[name];
+    const p = prior?.revByCat?.[name];
+    if((c && c.total !== 0) || (p && p.total !== 0)){
+      rows.push({ kind: 'category', label: name, curVal: c?.total || 0, priorVal: p?.total ?? null });
+    }
+  });
+  Object.keys(cur.revByCat).filter(k => !REV_ORDER.includes(k)).forEach(k => {
+    const c = cur.revByCat[k];
+    const p = prior?.revByCat?.[k];
+    if(c.total !== 0 || (p && p.total !== 0)){
+      rows.push({ kind: 'category', label: k, curVal: c.total, priorVal: p?.total ?? null });
+    }
+  });
+  rows.push({ kind: 'total', label: 'Total Revenues', curVal: cur.revTot.total, priorVal: prior?.revTot.total ?? null, accent: '#1B4D4A' });
+  rows.push({ kind: 'spacer' });
+
+  rows.push({ kind: 'section', label: 'Direct Costs' });
+  DC_ORDER.forEach(name => {
+    const c = cur.dcByCat[name];
+    const p = prior?.dcByCat?.[name];
+    if((c && c.total !== 0) || (p && p.total !== 0)){
+      rows.push({ kind: 'category', label: name, curVal: c?.total || 0, priorVal: p?.total ?? null });
+    }
+  });
+  rows.push({ kind: 'total', label: 'Total Direct Costs', curVal: cur.dcTot.total, priorVal: prior?.dcTot.total ?? null, accent: '#B8860B' });
+  rows.push({ kind: 'spacer' });
+
+  rows.push({ kind: 'summary', label: 'Gross Profit', curVal: cur.gpTot.total, priorVal: prior?.gpTot.total ?? null });
+  rows.push({ kind: 'spacer' });
+
+  rows.push({ kind: 'category', label: 'SG&A', curVal: cur.sgaTot.total, priorVal: prior?.sgaTot.total ?? null, indent: false });
+  rows.push({ kind: 'spacer' });
+
+  rows.push({ kind: 'summary', label: 'EBITDA', curVal: cur.ebitda.total, priorVal: prior?.ebitda.total ?? null });
+
+  if(cur.ceaTot.total !== 0 || (prior && prior.ceaTot.total !== 0)){
+    rows.push({ kind: 'spacer' });
+    rows.push({ kind: 'category', label: 'Corporate Expense Allocation', curVal: cur.ceaTot.total, priorVal: prior?.ceaTot.total ?? null, indent: false });
+  }
+  rows.push({ kind: 'spacer' });
+  rows.push({ kind: 'summary', label: 'Net Income', curVal: cur.netInc.total, priorVal: prior?.netInc.total ?? null });
+
+  if(cur.uncatTot.total !== 0){
+    rows.push({ kind: 'spacer' });
+    rows.push({ kind: 'section', label: '⚠️ Unmapped Accounts', accent: '#C0392B' });
+    rows.push({ kind: 'category', label: 'Uncategorized', curVal: cur.uncatTot.total, priorVal: prior?.uncatTot.total ?? null });
+  }
+
+  // Render
+  let html = `<thead><tr>
+    <th style="text-align:left;padding:11px 14px;font-size:11px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">Line</th>
+    <th style="${hdrCs}">${priorYear}</th>
+    <th style="${hdrCs};border-left:2px solid #1B4D4A;color:#1B4D4A">${curYear}</th>
+    <th style="${hdrCs}">$ Variance</th>
+    <th style="${hdrCs}">% Variance</th>
+  </tr></thead><tbody>`;
+
+  rows.forEach(row => {
+    if(row.kind === 'spacer'){
+      html += `<tr><td style="padding:6px 0" colspan="5"></td></tr>`;
+      return;
+    }
+    if(row.kind === 'section'){
+      const accent = row.accent || '#1B4D4A';
+      html += `<tr style="border-top:3px solid ${accent}"><td style="padding:13px 14px 8px;font-weight:800;color:${accent};font-size:13px;font-style:italic">${row.label}</td><td style="${cs}"></td><td style="${cs};border-left:2px solid ${accent}"></td><td style="${cs}"></td><td style="${cs}"></td></tr>`;
+      return;
+    }
+    if(row.kind === 'total'){
+      const accent = row.accent || '#1B4D4A';
+      const variance = row.priorVal != null ? row.curVal - row.priorVal : null;
+      html += `<tr style="background:#F0F6F4;border-top:1px solid ${accent}">
+        <td style="padding:11px 14px;font-weight:800;color:${accent};font-size:12px">${row.label}</td>
+        <td style="${cs};font-weight:700;color:${accent}">${fmt$(row.priorVal)}</td>
+        <td style="${cs};font-weight:800;color:${accent};border-left:2px solid ${accent}">${fmt$(row.curVal)}</td>
+        <td style="${cs};font-weight:700">${fmtVar(variance)}</td>
+        <td style="${cs};font-weight:700">${fmtPct(row.curVal, row.priorVal)}</td>
+      </tr>`;
+      return;
+    }
+    if(row.kind === 'summary'){
+      const col = row.curVal >= 0 ? '#1B7A3D' : '#C0392B';
+      const variance = row.priorVal != null ? row.curVal - row.priorVal : null;
+      html += `<tr style="background:#E8F0ED;border-top:2px solid ${col};border-bottom:2px solid ${col}">
+        <td style="padding:13px 14px;font-weight:800;color:${col};font-size:13px;text-transform:uppercase;letter-spacing:0.05em">${row.label}</td>
+        <td style="${cs};font-weight:700;color:${row.priorVal>=0?'#1B7A3D':'#C0392B'}">${fmt$(row.priorVal)}</td>
+        <td style="${cs};font-weight:800;color:${col};border-left:2px solid ${col}">${fmt$(row.curVal)}</td>
+        <td style="${cs};font-weight:700">${fmtVar(variance)}</td>
+        <td style="${cs};font-weight:700">${fmtPct(row.curVal, row.priorVal)}</td>
+      </tr>`;
+      return;
+    }
+    if(row.kind === 'category'){
+      const indentPx = row.indent === false ? 14 : 32;
+      const variance = row.priorVal != null ? row.curVal - row.priorVal : null;
+      html += `<tr>
+        <td style="padding:8px 14px 8px ${indentPx}px;color:#0D2B29;font-size:12px;font-weight:600">${row.label}</td>
+        <td style="${cs};color:#7BA69E">${fmt$(row.priorVal)}</td>
+        <td style="${cs};font-weight:600;border-left:2px solid #EDF2F0">${fmt$(row.curVal)}</td>
+        <td style="${cs}">${fmtVar(variance)}</td>
+        <td style="${cs}">${fmtPct(row.curVal, row.priorVal)}</td>
+      </tr>`;
+    }
+  });
+
+  html += `</tbody>`;
+  table.innerHTML = html;
 }
 
 function renderCondensedPL(tableId, cur, prior, priorYear){
