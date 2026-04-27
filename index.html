@@ -12,7 +12,15 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Source Sans 3','Segoe UI',system-ui,sans-serif;background:#F7F9F8;color:#0D2B29;min-height:100vh}
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:#EDF2F0}::-webkit-scrollbar-thumb{background:#7BA69E;border-radius:3px}
-.sidebar{position:fixed;top:0;left:0;width:240px;height:100vh;background:#1B4D4A;z-index:2000;overflow-y:auto;padding:16px 0}
+.sidebar{position:fixed;top:0;left:0;width:240px;height:100vh;background:#1B4D4A;z-index:2000;overflow-y:auto;padding:16px 0;transition:transform .25s ease}
+body.sidebar-hidden .sidebar{transform:translateX(-100%)}
+body.sidebar-hidden .main{padding-left:64px}
+.main{transition:padding-left .25s ease}
+.sidebar-toggle{position:fixed;top:16px;left:16px;z-index:2100;width:36px;height:36px;border-radius:8px;background:#1B4D4A;color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 2px 8px rgba(13,43,41,.18);transition:left .25s ease,background .15s}
+.sidebar-toggle:hover{background:#2D7A6F}
+body.sidebar-hidden .sidebar-toggle{left:16px}
+body:not(.sidebar-hidden) .sidebar-toggle{left:194px;background:transparent;color:#A8C5BE;box-shadow:none}
+body:not(.sidebar-hidden) .sidebar-toggle:hover{background:#2D7A6F;color:#fff}
 .sidebar-logo{padding:4px 20px 14px;border-bottom:1px solid #2D7A6F;margin-bottom:4px;display:flex;align-items:center;gap:10px}
 .sidebar-logo .logo-icon{width:34px;height:34px;background:linear-gradient(135deg,#3D9B8F,#7BA69E);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0}
 .sidebar-logo .logo-text{font-size:15px;font-weight:700;color:#fff;font-family:'Source Sans 3',system-ui,sans-serif}
@@ -189,6 +197,8 @@ tr:hover td{background:#E8F0ED}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
 <body>
+
+<button class="sidebar-toggle" id="sidebarToggle" title="Toggle menu" aria-label="Toggle menu">☰</button>
 
 <!-- ═══ LOGIN OVERLAY ═══ -->
 <div class="login-overlay" id="loginOverlay">
@@ -471,11 +481,11 @@ tr:hover td{background:#E8F0ED}
   <div class="two-col">
     <div class="section">
       <div class="section-header"><div class="section-bar"></div><div class="section-title" id="cfPosTitle">Cash Position</div></div>
-      <div class="card"><div style="font-size:11px;color:#7BA69E;margin-bottom:8px">Solid = Actuals · Striped = Forecast</div><canvas id="cfCanPos" height="320"></canvas></div>
+      <div class="card"><div style="font-size:11px;color:#7BA69E;margin-bottom:8px">Solid = Actuals · Striped = Forecast</div><canvas id="cfCanPos" height="220"></canvas></div>
     </div>
     <div class="section">
       <div class="section-header"><div class="section-bar"></div><div class="section-title" id="cfBurnTitle">Monthly Burn Rate</div></div>
-      <div class="card"><div style="font-size:11px;color:#7BA69E;margin-bottom:8px">Solid = Actuals · Striped = Forecast · Negative = cash outflow</div><canvas id="cfCanBurn" height="320"></canvas></div>
+      <div class="card"><div style="font-size:11px;color:#7BA69E;margin-bottom:8px">Solid = Actuals · Striped = Forecast · Negative = cash outflow</div><canvas id="cfCanBurn" height="220"></canvas></div>
     </div>
   </div>
   <div class="section" id="cfForecastSection" style="display:none">
@@ -1057,6 +1067,7 @@ function getActiveUsername(user) {
 
 function login(user) {
   currentUser = user;
+  window.currentUser = user;  // Expose for cross-script access (financials IIFE etc.)
   const activeUsername = getActiveUsername(user);
   // Save session
   sessionStorage.setItem('rx_auth', JSON.stringify({ defaultUsername: user._defaultUsername || user.username, username: activeUsername, displayName: user.displayName, role: user.role }));
@@ -1079,6 +1090,7 @@ function login(user) {
 
 function logout() {
   currentUser = null;
+  window.currentUser = null;
   sessionStorage.removeItem('rx_auth');
   document.getElementById('loginOverlay').classList.remove('hidden');
   document.getElementById('sidebar').classList.add('auth-hidden');
@@ -2332,6 +2344,23 @@ document.querySelectorAll('.nav-item').forEach(item=>{
 // Start on KPI Snapshot
 document.querySelectorAll('.nav-group').forEach(g=>g.classList.add('collapsed'));
 showPage('sec-kpis');
+
+// Sidebar toggle (hamburger). Persists state in localStorage.
+(function(){
+  const btn = document.getElementById('sidebarToggle');
+  if(!btn) return;
+  // Restore prior state
+  try { if(localStorage.getItem('rx_sidebar_hidden') === '1') document.body.classList.add('sidebar-hidden'); } catch(e){}
+  const updateIcon = () => { btn.textContent = document.body.classList.contains('sidebar-hidden') ? '☰' : '✕'; };
+  updateIcon();
+  btn.addEventListener('click', () => {
+    document.body.classList.toggle('sidebar-hidden');
+    try { localStorage.setItem('rx_sidebar_hidden', document.body.classList.contains('sidebar-hidden') ? '1' : '0'); } catch(e){}
+    updateIcon();
+    // Trigger a re-render of any active chart so it can resize
+    setTimeout(() => { if(typeof render === 'function') render(); }, 280);
+  });
+})();
 </script>
 
 <!-- ═══ HUBSPOT CRM SCRIPT ═══ -->
@@ -5459,10 +5488,22 @@ function _cfDrawCharts(){
 
 // Custom bar chart that supports striped fill for forecast bars
 function _cfDrawBarChart(canvasId, data, opts){
-  const r = setupCanvas(canvasId);
-  if(!r) return;
-  const { c, x, W, H } = r;
-  const p = { t: 30, r: 16, b: 36, l: 50 };
+  // Custom canvas sizing — smaller fixed height instead of setupCanvas's vh*0.65
+  const c = document.getElementById(canvasId);
+  if(!c) return;
+  const pr = c.parentElement.getBoundingClientRect();
+  const W = pr.width - 32;
+  if(W <= 0) return;
+  const H = 220;  // Compact fixed height
+  const dp = window.devicePixelRatio || 1;
+  c.width = W * dp;
+  c.height = H * dp;
+  c.style.width = W + 'px';
+  c.style.height = H + 'px';
+  const x = c.getContext('2d');
+  x.setTransform(dp, 0, 0, dp, 0, 0);
+
+  const p = { t: 26, r: 12, b: 30, l: 44 };
   const cw = W - p.l - p.r;
   const ch = H - p.t - p.b;
 
@@ -5599,6 +5640,21 @@ function _cfRenderForecastInputs(){
   }
   section.style.display = '';
 
+  // Owner-only edit access
+  const isOwner = !!(window.currentUser && window.currentUser.role === 'Owner');
+
+  // Show/hide reset button based on role
+  const resetBtnEl = document.getElementById('cfResetForecast');
+  if(resetBtnEl) resetBtnEl.style.display = isOwner ? '' : 'none';
+
+  // Update the helper text in the section header to reflect read-only state
+  const helpEl = section.querySelector('div[style*="color:#7BA69E"]');
+  if(helpEl){
+    helpEl.innerHTML = isOwner
+      ? 'Edit values (in dollars) for each future month. Costs are entered as positives; the table subtracts them from Revenue Collections to compute Total Burn. Changes save automatically.'
+      : '<span style="color:#B8860B">🔒 Read-only — only the Owner can edit forecast assumptions.</span>';
+  }
+
   // Visible (future) month indices
   const monthIndices = [];
   for(let i = Math.max(0, s.lastActualIdx + 1); i < 12; i++) monthIndices.push(i);
@@ -5608,6 +5664,7 @@ function _cfRenderForecastInputs(){
   // Build table HTML
   const cs = 'text-align:right;padding:5px 8px;font-size:11px;font-family:\'Source Sans 3\',monospace';
   const inpStyle = 'width:90px;padding:4px 6px;border:1px solid #D4E2DD;border-radius:4px;font-family:inherit;font-size:11px;color:#0D2B29;background:#fff;text-align:right';
+  const inpStyleRO = 'width:90px;padding:4px 6px;border:1px solid #EDF2F0;border-radius:4px;font-family:inherit;font-size:11px;color:#7BA69E;background:#F7F9F8;text-align:right;cursor:not-allowed';
   const totalCs = `${cs};font-weight:700;color:#1B4D4A;background:#F4F8F6`;
 
   let html = `<thead><tr>
@@ -5623,7 +5680,9 @@ function _cfRenderForecastInputs(){
     html += `<tr><td style="padding:5px 12px;font-size:11px;font-weight:600;color:${line.color}">${line.label}</td>`;
     monthIndices.forEach(i => {
       const v = Math.round(s.forecast[line.key][i] || 0);
-      html += `<td style="padding:3px 4px;text-align:right"><input type="number" data-line="${line.key}" data-mo="${i}" value="${v}" step="100" style="${inpStyle}"></td>`;
+      const ro = isOwner ? '' : ' readonly';
+      const sty = isOwner ? inpStyle : inpStyleRO;
+      html += `<td style="padding:3px 4px;text-align:right"><input type="number" data-line="${line.key}" data-mo="${i}" value="${v}" step="100" style="${sty}"${ro}></td>`;
     });
     html += `<td style="${totalCs}" data-line-total="${line.key}">${_$k(lineTotals[line.key])}</td></tr>`;
   });
@@ -5642,38 +5701,40 @@ function _cfRenderForecastInputs(){
 
   tableEl.innerHTML = html;
 
-  // Wire input handlers
-  tableEl.querySelectorAll('input[data-line]').forEach(inp => {
-    inp.addEventListener('input', e => {
-      const lineKey = e.target.dataset.line;
-      const idx = parseInt(e.target.dataset.mo, 10);
-      const v = parseFloat(e.target.value || 0) || 0;
-      _cfState.forecast[lineKey][idx] = v;
-      _cfRecomputeForecast();
-      _cfUpdateForecastTotals();
-      _cfDrawCharts();
-      _cfUpdateProjectedKpi();
-      // Save (only the line-map structure, not derived burns)
-      _cfSaveForecast(_cfState.year, _cfState.forecast);
-    });
-  });
-
-  // Reset button
-  const resetBtn = document.getElementById('cfResetForecast');
-  if(resetBtn){
-    resetBtn.onclick = () => {
-      _cfClearForecast(_cfState.year);
-      // Reset all future months to suggested for each line
-      _CF_LINES.forEach(line => {
-        for(let i = _cfState.lastActualIdx + 1; i < 12; i++){
-          _cfState.forecast[line.key][i] = _cfState.suggested[line.key];
-        }
+  // Wire input handlers (only if Owner — readonly inputs don't fire input events anyway, but skip for safety)
+  if(isOwner){
+    tableEl.querySelectorAll('input[data-line]').forEach(inp => {
+      inp.addEventListener('input', e => {
+        const lineKey = e.target.dataset.line;
+        const idx = parseInt(e.target.dataset.mo, 10);
+        const v = parseFloat(e.target.value || 0) || 0;
+        _cfState.forecast[lineKey][idx] = v;
+        _cfRecomputeForecast();
+        _cfUpdateForecastTotals();
+        _cfDrawCharts();
+        _cfUpdateProjectedKpi();
+        _cfSaveForecast(_cfState.year, _cfState.forecast);
       });
-      _cfRecomputeForecast();
-      _cfRenderForecastInputs();
-      _cfDrawCharts();
-      _cfUpdateProjectedKpi();
-    };
+    });
+  }
+
+  // Reset button (Owner only)
+  if(isOwner){
+    const resetBtn = document.getElementById('cfResetForecast');
+    if(resetBtn){
+      resetBtn.onclick = () => {
+        _cfClearForecast(_cfState.year);
+        _CF_LINES.forEach(line => {
+          for(let i = _cfState.lastActualIdx + 1; i < 12; i++){
+            _cfState.forecast[line.key][i] = _cfState.suggested[line.key];
+          }
+        });
+        _cfRecomputeForecast();
+        _cfRenderForecastInputs();
+        _cfDrawCharts();
+        _cfUpdateProjectedKpi();
+      };
+    }
   }
 }
 
