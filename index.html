@@ -5059,8 +5059,12 @@ function renderCondensedPL(tableId, cur, prior, priorYear){
   const yoyHdr = prior ? `<th style="${cs};color:#7BA69E">vs ${priorYear}</th>` : '';
   const colCount = mLabels.length + 2 + (prior ? 1 : 0);
   const curRev = cur.revTot.total;
+  // Sticky first-column: CSS handles position/z-index; we only need to pin the correct background
+  // so coloured total/summary rows don't bleed through when the table scrolls horizontally.
+  const stickyHdr = 'position:sticky;left:0;z-index:15;background:#fff;text-align:left;padding:6px 10px;font-size:10px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;box-shadow:2px 0 5px rgba(0,0,0,.06)';
+  const stickyCell  = (bg, extra) => `background:${bg||'#fff'};box-shadow:2px 0 5px rgba(0,0,0,.06);${extra||''}`;
 
-  let html = `<thead><tr><th style="text-align:left;padding:6px 10px;font-size:10px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.05em"></th>`;
+  let html = `<thead><tr><th style="${stickyHdr}"></th>`;
   mLabels.forEach(m=>html+=`<th style="${cs};color:#7BA69E;font-weight:600">${m.split(' ')[0]}</th>`);
   html += `<th style="${cs};color:#1B4D4A;font-weight:600">Total</th>${yoyHdr}</tr></thead><tbody>`;
 
@@ -5087,7 +5091,7 @@ function renderCondensedPL(tableId, cur, prior, priorYear){
   // Section header (no border lines, just italic label)
   function sectionHeader(label, color){
     const accent = color || '#1B4D4A';
-    let r = `<tr><td style="padding:7px 10px 3px;font-weight:800;color:${accent};font-size:11px;font-style:italic;text-transform:uppercase;letter-spacing:0.04em">${label}</td>`;
+    let r = `<tr><td style="${stickyCell('#fff')};padding:7px 10px 3px;font-weight:800;color:${accent};font-size:11px;font-style:italic;text-transform:uppercase;letter-spacing:0.04em">${label}</td>`;
     for(let i=0;i<mLabels.length;i++) r+=`<td style="${cs}"></td>`;
     r += `<td style="${cs}"></td>`;
     if(prior) r += `<td style="${cs}"></td>`;
@@ -5100,7 +5104,10 @@ function renderCondensedPL(tableId, cur, prior, priorYear){
     const hasLeafs = cat.leafs && cat.leafs.length > 0;
     const drillId = opts.drillId;
     const chevron = hasLeafs && drillId ? '<span class="pl-chev" style="color:#A8C5BE;font-size:9px;margin-right:6px;display:inline-block;width:8px;transition:transform .15s">▶</span>' : '<span style="display:inline-block;width:14px"></span>';
-    const click = hasLeafs && drillId ? `data-drill="${drillId}" style="cursor:pointer;padding:4px 10px 4px 22px;color:#0D2B29;font-size:11px;font-weight:500;user-select:none"` : 'style="padding:4px 10px 4px 30px;color:#0D2B29;font-size:11px;font-weight:500"';
+    const stickyBase = stickyCell('#fff');
+    const click = hasLeafs && drillId
+      ? `data-drill="${drillId}" style="${stickyBase};cursor:pointer;padding:4px 10px 4px 22px;color:#0D2B29;font-size:11px;font-weight:500;user-select:none"`
+      : `style="${stickyBase};padding:4px 10px 4px 30px;color:#0D2B29;font-size:11px;font-weight:500"`;
     let r = `<tr${hasLeafs && drillId ? ' class="pl-cat-row"' : ''}><td ${click}>${chevron}${cat.category}</td>`;
     cat.monthly.forEach(v=>r+=`<td style="${cs}">${fmt(v)}</td>`);
     r += `<td style="${cs};font-weight:600;color:#1B4D4A">${fmt(cat.total)}</td>`;
@@ -5109,7 +5116,7 @@ function renderCondensedPL(tableId, cur, prior, priorYear){
     // Hidden leaf rows
     if(hasLeafs && drillId){
       cat.leafs.slice().sort((a,b)=>Math.abs(b.total)-Math.abs(a.total)).forEach(leaf => {
-        r += `<tr class="pl-leaf pl-leaf-${drillId}" style="display:none;background:#F7F9F8"><td style="padding:3px 10px 3px 50px;color:#7BA69E;font-size:10px">${leaf.label}</td>`;
+        r += `<tr class="pl-leaf pl-leaf-${drillId}" style="display:none;background:#F7F9F8"><td style="${stickyCell('#F7F9F8')};padding:3px 10px 3px 50px;color:#7BA69E;font-size:10px">${leaf.label}</td>`;
         leaf.monthly.forEach(v=>r+=`<td style="${cs};color:#7BA69E">${fmt(v)}</td>`);
         r += `<td style="${cs};color:#7BA69E">${fmt(leaf.total)}</td>`;
         if(prior) r += `<td style="${cs}"></td>`;
@@ -5120,7 +5127,7 @@ function renderCondensedPL(tableId, cur, prior, priorYear){
   }
   function totalRow(label, obj, color, priorTotal){
     const accent = color || '#1B4D4A';
-    let r = `<tr style="background:#F4F8F6"><td style="padding:5px 10px;font-weight:700;color:${accent};font-size:11px">${label}</td>`;
+    let r = `<tr style="background:#F4F8F6"><td style="${stickyCell('#F4F8F6')};padding:5px 10px;font-weight:700;color:${accent};font-size:11px">${label}</td>`;
     obj.monthly.forEach(v=>r+=`<td style="${cs};font-weight:700;color:${accent}">${fmt(v)}</td>`);
     r += `<td style="${cs};font-weight:700;color:${accent}">${fmt(obj.total)}</td>`;
     r += yoyCell(obj.total, priorTotal);
@@ -5129,7 +5136,7 @@ function renderCondensedPL(tableId, cur, prior, priorYear){
   }
   function summaryRow(label, obj, priorTotal){
     const col = obj.total >= 0 ? '#1B7A3D' : '#C0392B';
-    let r = `<tr style="background:#E8F0ED"><td style="padding:6px 10px;font-weight:800;color:${col};font-size:11px;text-transform:uppercase;letter-spacing:0.04em">${label}</td>`;
+    let r = `<tr style="background:#E8F0ED"><td style="${stickyCell('#E8F0ED')};padding:6px 10px;font-weight:800;color:${col};font-size:11px;text-transform:uppercase;letter-spacing:0.04em">${label}</td>`;
     obj.monthly.forEach(v=>r+=`<td style="${cs};font-weight:700;color:${v>=0?'#1B7A3D':'#C0392B'}">${fmt(v)}</td>`);
     r += `<td style="${cs};font-weight:800;color:${col}">${fmt(obj.total)}</td>`;
     r += yoyCell(obj.total, priorTotal);
