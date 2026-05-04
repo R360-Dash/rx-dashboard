@@ -453,16 +453,23 @@ tr:hover td{background:#E8F0ED}
 
 <!-- ═══ FINANCIALS — BUDGET VS ACTUAL ═══ -->
 <div id="sec-bva" class="page">
-  <div class="section">
-    <div class="section-header"><div class="section-bar"></div><div class="section-title">Budget vs Actual</div></div>
-    <div class="card" id="bvaPlaceholder" style="padding:40px;text-align:center;background:linear-gradient(135deg,#F7F9F8,#E8F0ED);border:2px dashed #7BA69E">
-      <div style="font-size:48px;margin-bottom:12px">🎯</div>
-      <div style="font-size:18px;font-weight:700;color:#1B4D4A;margin-bottom:8px">Budget vs Actual Variance</div>
-      <div style="font-size:13px;color:#7BA69E;max-width:480px;margin:0 auto;line-height:1.6">
-        Side-by-side budget and actual figures by category, with variance bars (green/red) showing where the business is over or under plan.
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+    <div style="font-size:13px;color:#7BA69E">Source: QuickBooks Online · <span id="bvaUpdated"></span></div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <button id="bvaResetBtn" style="display:none;padding:5px 12px;border:1px solid #D4E2DD;border-radius:6px;font-size:11px;color:#7BA69E;background:#fff;cursor:pointer;font-weight:600">↺ Reset</button>
+      <div class="hs-pipeline-toggle" id="bvaYearToggle" style="margin-bottom:0">
+        <button data-yr="2024">2024</button>
+        <button data-yr="2025">2025</button>
+        <button class="active" data-yr="2026">2026</button>
+        <button data-yr="2027">2027</button>
       </div>
-      <div style="display:inline-block;margin-top:16px;padding:6px 14px;background:#B8860B18;color:#B8860B;border-radius:14px;font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase">⏳ Awaiting QBO Connection</div>
     </div>
+  </div>
+  <div class="kpi-grid" id="bvaKpis"></div>
+  <div class="section">
+    <div class="section-header"><div class="section-bar"></div><div class="section-title" id="bvaTitle">Budget vs Actual — 2026</div></div>
+    <div id="bvaHelp" style="font-size:12px;color:#7BA69E;padding:0 4px 12px"></div>
+    <div class="card" style="padding:0"><div class="ar-wrap"><table id="bvaTable" style="width:100%"></table></div></div>
   </div>
 </div>
 
@@ -2336,6 +2343,7 @@ function showPage(id){
   if(id==='sec-revproj')setTimeout(renderRevProj,80);
   if(id==='sec-scenario')setTimeout(renderScenario,80);
   if(id==='sec-pl')setTimeout(renderPL,80);
+  if(id==='sec-bva')setTimeout(renderBVA,80);
   if(id==='sec-cashflow')setTimeout(renderCashFlow,80);
 }
 document.querySelectorAll('.nav-item').forEach(item=>{
@@ -5967,6 +5975,191 @@ function _bindYearToggle(toggleId, setter, rerender){
   });
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  BUDGET VS ACTUAL
+// ══════════════════════════════════════════════════════════════════
+
+let _bvaYear = 2026;
+let _bvaState = null;
+
+const _BVA_LINES = [
+  {key:'showSponsors',       label:'Show Sponsors',                section:'rev'},
+  {key:'showTickets',        label:'Show Tickets',                 section:'rev'},
+  {key:'citySeriesSponsors', label:'City Series Sponsors',         section:'rev'},
+  {key:'citySeriesTickets',  label:'City Series Tickets',          section:'rev'},
+  {key:'merch',              label:'Merch',                        section:'rev'},
+  {key:'showCosts',          label:'Show Costs',                   section:'dc' },
+  {key:'citySeriesCosts',    label:'City Series Costs',            section:'dc' },
+  {key:'marketingCosts',     label:'Marketing Costs',              section:'dc' },
+  {key:'sga',                label:'SG&A',                         section:'sga'},
+  {key:'cea',                label:'Corporate Expense Allocation', section:'cea'},
+];
+
+function _bvaActual(bk, key){
+  if(!bk) return 0;
+  switch(key){
+    case 'showSponsors':       return bk.revByCat?.['Show Sponsors']?.total ?? 0;
+    case 'showTickets':        return bk.revByCat?.['Show Tickets']?.total ?? 0;
+    case 'citySeriesSponsors': return bk.revByCat?.['City Series Sponsors']?.total ?? 0;
+    case 'citySeriesTickets':  return bk.revByCat?.['City Series Tickets']?.total ?? 0;
+    case 'merch':              return bk.revByCat?.['Merch']?.total ?? 0;
+    case 'showCosts':          return Math.abs(bk.dcByCat?.['Show Costs']?.total ?? 0);
+    case 'citySeriesCosts':    return Math.abs(bk.dcByCat?.['City Series Costs']?.total ?? 0);
+    case 'marketingCosts':     return Math.abs(bk.dcByCat?.['Marketing Costs']?.total ?? 0);
+    case 'sga':                return Math.abs(bk.sgaTot?.total ?? 0);
+    case 'cea':                return Math.abs(bk.ceaTot?.total ?? 0);
+    default: return 0;
+  }
+}
+function _bvaLoad(y){ try{const r=localStorage.getItem('rx_bva_'+y);if(r)return JSON.parse(r);}catch(e){} return{}; }
+function _bvaSave(y,d){ try{localStorage.setItem('rx_bva_'+y,JSON.stringify(d));}catch(e){} }
+
+const _bvaFV=(v,noBgt)=>{
+  if(noBgt) return '<span style="color:#D4E2DD">—</span>';
+  const c=v>=0?'#1B7A3D':'#C0392B',s=v>=0?'+':'−';
+  return `<span style="color:${c};font-weight:600">${s}${_$k(Math.abs(v))}</span>`;
+};
+const _bvaFP=(act,bgt,gih)=>{
+  if(!bgt) return '<span style="color:#D4E2DD">—</span>';
+  const p=act/bgt*100, good=gih?act>=bgt:act<=bgt;
+  return `<span style="color:${good?'#1B7A3D':'#C0392B'}">${p.toFixed(1)}%</span>`;
+};
+
+function _bvaLiveUpdate(){
+  const s=_bvaState; if(!s) return;
+  const {bk,budget}=s;
+  const b=k=>parseFloat(budget[k]||0);
+  const a=k=>_bvaActual(bk,k);
+  const set=(id,html)=>{const el=document.getElementById(id);if(el)el.innerHTML=html;};
+  const revL=_BVA_LINES.filter(l=>l.section==='rev');
+  const dcL =_BVA_LINES.filter(l=>l.section==='dc');
+
+  revL.forEach(l=>{const[bv,av]=[b(l.key),a(l.key)];set('bva_var_'+l.key,_bvaFV(av-bv,!bv));set('bva_pct_'+l.key,_bvaFP(av,bv,true));});
+  dcL.forEach(l=>{const[bv,av]=[b(l.key),a(l.key)];set('bva_var_'+l.key,_bvaFV(bv-av,!bv));set('bva_pct_'+l.key,_bvaFP(av,bv,false));});
+  ['sga','cea'].forEach(k=>{const[bv,av]=[b(k),a(k)];set('bva_var_'+k,_bvaFV(bv-av,!bv));set('bva_pct_'+k,_bvaFP(av,bv,false));});
+
+  const tRBgt=revL.reduce((s,l)=>s+b(l.key),0), tRAct=bk.revTot.total;
+  const tDBgt=dcL.reduce((s,l)=>s+b(l.key),0),  tDAct=Math.abs(bk.dcTot.total);
+  const gpBgt=tRBgt-tDBgt, gpAct=bk.gpTot.total;
+  const eBgt=gpBgt-b('sga'), eAct=bk.ebitda.total;
+  const nBgt=eBgt-b('cea'),  nAct=bk.netInc.total;
+
+  const sr=(key,bv,av,gih)=>{
+    set('bva_budget_'+key, bv?_$k(bv):'<span style="color:#D4E2DD">—</span>');
+    set('bva_var_'+key, _bvaFV(gih?av-bv:bv-av,!bv));
+    set('bva_pct_'+key, _bvaFP(av,bv,gih));
+  };
+  sr('totalRev',tRBgt,tRAct,true); sr('totalDC',tDBgt,tDAct,false);
+  sr('gp',gpBgt,gpAct,true); sr('ebitda',eBgt,eAct,true); sr('net',nBgt,nAct,true);
+
+  const kpis=[
+    {i:'💰',t:'Revenue',      v:tRAct-tRBgt, bgt:tRBgt, act:tRAct},
+    {i:'📉',t:'Direct Costs', v:tDBgt-tDAct, bgt:tDBgt, act:tDAct},
+    {i:'📊',t:'EBITDA',       v:eAct-eBgt,   bgt:eBgt,  act:eAct},
+    {i:'🎯',t:'Net Income',   v:nAct-nBgt,   bgt:nBgt,  act:nAct},
+  ];
+  const ke=document.getElementById('bvaKpis');
+  if(ke) ke.innerHTML=kpis.map(k=>{
+    const c=k.v>=0?'#1B7A3D':'#C0392B',s=k.v>=0?'+':'−';
+    const pct=k.bgt?`<span style="font-size:13px;font-weight:400"> (${k.v>=0?'+':''}${(k.v/Math.abs(k.bgt)*100).toFixed(1)}%)</span>`:'';
+    const sub=k.bgt?`Budget: ${_$k(k.bgt)} · Actual: ${_$k(k.act)}`:'No budget set yet';
+    return `<div class="kpi" style="border-left-color:${c}"><div class="kpi-label">${k.i} ${k.t} Variance</div><div class="kpi-value" style="color:${c}">${s}${_$k(Math.abs(k.v))}${pct}</div><div class="kpi-sub">${sub}</div></div>`;
+  }).join('');
+}
+
+async function renderBVA(){
+  const updEl=document.getElementById('bvaUpdated');
+  if(updEl) updEl.innerHTML='<span style="color:#3D9B8F">Loading…</span>';
+  try {
+    const plData=_qboCache.pl[_bvaYear]
+      ?_qboCache.pl[_bvaYear]
+      :await fetchQbo('/api/pl?year='+_bvaYear).then(d=>{_qboCache.pl[_bvaYear]=d;return d;});
+    const parsed=parseQboReport(plData.report);
+    if(!parsed){document.getElementById('bvaTable').innerHTML='<tr><td style="padding:24px;color:#C0392B">No data for '+_bvaYear+'</td></tr>';return;}
+    const bk=_buildPLBreakdown(parsed);
+    if(updEl) updEl.textContent='Last synced: '+new Date(plData.ts).toLocaleString();
+
+    const budget=_bvaLoad(_bvaYear);
+    const isOwner=!!(window.currentUser?.role==='Owner');
+    _bvaState={bk,budget};
+
+    const titleEl=document.getElementById('bvaTitle');
+    if(titleEl) titleEl.textContent='Budget vs Actual — '+_bvaYear;
+    const helpEl=document.getElementById('bvaHelp');
+    if(helpEl) helpEl.innerHTML=isOwner
+      ?'Enter annual budget figures (in dollars). Actuals are pulled from QuickBooks. Changes save automatically.'
+      :'<span style="color:#B8860B">🔒 Read-only — only the Owner can edit budget figures.</span>';
+    const rb=document.getElementById('bvaResetBtn');
+    if(rb) rb.style.display=isOwner?'':'none';
+
+    const shdr=`position:sticky;left:0;z-index:15;background:#fff;text-align:left;padding:8px 14px;font-size:10px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;box-shadow:2px 0 5px rgba(0,0,0,.06)`;
+    const stk=bg=>`position:sticky;left:0;z-index:1;background:${bg||'#fff'};box-shadow:2px 0 5px rgba(0,0,0,.06)`;
+    const cs=`text-align:right;padding:5px 14px;font-size:12px;font-family:'Source Sans 3',monospace`;
+    const hcs=`text-align:right;padding:8px 14px;font-size:10px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.05em`;
+    const IS=isOwner
+      ?`width:120px;padding:4px 8px;border:1px solid #D4E2DD;border-radius:4px;font-family:inherit;font-size:12px;color:#0D2B29;background:#fff;text-align:right`
+      :`width:120px;padding:4px 8px;border:1px solid #EDF2F0;border-radius:4px;font-family:inherit;font-size:12px;color:#7BA69E;background:#F7F9F8;text-align:right;cursor:not-allowed`;
+    const b=k=>parseFloat(budget[k]||0);
+    const a=k=>_bvaActual(bk,k);
+    const revL=_BVA_LINES.filter(l=>l.section==='rev');
+    const dcL=_BVA_LINES.filter(l=>l.section==='dc');
+    const sgaLine=_BVA_LINES.find(l=>l.section==='sga');
+    const ceaLine=_BVA_LINES.find(l=>l.section==='cea');
+
+    const sHdr=(lbl,col)=>`<tr><td style="${stk()};padding:8px 14px 4px;font-weight:800;color:${col||'#1B4D4A'};font-size:11px;font-style:italic;text-transform:uppercase;letter-spacing:0.04em">${lbl}</td><td style="${cs}"></td><td style="${cs}"></td><td style="${cs}"></td><td style="${cs}"></td></tr>`;
+    const eRow=l=>`<tr>
+      <td style="${stk()};padding:4px 14px 4px 28px;color:#0D2B29;font-size:12px;font-weight:500">${l.label}</td>
+      <td style="padding:3px 8px;text-align:right"><input type="number" data-bva="${l.key}" value="${Math.round(b(l.key))}" step="1000" style="${IS}"${isOwner?'':' readonly'}></td>
+      <td style="${cs}">${a(l.key)?_$k(a(l.key)):'<span style="color:#D4E2DD">—</span>'}</td>
+      <td style="${cs}" id="bva_var_${l.key}"></td>
+      <td style="${cs}" id="bva_pct_${l.key}"></td>
+    </tr>`;
+    const tRow=(key,lbl,act,col)=>{const bg='#F4F8F6',ac=col||'#1B4D4A';return`<tr style="background:${bg}"><td style="${stk(bg)};padding:5px 14px;font-weight:700;color:${ac};font-size:12px">${lbl}</td><td style="${cs};font-weight:700;color:${ac}" id="bva_budget_${key}"></td><td style="${cs};font-weight:700;color:${ac}">${_$k(act)}</td><td style="${cs};font-weight:700" id="bva_var_${key}"></td><td style="${cs}" id="bva_pct_${key}"></td></tr>`;};
+    const sRow=(key,lbl,act)=>{const c=act>=0?'#1B7A3D':'#C0392B',bg='#E8F0ED';return`<tr style="background:${bg}"><td style="${stk(bg)};padding:6px 14px;font-weight:800;color:${c};font-size:12px;text-transform:uppercase;letter-spacing:0.04em">${lbl}</td><td style="${cs};font-weight:700;color:#1B4D4A" id="bva_budget_${key}"></td><td style="${cs};font-weight:800;color:${c}">${_$k(act)}</td><td style="${cs};font-weight:700" id="bva_var_${key}"></td><td style="${cs}" id="bva_pct_${key}"></td></tr>`;};
+    const sp=()=>`<tr><td colspan="5" style="padding:3px 0"></td></tr>`;
+
+    let html=`<thead><tr><th style="${shdr}">Category</th><th style="${hcs}">Budget ($)</th><th style="${hcs}">Actual ($)</th><th style="${hcs}">Variance</th><th style="${hcs}">% of Budget</th></tr></thead><tbody>`;
+    html+=sHdr('Revenues','#1B4D4A');
+    revL.forEach(l=>html+=eRow(l));
+    html+=tRow('totalRev','Total Revenues',bk.revTot.total,'#1B4D4A');
+    html+=sp();
+    html+=sHdr('Direct Costs','#B8860B');
+    dcL.forEach(l=>html+=eRow(l));
+    html+=tRow('totalDC','Total Direct Costs',Math.abs(bk.dcTot.total),'#B8860B');
+    html+=sp();
+    html+=sRow('gp','Gross Profit',bk.gpTot.total);
+    html+=sp();
+    html+=sHdr('Operating Expenses','#8E44AD');
+    html+=eRow(sgaLine);
+    html+=sp();
+    html+=sRow('ebitda','EBITDA',bk.ebitda.total);
+    html+=sp();
+    if(bk.ceaTot.total!==0||b('cea')!==0){html+=eRow(ceaLine);html+=sp();}
+    html+=sRow('net','Net Income',bk.netInc.total);
+    html+='</tbody>';
+
+    document.getElementById('bvaTable').innerHTML=html;
+    _bvaLiveUpdate();
+
+    if(isOwner){
+      document.getElementById('bvaTable').querySelectorAll('input[data-bva]').forEach(inp=>{
+        inp.addEventListener('input',e=>{
+          budget[e.target.dataset.bva]=parseFloat(e.target.value||0)||0;
+          _bvaSave(_bvaYear,budget);
+          _bvaLiveUpdate();
+        });
+      });
+      if(rb) rb.onclick=()=>{localStorage.removeItem('rx_bva_'+_bvaYear);renderBVA();};
+    }
+  } catch(err){
+    console.error('BVA render failed:',err);
+    const u=document.getElementById('bvaUpdated');
+    if(u) u.innerHTML='<span style="color:#C0392B">Error: '+err.message+'</span>';
+  }
+}
+window.renderBVA=renderBVA;
+
+_bindYearToggle('bvaYearToggle', y=>_bvaYear=y, renderBVA);
 _bindYearToggle('plYearToggle', y=>_plYear=y, renderPL);
 _bindYearToggle('cfYearToggle', y=>_cfYear=y, renderCashFlow);
 
