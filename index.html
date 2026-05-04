@@ -5995,75 +5995,93 @@ const _BVA_LINES = [
   {key:'cea',                label:'Corporate Expense Allocation', section:'cea'},
 ];
 
-function _bvaActual(bk, key){
-  if(!bk) return 0;
+const _bvaPad = arr => { const r=Array(12).fill(0); (arr||[]).forEach((v,i)=>{if(i<12)r[i]=v;}); return r; };
+const _bvaAbsArr = arr => _bvaPad(arr).map(v=>Math.abs(v));
+
+function _bvaActualMonthly(bk, key){
+  if(!bk) return Array(12).fill(0);
   switch(key){
-    case 'showSponsors':       return bk.revByCat?.['Show Sponsors']?.total ?? 0;
-    case 'showTickets':        return bk.revByCat?.['Show Tickets']?.total ?? 0;
-    case 'citySeriesSponsors': return bk.revByCat?.['City Series Sponsors']?.total ?? 0;
-    case 'citySeriesTickets':  return bk.revByCat?.['City Series Tickets']?.total ?? 0;
-    case 'merch':              return bk.revByCat?.['Merch']?.total ?? 0;
-    case 'showCosts':          return Math.abs(bk.dcByCat?.['Show Costs']?.total ?? 0);
-    case 'citySeriesCosts':    return Math.abs(bk.dcByCat?.['City Series Costs']?.total ?? 0);
-    case 'marketingCosts':     return Math.abs(bk.dcByCat?.['Marketing Costs']?.total ?? 0);
-    case 'sga':                return Math.abs(bk.sgaTot?.total ?? 0);
-    case 'cea':                return Math.abs(bk.ceaTot?.total ?? 0);
-    default: return 0;
+    case 'showSponsors':       return _bvaPad(bk.revByCat?.['Show Sponsors']?.monthly);
+    case 'showTickets':        return _bvaPad(bk.revByCat?.['Show Tickets']?.monthly);
+    case 'citySeriesSponsors': return _bvaPad(bk.revByCat?.['City Series Sponsors']?.monthly);
+    case 'citySeriesTickets':  return _bvaPad(bk.revByCat?.['City Series Tickets']?.monthly);
+    case 'merch':              return _bvaPad(bk.revByCat?.['Merch']?.monthly);
+    case 'showCosts':          return _bvaAbsArr(bk.dcByCat?.['Show Costs']?.monthly);
+    case 'citySeriesCosts':    return _bvaAbsArr(bk.dcByCat?.['City Series Costs']?.monthly);
+    case 'marketingCosts':     return _bvaAbsArr(bk.dcByCat?.['Marketing Costs']?.monthly);
+    case 'sga':                return _bvaAbsArr(bk.sgaTot?.monthly);
+    case 'cea':                return _bvaAbsArr(bk.ceaTot?.monthly);
+    default: return Array(12).fill(0);
   }
 }
-function _bvaLoad(y){ try{const r=localStorage.getItem('rx_bva_'+y);if(r)return JSON.parse(r);}catch(e){} return{}; }
+
+function _bvaLoad(y){
+  try{
+    const r=localStorage.getItem('rx_bva_'+y);
+    if(r){
+      const d=JSON.parse(r);
+      _BVA_LINES.forEach(l=>{
+        if(!Array.isArray(d[l.key])){
+          const annual=typeof d[l.key]==='number'?d[l.key]:0;
+          d[l.key]=Array(12).fill(Math.round(annual/12));
+        }
+        if(d[l.key].length<12) d[l.key]=[...d[l.key],...Array(12-d[l.key].length).fill(0)];
+      });
+      return d;
+    }
+  }catch(e){}
+  return Object.fromEntries(_BVA_LINES.map(l=>[l.key,Array(12).fill(0)]));
+}
 function _bvaSave(y,d){ try{localStorage.setItem('rx_bva_'+y,JSON.stringify(d));}catch(e){} }
 
-const _bvaFV=(v,noBgt)=>{
-  if(noBgt) return '<span style="color:#D4E2DD">—</span>';
-  const c=v>=0?'#1B7A3D':'#C0392B',s=v>=0?'+':'−';
-  return `<span style="color:${c};font-weight:600">${s}${_$k(Math.abs(v))}</span>`;
-};
-const _bvaFP=(act,bgt,gih)=>{
-  if(!bgt) return '<span style="color:#D4E2DD">—</span>';
-  const p=act/bgt*100, good=gih?act>=bgt:act<=bgt;
-  return `<span style="color:${good?'#1B7A3D':'#C0392B'}">${p.toFixed(1)}%</span>`;
-};
+const _bvaFmtN=v=>v===0?'<span style="color:#D4E2DD">—</span>':(v<0?`<span style="color:#C0392B">(${_$k(Math.abs(v))})</span>`:_$k(v));
 
 function _bvaLiveUpdate(){
   const s=_bvaState; if(!s) return;
   const {bk,budget}=s;
-  const b=k=>parseFloat(budget[k]||0);
-  const a=k=>_bvaActual(bk,k);
-  const set=(id,html)=>{const el=document.getElementById(id);if(el)el.innerHTML=html;};
+  const bArr=k=>budget[k]||Array(12).fill(0);
+  const sum=arr=>arr.reduce((t,v)=>t+v,0);
+  const $s=(id,html)=>{const el=document.getElementById(id);if(el)el.innerHTML=html;};
+
   const revL=_BVA_LINES.filter(l=>l.section==='rev');
   const dcL =_BVA_LINES.filter(l=>l.section==='dc');
 
-  revL.forEach(l=>{const[bv,av]=[b(l.key),a(l.key)];set('bva_var_'+l.key,_bvaFV(av-bv,!bv));set('bva_pct_'+l.key,_bvaFP(av,bv,true));});
-  dcL.forEach(l=>{const[bv,av]=[b(l.key),a(l.key)];set('bva_var_'+l.key,_bvaFV(bv-av,!bv));set('bva_pct_'+l.key,_bvaFP(av,bv,false));});
-  ['sga','cea'].forEach(k=>{const[bv,av]=[b(k),a(k)];set('bva_var_'+k,_bvaFV(bv-av,!bv));set('bva_pct_'+k,_bvaFP(av,bv,false));});
+  // Update editable line total-column cells
+  [...revL,...dcL,..._BVA_LINES.filter(l=>l.section==='sga'||l.section==='cea')].forEach(l=>{
+    $s('bva_btot_'+l.key, _bvaFmtN(sum(bArr(l.key))));
+  });
 
-  const tRBgt=revL.reduce((s,l)=>s+b(l.key),0), tRAct=bk.revTot.total;
-  const tDBgt=dcL.reduce((s,l)=>s+b(l.key),0),  tDAct=Math.abs(bk.dcTot.total);
-  const gpBgt=tRBgt-tDBgt, gpAct=bk.gpTot.total;
-  const eBgt=gpBgt-b('sga'), eAct=bk.ebitda.total;
-  const nBgt=eBgt-b('cea'),  nAct=bk.netInc.total;
+  // Compute monthly budget arrays for computed rows
+  const add12=(a,b)=>a.map((v,i)=>v+b[i]);
+  const sub12=(a,b)=>a.map((v,i)=>v-b[i]);
+  const tRB=revL.map(l=>bArr(l.key)).reduce(add12, Array(12).fill(0));
+  const tDB=dcL.map(l=>bArr(l.key)).reduce(add12, Array(12).fill(0));
+  const gpB=sub12(tRB,tDB);
+  const eB=sub12(gpB,bArr('sga'));
+  const nB=sub12(eB,bArr('cea'));
 
-  const sr=(key,bv,av,gih)=>{
-    set('bva_budget_'+key, bv?_$k(bv):'<span style="color:#D4E2DD">—</span>');
-    set('bva_var_'+key, _bvaFV(gih?av-bv:bv-av,!bv));
-    set('bva_pct_'+key, _bvaFP(av,bv,gih));
+  const setRow=(key,arr)=>{
+    arr.forEach((v,i)=>$s(`bva_bmo_${key}_${i}`,_bvaFmtN(v)));
+    $s('bva_btot_'+key, _bvaFmtN(sum(arr)));
   };
-  sr('totalRev',tRBgt,tRAct,true); sr('totalDC',tDBgt,tDAct,false);
-  sr('gp',gpBgt,gpAct,true); sr('ebitda',eBgt,eAct,true); sr('net',nBgt,nAct,true);
+  setRow('totalRev',tRB); setRow('totalDC',tDB);
+  setRow('gp',gpB); setRow('ebitda',eB); setRow('net',nB);
 
+  // KPI cards (use QBO totals for actuals — they include any uncaptured categories)
+  const tRBgt=sum(tRB), tDBgt=sum(tDB), gpBgt=sum(gpB), eBgt=sum(eB), nBgt=sum(nB);
+  const tRAct=bk.revTot.total, tDAct=Math.abs(bk.dcTot.total), gpAct=bk.gpTot.total, eAct=bk.ebitda.total, nAct=bk.netInc.total;
   const kpis=[
-    {i:'💰',t:'Revenue',      v:tRAct-tRBgt, bgt:tRBgt, act:tRAct},
-    {i:'📉',t:'Direct Costs', v:tDBgt-tDAct, bgt:tDBgt, act:tDAct},
-    {i:'📊',t:'EBITDA',       v:eAct-eBgt,   bgt:eBgt,  act:eAct},
-    {i:'🎯',t:'Net Income',   v:nAct-nBgt,   bgt:nBgt,  act:nAct},
+    {i:'💰',t:'Revenue',     v:tRAct-tRBgt, bgt:tRBgt, act:tRAct},
+    {i:'📉',t:'Direct Costs',v:tDBgt-tDAct, bgt:tDBgt, act:tDAct},
+    {i:'📊',t:'EBITDA',      v:eAct-eBgt,   bgt:eBgt,  act:eAct},
+    {i:'🎯',t:'Net Income',  v:nAct-nBgt,   bgt:nBgt,  act:nAct},
   ];
   const ke=document.getElementById('bvaKpis');
   if(ke) ke.innerHTML=kpis.map(k=>{
-    const c=k.v>=0?'#1B7A3D':'#C0392B',s=k.v>=0?'+':'−';
+    const c=k.v>=0?'#1B7A3D':'#C0392B',si=k.v>=0?'+':'−';
     const pct=k.bgt?`<span style="font-size:13px;font-weight:400"> (${k.v>=0?'+':''}${(k.v/Math.abs(k.bgt)*100).toFixed(1)}%)</span>`:'';
     const sub=k.bgt?`Budget: ${_$k(k.bgt)} · Actual: ${_$k(k.act)}`:'No budget set yet';
-    return `<div class="kpi" style="border-left-color:${c}"><div class="kpi-label">${k.i} ${k.t} Variance</div><div class="kpi-value" style="color:${c}">${s}${_$k(Math.abs(k.v))}${pct}</div><div class="kpi-sub">${sub}</div></div>`;
+    return `<div class="kpi" style="border-left-color:${c}"><div class="kpi-label">${k.i} ${k.t} Variance</div><div class="kpi-value" style="color:${c}">${si}${_$k(Math.abs(k.v))}${pct}</div><div class="kpi-sub">${sub}</div></div>`;
   }).join('');
 }
 
@@ -6087,55 +6105,88 @@ async function renderBVA(){
     if(titleEl) titleEl.textContent='Budget vs Actual — '+_bvaYear;
     const helpEl=document.getElementById('bvaHelp');
     if(helpEl) helpEl.innerHTML=isOwner
-      ?'Enter annual budget figures (in dollars). Actuals are pulled from QuickBooks. Changes save automatically.'
+      ?'Enter monthly budget figures. Actuals are pulled from QuickBooks. Changes save automatically.'
       :'<span style="color:#B8860B">🔒 Read-only — only the Owner can edit budget figures.</span>';
     const rb=document.getElementById('bvaResetBtn');
     if(rb) rb.style.display=isOwner?'':'none';
 
-    const shdr=`position:sticky;left:0;z-index:15;background:#fff;text-align:left;padding:8px 14px;font-size:10px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;box-shadow:2px 0 5px rgba(0,0,0,.06)`;
-    const stk=bg=>`position:sticky;left:0;z-index:1;background:${bg||'#fff'};box-shadow:2px 0 5px rgba(0,0,0,.06)`;
-    const cs=`text-align:right;padding:5px 14px;font-size:12px;font-family:'Source Sans 3',monospace`;
-    const hcs=`text-align:right;padding:8px 14px;font-size:10px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.05em`;
+    const mns=parsed.monthLabels.map(l=>l.split(' ')[0]);
+    const nM=mns.length;
+
+    const stkHdr=`position:sticky;left:0;z-index:15;background:#fff;text-align:left;padding:6px 10px;font-size:10px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;box-shadow:2px 0 5px rgba(0,0,0,.06);min-width:160px`;
+    const stk=bg=>`position:sticky;left:0;z-index:1;background:${bg||'#fff'};box-shadow:2px 0 5px rgba(0,0,0,.06);min-width:160px`;
+    const cs=`text-align:right;padding:3px 6px;font-size:11px;font-family:'Source Sans 3',monospace`;
+    const hcs=`text-align:right;padding:6px 6px;font-size:10px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.03em`;
+    const totCs=`text-align:right;padding:3px 10px;font-size:11px;font-family:'Source Sans 3',monospace;font-weight:700;border-left:2px solid #C8DAD6`;
     const IS=isOwner
-      ?`width:120px;padding:4px 8px;border:1px solid #D4E2DD;border-radius:4px;font-family:inherit;font-size:12px;color:#0D2B29;background:#fff;text-align:right`
-      :`width:120px;padding:4px 8px;border:1px solid #EDF2F0;border-radius:4px;font-family:inherit;font-size:12px;color:#7BA69E;background:#F7F9F8;text-align:right;cursor:not-allowed`;
-    const b=k=>parseFloat(budget[k]||0);
-    const a=k=>_bvaActual(bk,k);
+      ?`width:70px;padding:2px 4px;border:1px solid #D4E2DD;border-radius:3px;font-family:inherit;font-size:11px;color:#0D2B29;background:#fff;text-align:right`
+      :`width:70px;padding:2px 4px;border:1px solid #EDF2F0;border-radius:3px;font-family:inherit;font-size:11px;color:#7BA69E;background:#F7F9F8;text-align:right;cursor:not-allowed`;
+
+    const bArr=k=>budget[k]||Array(12).fill(0);
+    const aArr=k=>_bvaActualMonthly(bk,k);
+    const sum=arr=>arr.reduce((t,v)=>t+v,0);
     const revL=_BVA_LINES.filter(l=>l.section==='rev');
     const dcL=_BVA_LINES.filter(l=>l.section==='dc');
     const sgaLine=_BVA_LINES.find(l=>l.section==='sga');
     const ceaLine=_BVA_LINES.find(l=>l.section==='cea');
 
-    const sHdr=(lbl,col)=>`<tr><td style="${stk()};padding:8px 14px 4px;font-weight:800;color:${col||'#1B4D4A'};font-size:11px;font-style:italic;text-transform:uppercase;letter-spacing:0.04em">${lbl}</td><td style="${cs}"></td><td style="${cs}"></td><td style="${cs}"></td><td style="${cs}"></td></tr>`;
-    const eRow=l=>`<tr>
-      <td style="${stk()};padding:4px 14px 4px 28px;color:#0D2B29;font-size:12px;font-weight:500">${l.label}</td>
-      <td style="padding:3px 8px;text-align:right"><input type="number" data-bva="${l.key}" value="${Math.round(b(l.key))}" step="1000" style="${IS}"${isOwner?'':' readonly'}></td>
-      <td style="${cs}">${a(l.key)?_$k(a(l.key)):'<span style="color:#D4E2DD">—</span>'}</td>
-      <td style="${cs}" id="bva_var_${l.key}"></td>
-      <td style="${cs}" id="bva_pct_${l.key}"></td>
-    </tr>`;
-    const tRow=(key,lbl,act,col)=>{const bg='#F4F8F6',ac=col||'#1B4D4A';return`<tr style="background:${bg}"><td style="${stk(bg)};padding:5px 14px;font-weight:700;color:${ac};font-size:12px">${lbl}</td><td style="${cs};font-weight:700;color:${ac}" id="bva_budget_${key}"></td><td style="${cs};font-weight:700;color:${ac}">${_$k(act)}</td><td style="${cs};font-weight:700" id="bva_var_${key}"></td><td style="${cs}" id="bva_pct_${key}"></td></tr>`;};
-    const sRow=(key,lbl,act)=>{const c=act>=0?'#1B7A3D':'#C0392B',bg='#E8F0ED';return`<tr style="background:${bg}"><td style="${stk(bg)};padding:6px 14px;font-weight:800;color:${c};font-size:12px;text-transform:uppercase;letter-spacing:0.04em">${lbl}</td><td style="${cs};font-weight:700;color:#1B4D4A" id="bva_budget_${key}"></td><td style="${cs};font-weight:800;color:${c}">${_$k(act)}</td><td style="${cs};font-weight:700" id="bva_var_${key}"></td><td style="${cs}" id="bva_pct_${key}"></td></tr>`;};
-    const sp=()=>`<tr><td colspan="5" style="padding:3px 0"></td></tr>`;
+    // Actual monthly arrays for computed rows
+    const tRAct12=revL.map(l=>aArr(l.key)).reduce((a,b)=>a.map((v,i)=>v+b[i]),Array(12).fill(0));
+    const tDAct12=dcL.map(l=>aArr(l.key)).reduce((a,b)=>a.map((v,i)=>v+b[i]),Array(12).fill(0));
+    const gpAct12=_bvaPad(bk.gpTot?.monthly);
+    const eAct12 =_bvaPad(bk.ebitda?.monthly);
+    const nAct12  =_bvaPad(bk.netInc?.monthly);
 
-    let html=`<thead><tr><th style="${shdr}">Category</th><th style="${hcs}">Budget ($)</th><th style="${hcs}">Actual ($)</th><th style="${hcs}">Variance</th><th style="${hcs}">% of Budget</th></tr></thead><tbody>`;
+    function sHdr(lbl,col){
+      return `<tr><td style="${stk()};padding:7px 10px 3px;font-weight:800;color:${col||'#1B4D4A'};font-size:11px;font-style:italic;text-transform:uppercase;letter-spacing:0.04em">${lbl}</td><td colspan="${nM+1}" style="${cs}"></td></tr>`;
+    }
+    // Editable line: Budget input row + Actual display row
+    function eRowPair(line){
+      const ba=bArr(line.key), aa=aArr(line.key);
+      const ro=isOwner?'':' readonly';
+      let bRow=`<tr><td style="${stk()};padding:3px 10px 3px 20px;color:#0D2B29;font-size:11px;font-weight:500"><span style="font-size:9px;font-weight:700;color:#7BA69E;background:#EEF5F3;padding:1px 4px;border-radius:3px;margin-right:4px">BDG</span>${line.label}</td>`;
+      for(let i=0;i<12;i++) bRow+=`<td style="padding:2px 3px;text-align:right"><input type="number" data-bva="${line.key}" data-mo="${i}" value="${Math.round(ba[i]||0)}" step="1000" style="${IS}"${ro}></td>`;
+      bRow+=`<td style="${totCs}" id="bva_btot_${line.key}">${_bvaFmtN(sum(ba))}</td></tr>`;
+      let aRow=`<tr style="background:#FAFCFB"><td style="${stk('#FAFCFB')};padding:2px 10px 2px 20px;color:#7BA69E;font-size:10px"><span style="font-size:9px;font-weight:700;opacity:0.7;margin-right:4px">ACT</span>${line.label}</td>`;
+      for(let i=0;i<12;i++) aRow+=`<td style="${cs};color:#7BA69E">${_bvaFmtN(aa[i])}</td>`;
+      aRow+=`<td style="${totCs};color:#5A9A8E;font-weight:600">${_bvaFmtN(sum(aa))}</td></tr>`;
+      return bRow+aRow;
+    }
+    // Computed row pair (totals + summaries) — budget cells have IDs for live update
+    function cRowPair(key,lbl,actArr,bg,isSummary,color){
+      const bg2=bg||'#F4F8F6', ac=color||'#1B4D4A', fw=isSummary?'800':'700';
+      const actTotal=sum(actArr), actColor=isSummary?(actTotal>=0?'#1B7A3D':'#C0392B'):ac;
+      let bRow=`<tr style="background:${bg2}"><td style="${stk(bg2)};padding:${isSummary?'5px':'4px'} 10px;font-weight:${fw};color:${ac};font-size:11px${isSummary?';text-transform:uppercase;letter-spacing:0.04em':''}">${lbl}</td>`;
+      for(let i=0;i<12;i++) bRow+=`<td style="${cs};font-weight:600;color:${ac}" id="bva_bmo_${key}_${i}"></td>`;
+      bRow+=`<td style="${totCs};color:${ac}" id="bva_btot_${key}"></td></tr>`;
+      let aRow=`<tr style="background:${bg2}"><td style="${stk(bg2)};padding:2px 10px;font-size:10px;color:${actColor};opacity:0.75"><span style="font-size:9px;font-weight:700;margin-right:4px">ACT</span>${lbl}</td>`;
+      for(let i=0;i<12;i++) aRow+=`<td style="${cs};color:${actColor};font-weight:${isSummary?'600':'500'}">${_bvaFmtN(actArr[i])}</td>`;
+      aRow+=`<td style="${totCs};color:${actColor};font-weight:${fw}">${_bvaFmtN(actTotal)}</td></tr>`;
+      return bRow+aRow;
+    }
+    const sp=()=>`<tr><td colspan="${nM+2}" style="padding:3px 0"></td></tr>`;
+
+    let html=`<thead><tr><th style="${stkHdr}"></th>`;
+    mns.forEach(m=>html+=`<th style="${hcs}">${m}</th>`);
+    html+=`<th style="${hcs};border-left:2px solid #C8DAD6;color:#1B4D4A">Total</th></tr></thead><tbody>`;
+
     html+=sHdr('Revenues','#1B4D4A');
-    revL.forEach(l=>html+=eRow(l));
-    html+=tRow('totalRev','Total Revenues',bk.revTot.total,'#1B4D4A');
+    revL.forEach(l=>html+=eRowPair(l));
+    html+=cRowPair('totalRev','Total Revenues',tRAct12,'#F4F8F6',false,'#1B4D4A');
     html+=sp();
     html+=sHdr('Direct Costs','#B8860B');
-    dcL.forEach(l=>html+=eRow(l));
-    html+=tRow('totalDC','Total Direct Costs',Math.abs(bk.dcTot.total),'#B8860B');
+    dcL.forEach(l=>html+=eRowPair(l));
+    html+=cRowPair('totalDC','Total Direct Costs',tDAct12,'#F4F8F6',false,'#B8860B');
     html+=sp();
-    html+=sRow('gp','Gross Profit',bk.gpTot.total);
+    html+=cRowPair('gp','Gross Profit',gpAct12,'#E8F0ED',true);
     html+=sp();
     html+=sHdr('Operating Expenses','#8E44AD');
-    html+=eRow(sgaLine);
+    html+=eRowPair(sgaLine);
     html+=sp();
-    html+=sRow('ebitda','EBITDA',bk.ebitda.total);
+    html+=cRowPair('ebitda','EBITDA',eAct12,'#E8F0ED',true);
     html+=sp();
-    if(bk.ceaTot.total!==0||b('cea')!==0){html+=eRow(ceaLine);html+=sp();}
-    html+=sRow('net','Net Income',bk.netInc.total);
+    if(bk.ceaTot.total!==0||sum(bArr('cea'))!==0){html+=eRowPair(ceaLine);html+=sp();}
+    html+=cRowPair('net','Net Income',nAct12,'#E8F0ED',true);
     html+='</tbody>';
 
     document.getElementById('bvaTable').innerHTML=html;
@@ -6144,12 +6195,18 @@ async function renderBVA(){
     if(isOwner){
       document.getElementById('bvaTable').querySelectorAll('input[data-bva]').forEach(inp=>{
         inp.addEventListener('input',e=>{
-          budget[e.target.dataset.bva]=parseFloat(e.target.value||0)||0;
+          const key=e.target.dataset.bva, mo=parseInt(e.target.dataset.mo,10);
+          budget[key][mo]=parseFloat(e.target.value||0)||0;
           _bvaSave(_bvaYear,budget);
           _bvaLiveUpdate();
         });
       });
-      if(rb) rb.onclick=()=>{localStorage.removeItem('rx_bva_'+_bvaYear);renderBVA();};
+      if(rb) rb.onclick=()=>{
+        localStorage.removeItem('rx_bva_'+_bvaYear);
+        _BVA_LINES.forEach(l=>budget[l.key]=Array(12).fill(0));
+        document.getElementById('bvaTable').querySelectorAll('input[data-bva]').forEach(inp=>inp.value=0);
+        _bvaLiveUpdate();
+      };
     }
   } catch(err){
     console.error('BVA render failed:',err);
