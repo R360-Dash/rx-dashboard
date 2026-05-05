@@ -6123,72 +6123,99 @@ function _bvaBuildTable1(bk, budget, mns, nM){
   const gpAct12=_bvaPad(bk.gpTot?.monthly);
   const eAct12=_bvaPad(bk.ebitda?.monthly);
   const nAct12=_bvaPad(bk.netInc?.monthly);
+  const sgaAct12=aArr('sga');
 
-  const stkHdr=`position:sticky;left:0;z-index:15;background:#fff;text-align:left;padding:6px 10px;font-size:10px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;box-shadow:2px 0 5px rgba(0,0,0,.06);min-width:160px`;
+  // Last month index that has actual data
+  let lastIdx=-1;
+  for(let i=0;i<12;i++){
+    if(Math.abs(tRAct12[i])>0.01||Math.abs(tDAct12[i])>0.01||Math.abs(sgaAct12[i])>0.01) lastIdx=i;
+  }
+
   const stk=bg=>`position:sticky;left:0;z-index:1;background:${bg||'#fff'};box-shadow:2px 0 5px rgba(0,0,0,.06);min-width:160px`;
-  const cs=`text-align:right;padding:3px 6px;font-size:11px;font-family:'Source Sans 3',monospace`;
-  const hcs=`text-align:right;padding:6px 6px;font-size:10px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.03em`;
-  const totCs=`text-align:right;padding:3px 10px;font-size:11px;font-family:'Source Sans 3',monospace;font-weight:700;border-left:2px solid #C8DAD6`;
+  const stkHdr=`position:sticky;left:0;z-index:15;background:#fff;text-align:left;padding:6px 10px;font-size:10px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;box-shadow:2px 0 5px rgba(0,0,0,.06);min-width:160px`;
+  const mcs=`text-align:right;padding:3px 4px;font-size:11px;font-family:'Source Sans 3',monospace;white-space:nowrap`;
+  const hcs=`text-align:center;padding:4px 3px;font-size:9px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.03em`;
+  const acs1=`text-align:right;padding:3px 6px;font-size:11px;font-family:'Source Sans 3',monospace;white-space:nowrap;border-left:2px solid #1B4D4A`;
+  const acs=`text-align:right;padding:3px 6px;font-size:11px;font-family:'Source Sans 3',monospace;white-space:nowrap`;
+
+  function annV(bdg12,act12){
+    const ytd=lastIdx>=0?sum(act12.slice(0,lastIdx+1)):0;
+    const rem=sum(bdg12.slice(Math.max(0,lastIdx+1)));
+    const full=ytd+rem;
+    const annBdg=sum(bdg12);
+    return {ytd,rem,full,annBdg,v:full-annBdg};
+  }
 
   function sHdr(lbl,col){
-    return `<tr><td style="${stk()};padding:7px 10px 3px;font-weight:800;color:${col||'#1B4D4A'};font-size:11px;font-style:italic;text-transform:uppercase;letter-spacing:0.04em">${lbl}</td><td colspan="${nM+1}" style="${cs}"></td></tr>`;
+    return `<tr><td style="${stk()};padding:7px 10px 3px;font-weight:800;color:${col||'#1B4D4A'};font-size:11px;font-style:italic;text-transform:uppercase;letter-spacing:0.04em">${lbl}</td><td colspan="${nM*2+5}" style="padding:0"></td></tr>`;
   }
-  function rowPair(label, bArr12, aArr12, indent, color){
-    const ind=indent?'padding:3px 10px 3px 20px':'padding:3px 10px';
-    const col=color||'#0D2B29';
-    let bRow=`<tr><td style="${stk()};${ind};color:${col};font-size:11px;font-weight:500"><span style="font-size:9px;font-weight:700;color:#7BA69E;background:#EEF5F3;padding:1px 4px;border-radius:3px;margin-right:4px">BDG</span>${label}</td>`;
-    for(let i=0;i<nM;i++) bRow+=`<td style="${cs};color:${col}">${_bvaFmtN(bArr12[i])}</td>`;
-    bRow+=`<td style="${totCs};color:${col}">${_bvaFmtN(sum(bArr12))}</td></tr>`;
-    let aRow=`<tr style="background:#FAFCFB"><td style="${stk('#FAFCFB')};${ind};color:#7BA69E;font-size:10px"><span style="font-size:9px;font-weight:700;opacity:0.7;margin-right:4px">ACT</span>${label}</td>`;
-    for(let i=0;i<nM;i++) aRow+=`<td style="${cs};color:#7BA69E">${_bvaFmtN(aArr12[i])}</td>`;
-    aRow+=`<td style="${totCs};color:#5A9A8E;font-weight:600">${_bvaFmtN(sum(aArr12))}</td></tr>`;
-    return bRow+aRow;
-  }
-  function totalRowPair(label, bArr12, aArr12, color){
-    const col=color||'#1B4D4A';
-    let bRow=`<tr style="background:#F4F8F6"><td style="${stk('#F4F8F6')};padding:4px 10px;font-weight:700;color:${col};font-size:11px">${label}</td>`;
-    for(let i=0;i<nM;i++) bRow+=`<td style="${cs};font-weight:600;color:${col}">${_bvaFmtN(bArr12[i])}</td>`;
-    bRow+=`<td style="${totCs};color:${col}">${_bvaFmtN(sum(bArr12))}</td></tr>`;
-    let aRow=`<tr style="background:#F4F8F6"><td style="${stk('#F4F8F6')};padding:2px 10px;font-size:10px;color:${col};opacity:0.75"><span style="font-size:9px;font-weight:700;margin-right:4px">ACT</span>${label}</td>`;
-    for(let i=0;i<nM;i++) aRow+=`<td style="${cs};color:${col};font-weight:500">${_bvaFmtN(aArr12[i])}</td>`;
-    aRow+=`<td style="${totCs};color:${col};font-weight:600">${_bvaFmtN(sum(aArr12))}</td></tr>`;
-    return bRow+aRow;
-  }
-  function summaryRowPair(label, bArr12, aArr12){
-    const actTotal=sum(aArr12), actColor=actTotal>=0?'#1B7A3D':'#C0392B';
-    let bRow=`<tr style="background:#E8F0ED"><td style="${stk('#E8F0ED')};padding:5px 10px;font-weight:800;color:#1B4D4A;font-size:11px;text-transform:uppercase;letter-spacing:0.04em">${label}</td>`;
-    for(let i=0;i<nM;i++) bRow+=`<td style="${cs};font-weight:600;color:#1B4D4A">${_bvaFmtN(bArr12[i])}</td>`;
-    bRow+=`<td style="${totCs};color:#1B4D4A">${_bvaFmtN(sum(bArr12))}</td></tr>`;
-    let aRow=`<tr style="background:#E8F0ED"><td style="${stk('#E8F0ED')};padding:2px 10px;font-size:10px;color:${actColor};opacity:0.85"><span style="font-size:9px;font-weight:700;margin-right:4px">ACT</span>${label}</td>`;
-    for(let i=0;i<nM;i++) aRow+=`<td style="${cs};color:${actColor};font-weight:600">${_bvaFmtN(aArr12[i])}</td>`;
-    aRow+=`<td style="${totCs};color:${actColor};font-weight:800">${_bvaFmtN(actTotal)}</td></tr>`;
-    return bRow+aRow;
-  }
-  const sp=()=>`<tr><td colspan="${nM+2}" style="padding:3px 0"></td></tr>`;
 
-  let html=`<thead><tr><th style="${stkHdr}"></th>`;
-  mns.forEach(m=>html+=`<th style="${hcs}">${m}</th>`);
-  html+=`<th style="${hcs};border-left:2px solid #C8DAD6;color:#1B4D4A">Total</th></tr></thead><tbody>`;
+  function row(label,bdg12,act12,opts){
+    const o=Object.assign({lc:'#0D2B29',fw:'500',indent:false,bg:'#fff',summary:false},opts||{});
+    const ind=o.indent?'padding:3px 10px 3px 22px':'padding:3px 10px';
+    const av=annV(bdg12,act12);
+    let r=`<tr style="background:${o.bg}"><td style="${stk(o.bg)};${ind};color:${o.lc};font-size:11px;font-weight:${o.fw}">${label}</td>`;
+    for(let i=0;i<nM;i++){
+      r+=`<td style="${mcs};color:${o.lc};font-weight:${o.fw}">${_bvaFmtN(bdg12[i])}</td>`;
+      if(i<=lastIdx){
+        const aVal=act12[i];
+        const ac=o.summary?(aVal>=0?'#1B7A3D':'#C0392B'):'#1B7A4B';
+        r+=`<td style="${mcs};color:${ac};font-weight:${o.fw}">${_bvaFmtN(aVal)}</td>`;
+      } else {
+        r+=`<td style="${mcs};color:#C8DAD6;font-weight:400">—</td>`;
+      }
+    }
+    const vc=av.v>=0?'#1B7A3D':'#C0392B';
+    r+=`<td style="${acs1};color:${o.lc};font-weight:${o.fw}">${_bvaFmtN(av.ytd)}</td>`;
+    r+=`<td style="${acs};color:${o.lc};font-weight:${o.fw};opacity:0.7">${_bvaFmtN(av.rem)}</td>`;
+    r+=`<td style="${acs};color:${o.lc};font-weight:700">${_bvaFmtN(av.full)}</td>`;
+    r+=`<td style="${acs};color:${o.lc};font-weight:${o.fw};opacity:0.6">${_bvaFmtN(av.annBdg)}</td>`;
+    r+=`<td style="${acs};color:${vc};font-weight:700;background:${av.v>=0?'#E8F5EE':'#FDEAEA'}">${_bvaFmtN(av.v)}</td>`;
+    r+=`</tr>`;
+    return r;
+  }
+
+  const sp=()=>`<tr><td colspan="${nM*2+6}" style="padding:2px 0;background:#F9FBFA"></td></tr>`;
+
+  // 2-row header: month names (colspan=2) + annual section headers (rowspan=2)
+  let html=`<thead><tr><th style="${stkHdr}" rowspan="2"></th>`;
+  for(let i=0;i<nM;i++){
+    const cl=i<=lastIdx?';background:#EEF5F3':'';
+    html+=`<th colspan="2" style="${hcs}${cl}">${mns[i]}</th>`;
+  }
+  html+=`<th style="text-align:center;padding:4px 6px;font-size:9px;color:#1B4D4A;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;border-left:2px solid #1B4D4A" rowspan="2">YTD<br>Actual</th>`;
+  html+=`<th style="text-align:center;padding:4px 6px;font-size:9px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.03em" rowspan="2">Remaining<br>BDG</th>`;
+  html+=`<th style="text-align:center;padding:4px 6px;font-size:9px;color:#1B4D4A;font-weight:700;text-transform:uppercase;letter-spacing:0.03em" rowspan="2">Full Year<br>Est.</th>`;
+  html+=`<th style="text-align:center;padding:4px 6px;font-size:9px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.03em" rowspan="2">Annual<br>BDG</th>`;
+  html+=`<th style="text-align:center;padding:4px 6px;font-size:9px;color:#1B4D4A;font-weight:700;text-transform:uppercase;letter-spacing:0.03em" rowspan="2">Variance</th>`;
+  html+=`</tr><tr>`;
+  for(let i=0;i<nM;i++){
+    const cl=i<=lastIdx?';background:#EEF5F3':'';
+    html+=`<th style="${hcs};color:#B8D0C8${cl}">BDG</th>`;
+    html+=`<th style="${hcs};color:${i<=lastIdx?'#1B7A4B':'#C8DAD6'}${cl}">ACT</th>`;
+  }
+  html+=`</tr></thead><tbody>`;
+
   html+=sHdr('Revenues','#1B4D4A');
-  revL.forEach(l=>html+=rowPair(l.label,bArr(l.key),aArr(l.key),true,'#0D2B29'));
-  html+=totalRowPair('Total Revenues',tRB,tRAct12,'#1B4D4A');
+  revL.forEach(l=>html+=row(l.label,bArr(l.key),aArr(l.key),{indent:true,lc:'#0D2B29'}));
+  html+=row('Total Revenues',tRB,tRAct12,{lc:'#1B4D4A',bg:'#F4F8F6',fw:'700'});
   html+=sp();
   html+=sHdr('Direct Costs','#B8860B');
-  dcL.forEach(l=>html+=rowPair(l.label,bArr(l.key),aArr(l.key),true,'#8B6914'));
-  html+=totalRowPair('Total Direct Costs',tDB,tDAct12,'#B8860B');
+  dcL.forEach(l=>html+=row(l.label,bArr(l.key),aArr(l.key),{indent:true,lc:'#8B6914'}));
+  html+=row('Total Direct Costs',tDB,tDAct12,{lc:'#B8860B',bg:'#F4F8F6',fw:'700'});
   html+=sp();
-  html+=summaryRowPair('Gross Profit',gpB,gpAct12);
+  html+=row('Gross Profit',gpB,gpAct12,{lc:'#1B4D4A',bg:'#E8F0ED',fw:'800',summary:true});
   html+=sp();
   html+=sHdr('Operating Expenses','#8E44AD');
-  html+=rowPair(sgaLine.label,bArr('sga'),aArr('sga'),true,'#6C3483');
+  html+=row(sgaLine.label,bArr('sga'),sgaAct12,{indent:true,lc:'#6C3483'});
   html+=sp();
-  html+=summaryRowPair('EBITDA',eB,eAct12);
+  html+=row('EBITDA',eB,eAct12,{lc:'#1B4D4A',bg:'#E8F0ED',fw:'800',summary:true});
   html+=sp();
   if(bk.ceaTot.total!==0||sum(bArr('cea'))!==0){
-    html+=rowPair(ceaLine.label,bArr('cea'),aArr('cea'),true,'#6C3483');
+    html+=row(ceaLine.label,bArr('cea'),aArr('cea'),{indent:true,lc:'#6C3483'});
     html+=sp();
   }
-  html+=summaryRowPair('Net Income',nB,nAct12);
+  html+=row('Net Income',nB,nAct12,{lc:'#1B4D4A',bg:'#E8F0ED',fw:'800',summary:true});
   html+='</tbody>';
   return html;
 }
