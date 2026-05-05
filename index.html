@@ -468,7 +468,8 @@ tr:hover td{background:#E8F0ED}
         <button data-yr="2024">2024</button><button data-yr="2025">2025</button><button class="active" data-yr="2026">2026</button><button data-yr="2027">2027</button>
       </div>
     </div>
-    <div id="bvaHelp" style="font-size:12px;color:#7BA69E;padding:0 4px 12px"></div>
+    <div id="bvaHelp" style="font-size:12px;color:#7BA69E;padding:0 4px 8px"></div>
+    <div id="bvaMonthFilterBar" style="padding:0 4px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"></div>
     <div class="card" style="padding:0"><div class="ar-wrap"><table id="bvaTable1" style="width:100%"></table></div></div>
   </div>
   <div id="bvaSec2" class="section" style="display:none">
@@ -5996,6 +5997,7 @@ function _bindYearToggle(toggleId, setter, rerender){
 let _bvaYear = 2026;
 let _bvaYear2 = 2026;
 let _bvaState = null;
+let _bvaMonthFilter = null;
 
 const _BVA_LINES = [
   {key:'showSponsors',       label:'Show Sponsors',                section:'rev'},
@@ -6103,7 +6105,7 @@ function _bvaRenderSnaps(y,isOwner){
   });
 }
 
-function _bvaBuildTable1(bk, budget, mns, nM){
+function _bvaBuildTable1(bk, budget, mns, nM, monthFilter){
   const bArr=k=>budget[k]||Array(12).fill(0);
   const aArr=k=>_bvaActualMonthly(bk,k);
   const sum=arr=>arr.reduce((t,v)=>t+v,0);
@@ -6131,6 +6133,9 @@ function _bvaBuildTable1(bk, budget, mns, nM){
     if(Math.abs(tRAct12[i])>0.01||Math.abs(tDAct12[i])>0.01||Math.abs(sgaAct12[i])>0.01) lastIdx=i;
   }
 
+  const mf=monthFilter;  // null = all months, 0-11 = single month
+  const mCols=mf!=null?2:nM*2;
+
   const stk=bg=>`position:sticky;left:0;z-index:1;background:${bg||'#fff'};box-shadow:2px 0 5px rgba(0,0,0,.06);min-width:160px`;
   const stkHdr=`position:sticky;left:0;z-index:15;background:#fff;text-align:left;padding:6px 10px;font-size:10px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;box-shadow:2px 0 5px rgba(0,0,0,.06);min-width:160px`;
   const mcs=`text-align:right;padding:3px 4px;font-size:11px;font-family:'Source Sans 3',monospace;white-space:nowrap`;
@@ -6147,7 +6152,7 @@ function _bvaBuildTable1(bk, budget, mns, nM){
   }
 
   function sHdr(lbl,col){
-    return `<tr><td style="${stk()};padding:7px 10px 3px;font-weight:800;color:${col||'#1B4D4A'};font-size:11px;font-style:italic;text-transform:uppercase;letter-spacing:0.04em">${lbl}</td><td colspan="${nM*2+5}" style="padding:0"></td></tr>`;
+    return `<tr><td style="${stk()};padding:7px 10px 3px;font-weight:800;color:${col||'#1B4D4A'};font-size:11px;font-style:italic;text-transform:uppercase;letter-spacing:0.04em">${lbl}</td><td colspan="${mCols+5}" style="padding:0"></td></tr>`;
   }
 
   function row(label,bdg12,act12,opts){
@@ -6156,6 +6161,7 @@ function _bvaBuildTable1(bk, budget, mns, nM){
     const av=annV(bdg12,act12);
     let r=`<tr style="background:${o.bg}"><td style="${stk(o.bg)};${ind};color:${o.lc};font-size:11px;font-weight:${o.fw}">${label}</td>`;
     for(let i=0;i<nM;i++){
+      if(mf!=null&&mf!==i) continue;
       r+=`<td style="${mcs};color:${o.lc};font-weight:${o.fw}">${_bvaFmtN(bdg12[i])}</td>`;
       if(i<=lastIdx){
         const aVal=act12[i];
@@ -6175,11 +6181,12 @@ function _bvaBuildTable1(bk, budget, mns, nM){
     return r;
   }
 
-  const sp=()=>`<tr><td colspan="${nM*2+6}" style="padding:2px 0;background:#F9FBFA"></td></tr>`;
+  const sp=()=>`<tr><td colspan="${mCols+6}" style="padding:2px 0;background:#F9FBFA"></td></tr>`;
 
   // 2-row header: month names (colspan=2) + annual section headers (rowspan=2)
   let html=`<thead><tr><th style="${stkHdr}" rowspan="2"></th>`;
   for(let i=0;i<nM;i++){
+    if(mf!=null&&mf!==i) continue;
     const cl=i<=lastIdx?';background:#EEF5F3':'';
     html+=`<th colspan="2" style="${hcs}${cl}">${mns[i]}</th>`;
   }
@@ -6190,6 +6197,7 @@ function _bvaBuildTable1(bk, budget, mns, nM){
   html+=`<th style="text-align:center;padding:4px 6px;font-size:9px;color:#1B4D4A;font-weight:700;text-transform:uppercase;letter-spacing:0.03em" rowspan="2">Variance</th>`;
   html+=`</tr><tr>`;
   for(let i=0;i<nM;i++){
+    if(mf!=null&&mf!==i) continue;
     const cl=i<=lastIdx?';background:#EEF5F3':'';
     html+=`<th style="${hcs};color:#B8D0C8${cl}">BDG</th>`;
     html+=`<th style="${hcs};color:${i<=lastIdx?'#1B7A4B':'#C8DAD6'}${cl}">ACT</th>`;
@@ -6226,7 +6234,7 @@ function _bvaLiveUpdate(){
 
   // Re-render Table 1 using budget1 (T1 year actuals vs T1 year budget)
   const t1=document.getElementById('bvaTable1');
-  if(t1) t1.innerHTML=_bvaBuildTable1(bk,budget1,mns,nM);
+  if(t1) t1.innerHTML=_bvaBuildTable1(bk,budget1,mns,nM,_bvaMonthFilter);
 
   const bArr1=k=>budget1[k]||Array(12).fill(0);
   const bArr2=k=>budget2[k]||Array(12).fill(0);
@@ -6380,6 +6388,21 @@ async function renderBVA(){
     // Render Table 1 + KPIs
     _bvaLiveUpdate();
 
+    // Month filter bar
+    const fb=document.getElementById('bvaMonthFilterBar');
+    if(fb){
+      let fhtml=`<span style="font-size:11px;color:#7BA69E;font-weight:600;white-space:nowrap">Month:</span><div class="hs-pipeline-toggle" id="bvaMonthFilterToggle" style="margin:0;flex-wrap:wrap"><button class="${_bvaMonthFilter===null?'active':''}" data-mo="all">All</button>`;
+      for(let i=0;i<nM;i++) fhtml+=`<button class="${_bvaMonthFilter===i?'active':''}" data-mo="${i}">${mns[i]}</button>`;
+      fhtml+=`</div>`;
+      fb.innerHTML=fhtml;
+      document.getElementById('bvaMonthFilterToggle').addEventListener('click',e=>{
+        const btn=e.target.closest('button'); if(!btn) return;
+        _bvaMonthFilter=btn.dataset.mo==='all'?null:parseInt(btn.dataset.mo,10);
+        document.getElementById('bvaMonthFilterToggle')?.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===btn));
+        _bvaLiveUpdate();
+      });
+    }
+
     if(isOwner){
       document.getElementById('bvaTable2').querySelectorAll('input[data-bva]').forEach(inp=>{
         inp.addEventListener('input',e=>{
@@ -6426,7 +6449,7 @@ window.renderBVA=renderBVA;
   });
 })();
 
-_bindYearToggle('bvaYearToggle1', y=>_bvaYear=y, renderBVA);
+_bindYearToggle('bvaYearToggle1', y=>{_bvaYear=y;_bvaMonthFilter=null;}, renderBVA);
 _bindYearToggle('bvaYearToggle2', y=>_bvaYear2=y, renderBVA);
 _bindYearToggle('plYearToggle', y=>_plYear=y, renderPL);
 _bindYearToggle('cfYearToggle', y=>_cfYear=y, renderCashFlow);
