@@ -477,7 +477,7 @@ tr:hover td{background:#E8F0ED}
     </div>
     <div id="bvaHelp" style="font-size:12px;color:#7BA69E;padding:0 4px 8px"></div>
     <div id="bvaMonthFilterBar" style="padding:0 4px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"></div>
-    <div class="card" style="padding:0"><div class="ar-wrap"><table id="bvaTable1" style="width:100%"></table></div></div>
+    <div class="card" style="padding:0"><div class="ar-wrap"><table id="bvaTable1" style="table-layout:fixed"></table></div></div>
   </div>
   <div id="bvaSec2" class="section" style="display:none">
     <div class="section-header" style="justify-content:space-between">
@@ -6138,15 +6138,18 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter){
   }
 
   const mf=monthFilter;  // null = all months, 0-11 = single month
-  const mCols=mf!=null?2:nM*2;
+  const mCols=mf!=null?4:nM*4;  // 4 sub-cols per month: BDG, ACT, VAR$, VAR%
+  const LABEL_W=130;
+  const NUM_W=72;
 
-  const COL_W=`width:72px;min-width:72px`;
-  const stk=bg=>`position:sticky;left:0;z-index:1;background:${bg||'#fff'};box-shadow:2px 0 5px rgba(0,0,0,.06);min-width:120px`;
-  const stkHdr=`position:sticky;left:0;z-index:15;background:#fff;text-align:left;padding:6px 10px;font-size:10px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;box-shadow:2px 0 5px rgba(0,0,0,.06);min-width:120px`;
-  const mcs=`text-align:right;padding:3px 6px;font-size:11px;font-family:'Source Sans 3',monospace;white-space:nowrap;${COL_W}`;
-  const hcs=`text-align:center;padding:4px 3px;font-size:9px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;${COL_W}`;
-  const acs1=`text-align:right;padding:3px 6px;font-size:11px;font-family:'Source Sans 3',monospace;white-space:nowrap;border-left:2px solid #1B4D4A;${COL_W}`;
-  const acs=`text-align:right;padding:3px 6px;font-size:11px;font-family:'Source Sans 3',monospace;white-space:nowrap;${COL_W}`;
+  const stk=bg=>`position:sticky;left:0;z-index:1;background:${bg||'#fff'};box-shadow:2px 0 5px rgba(0,0,0,.06);width:${LABEL_W}px;max-width:${LABEL_W}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap`;
+  const stkHdr=`position:sticky;left:0;z-index:15;background:#fff;text-align:left;padding:6px 10px;font-size:10px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;box-shadow:2px 0 5px rgba(0,0,0,.06);width:${LABEL_W}px;max-width:${LABEL_W}px`;
+  const CW=`width:${NUM_W}px;min-width:${NUM_W}px`;
+  const mcs=`text-align:right;padding:3px 5px;font-size:11px;font-family:'Source Sans 3',monospace;white-space:nowrap;${CW}`;
+  const hcs=`text-align:center;padding:4px 2px;font-size:9px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.02em;${CW}`;
+  const acs1=`text-align:right;padding:3px 5px;font-size:11px;font-family:'Source Sans 3',monospace;white-space:nowrap;border-left:2px solid #1B4D4A;${CW}`;
+  const acs=`text-align:right;padding:3px 5px;font-size:11px;font-family:'Source Sans 3',monospace;white-space:nowrap;${CW}`;
+  const fmtPct=p=>p===null?'—':(p>=0?'+':'')+p.toFixed(0)+'%';
 
   function annV(bdg12,act12){
     const ytd=lastIdx>=0?sum(act12.slice(0,lastIdx+1)):0;
@@ -6162,7 +6165,7 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter){
 
   function row(label,bdg12,act12,opts){
     const o=Object.assign({lc:'#0D2B29',fw:'500',indent:false,bg:'#fff',summary:false},opts||{});
-    const ind=o.indent?'padding:3px 10px 3px 22px':'padding:3px 10px';
+    const ind=o.indent?'padding:3px 8px 3px 18px':'padding:3px 8px';
     const av=annV(bdg12,act12);
     let r=`<tr style="background:${o.bg}"><td style="${stk(o.bg)};${ind};color:${o.lc};font-size:11px;font-weight:${o.fw}">${label}</td>`;
     for(let i=0;i<nM;i++){
@@ -6171,8 +6174,16 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter){
       if(i<=lastIdx){
         const aVal=act12[i];
         const ac=o.summary?(aVal>=0?'#1B7A3D':'#C0392B'):'#1B7A4B';
+        const varD=aVal-bdg12[i];
+        const varPct=Math.abs(bdg12[i])>0.01?varD/Math.abs(bdg12[i])*100:null;
+        const vc=varD>=0?'#1B7A3D':'#C0392B';
+        const vBg=varD>=0?'#E8F5EE':'#FDEAEA';
         r+=`<td style="${mcs};color:${ac};font-weight:${o.fw}">${_bvaFmtN(aVal)}</td>`;
+        r+=`<td style="${mcs};color:${vc};font-weight:600;background:${vBg}">${_bvaFmtN(varD)}</td>`;
+        r+=`<td style="${mcs};color:${vc};font-weight:600;background:${vBg}">${fmtPct(varPct)}</td>`;
       } else {
+        r+=`<td style="${mcs};color:#C8DAD6;font-weight:400">—</td>`;
+        r+=`<td style="${mcs};color:#C8DAD6;font-weight:400">—</td>`;
         r+=`<td style="${mcs};color:#C8DAD6;font-weight:400">—</td>`;
       }
     }
@@ -6188,12 +6199,18 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter){
 
   const sp=()=>`<tr><td colspan="${mCols+6}" style="padding:2px 0;background:#F9FBFA"></td></tr>`;
 
-  // 2-row header: month names (colspan=2) + annual section headers (rowspan=2)
-  let html=`<thead><tr><th style="${stkHdr}" rowspan="2"></th>`;
+  // colgroup: fixed label width + fixed number column widths
+  const numCols=mCols+5;
+  let html=`<colgroup><col style="width:${LABEL_W}px">`;
+  for(let c=0;c<numCols;c++) html+=`<col style="width:${NUM_W}px">`;
+  html+=`</colgroup>`;
+
+  // 2-row header: month names (colspan=4) + annual section headers (rowspan=2)
+  html+=`<thead><tr><th style="${stkHdr}" rowspan="2"></th>`;
   for(let i=0;i<nM;i++){
     if(mf!=null&&mf!==i) continue;
     const cl=i<=lastIdx?';background:#EEF5F3':'';
-    html+=`<th colspan="2" style="${hcs}${cl}">${mns[i]}</th>`;
+    html+=`<th colspan="4" style="${hcs}${cl}">${mns[i]}</th>`;
   }
   const annTh=(label,color,border)=>`<th style="${hcs};color:${color};font-weight:700${border?';border-left:2px solid #1B4D4A':''}" rowspan="2">${label}</th>`;
   html+=annTh('YTD<br>Actual','#1B4D4A',true);
@@ -6204,9 +6221,12 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter){
   html+=`</tr><tr>`;
   for(let i=0;i<nM;i++){
     if(mf!=null&&mf!==i) continue;
-    const cl=i<=lastIdx?';background:#EEF5F3':'';
+    const closed=i<=lastIdx;
+    const cl=closed?';background:#EEF5F3':'';
     html+=`<th style="${hcs};color:#B8D0C8${cl}">BDG</th>`;
-    html+=`<th style="${hcs};color:${i<=lastIdx?'#1B7A4B':'#C8DAD6'}${cl}">ACT</th>`;
+    html+=`<th style="${hcs};color:${closed?'#1B7A4B':'#C8DAD6'}${cl}">ACT</th>`;
+    html+=`<th style="${hcs};color:${closed?'#1B4D4A':'#C8DAD6'}${cl}">VAR $</th>`;
+    html+=`<th style="${hcs};color:${closed?'#1B4D4A':'#C8DAD6'}${cl}">VAR %</th>`;
   }
   html+=`</tr></thead><tbody>`;
 
