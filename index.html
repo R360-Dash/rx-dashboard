@@ -328,6 +328,10 @@ tr:hover td{background:#E8F0ED}
       <button data-s="2025">2025 Show</button>
       <button data-s="2024">2024 Show</button>
     </div>
+    <div class="toggle" id="plCycleToggle" style="display:none">
+      <button class="active" data-cy="fiscal">Fiscal Year</button>
+      <button data-cy="show">Show Cycle</button>
+    </div>
     <div class="toggle" id="plYearToggle" style="display:none">
       <button data-yr="2023">2023</button>
       <button data-yr="2024">2024</button>
@@ -2338,8 +2342,11 @@ function showPage(id){
   });
   document.getElementById('tog').style.display=(id==='sec-mkt'||id==='sec-cumfirm'||id==='sec-cumsp'||id==='sec-settings'||id==='sec-hsoverview'||id==='sec-hsdeals'||id==='sec-grip'||id==='sec-hsmix'||id==='sec-hsnew'||id==='sec-hsrebooks'||id==='sec-hsmom'||id==='sec-hscumsp'||id==='sec-hscumfirm'||id==='sec-partners'||id==='sec-linkedin'||id==='sec-ga4'||id==='sec-pl'||id==='sec-bva'||id==='sec-cashflow'||id==='sec-revproj'||id==='sec-scenario'||id==='sec-expenses')?'none':'flex';
   // Show page-specific year toggle in header
-  ['plYearToggle','cfYearToggle','bvaYearToggle1'].forEach(t=>{const el=document.getElementById(t);if(el)el.style.display='none';});
-  if(id==='sec-pl'){const el=document.getElementById('plYearToggle');if(el)el.style.display='flex';}
+  ['plCycleToggle','plYearToggle','cfYearToggle','bvaYearToggle1'].forEach(t=>{const el=document.getElementById(t);if(el)el.style.display='none';});
+  if(id==='sec-pl'){
+    const cy=document.getElementById('plCycleToggle');if(cy)cy.style.display='flex';
+    const el=document.getElementById('plYearToggle');if(el)el.style.display='flex';
+  }
   if(id==='sec-cashflow'){const el=document.getElementById('cfYearToggle');if(el)el.style.display='flex';}
   if(id==='sec-bva'){const el=document.getElementById('bvaYearToggle1');if(el)el.style.display='flex';}
   // Hide 2024 button on rebooks page
@@ -4709,7 +4716,9 @@ function groupByCategory(leafs){
 
 let _plYear = 2026;
 let _plView = 'yoy';  // 'yoy' | 'yearly' | 'monthly'
-const PL_YEARS = [2023, 2024, 2025, 2026];  // years to include in Yearly view
+let _plCycleMode = 'fiscal'; // 'fiscal' | 'show'
+const PL_YEARS = [2023, 2024, 2025, 2026];
+const SC_YEARS  = [2024, 2025, 2026]; // Show Cycle years (need Y-1 data, so 2023 start = SC2024)
 
 // Build a complete P&L breakdown from a parsed QBO report
 function _buildPLBreakdown(parsed){
@@ -4765,6 +4774,69 @@ function _buildPLBreakdown(parsed){
   return { parsed, revByCat, revTot, dcByCat, dcTot, sgaByCat, sgaTot, ceaByCat, ceaTot, uncatByCat, uncatTot, gpTot, ebitda, netInc };
 }
 
+// Build a synthetic parsed object spanning Apr(prevYear) – Mar(currYear).
+// parsedPrev = allBreakdowns[Y-1].parsed, parsedCurr = allBreakdowns[Y].parsed
+function _buildShowCycleParsed(parsedPrev, parsedCurr){
+  const monthLabels = ['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
+  const N = 12;
+
+  function slice9(monthly){ // Apr-Dec from a calendar year (indices 3..11)
+    const s = (monthly||[]).slice(3,12);
+    while(s.length<9) s.push(0);
+    return s;
+  }
+  function slice3(monthly){ // Jan-Mar from a calendar year (indices 0..2)
+    const s = (monthly||[]).slice(0,3);
+    while(s.length<3) s.push(0);
+    return s;
+  }
+
+  function mergeLeafs(prevLeafs, currLeafs){
+    const map = {};
+    (prevLeafs||[]).forEach(l=>{
+      map[l.label]={ label:l.label, category:l.category,
+        monthly:[...slice9(l.monthly), 0,0,0], total:0 };
+    });
+    (currLeafs||[]).forEach(l=>{
+      if(!map[l.label]){
+        map[l.label]={ label:l.label, category:l.category,
+          monthly:[...Array(9).fill(0), ...slice3(l.monthly)], total:0 };
+      } else {
+        const cs=slice3(l.monthly);
+        cs.forEach((v,i)=>{ map[l.label].monthly[9+i]=v; });
+      }
+    });
+    return Object.values(map).map(l=>{ l.total=l.monthly.reduce((a,b)=>a+b,0); return l; });
+  }
+
+  function mergeSection(secPrev, secCurr){
+    const label=(secPrev||secCurr).label;
+    const leafs=mergeLeafs(secPrev?.leafs, secCurr?.leafs);
+    const monthly=Array(N).fill(0);
+    leafs.forEach(l=>l.monthly.forEach((v,i)=>monthly[i]+=v));
+    return { label, leafs, total:monthly.reduce((a,b)=>a+b,0), monthly };
+  }
+
+  const sectionLabels=[], sectionMap={};
+  [parsedPrev,parsedCurr].forEach(p=>{
+    if(!p) return;
+    p.topSections.forEach(s=>{ if(!sectionMap[s.label]){ sectionMap[s.label]={}; sectionLabels.push(s.label); } });
+  });
+  if(parsedPrev) parsedPrev.topSections.forEach(s=>sectionMap[s.label].prev=s);
+  if(parsedCurr) parsedCurr.topSections.forEach(s=>sectionMap[s.label].curr=s);
+
+  const topSections=sectionLabels.map(lbl=>mergeSection(sectionMap[lbl].prev||null, sectionMap[lbl].curr||null));
+  return { topSections, summaries:[], monthLabels };
+}
+
+function _buildShowCycleBreakdown(allBreakdowns, year){
+  const parsedPrev = allBreakdowns[year-1]?.parsed || null;
+  const parsedCurr = allBreakdowns[year]?.parsed   || null;
+  if(!parsedPrev && !parsedCurr) return null;
+  return _buildPLBreakdown(_buildShowCycleParsed(parsedPrev, parsedCurr));
+}
+
+
 // Format YoY % delta with arrow
 function _yoyBadge(curVal, priorVal){
   if(priorVal == null || priorVal === undefined || !isFinite(priorVal)) return '';
@@ -4801,13 +4873,26 @@ async function renderPL(){
       }
     });
 
-    const cur = allBreakdowns[_plYear];
+    // Build Show Cycle breakdowns (Apr Y-1 → Mar Y) from the already-fetched fiscal data
+    const showCycleBreakdowns = {};
+    SC_YEARS.forEach(y => {
+      const b = _buildShowCycleBreakdown(allBreakdowns, y);
+      if(b) showCycleBreakdowns[y] = b;
+    });
+
+    // Auto-clamp year: SC mode has no 2023 (would need 2022 data)
+    if(_plCycleMode === 'show' && _plYear < SC_YEARS[0]) _plYear = SC_YEARS[0];
+
+    const activeBreakdowns = _plCycleMode === 'show' ? showCycleBreakdowns : allBreakdowns;
+    const activeYears      = _plCycleMode === 'show' ? SC_YEARS : PL_YEARS;
+
+    const cur = activeBreakdowns[_plYear];
     if(!cur){
       document.getElementById('plKpis').innerHTML = '<div style="color:#C0392B;padding:16px">No data returned for '+_plYear+'</div>';
       return;
     }
     const priorYear = _plYear - 1;
-    const prior = allBreakdowns[priorYear] || null;
+    const prior = activeBreakdowns[priorYear] || null;
 
     if(updEl) updEl.textContent = 'Last synced: ' + new Date(allData.find(d=>d)?.ts || Date.now()).toLocaleString();
 
@@ -4836,8 +4921,15 @@ async function renderPL(){
 
     // Render all three tables — only one is visible at a time
     renderPLYoYTable('plYoyTable', cur, prior, _plYear, priorYear);
-    renderPLYearlyTable('plYearlyTable', allBreakdowns);
+    renderPLYearlyTable('plYearlyTable', activeBreakdowns, activeYears);
     renderCondensedPL('plTable', cur, prior, priorYear);
+
+    // Sync year toggle active state (in case year was clamped)
+    document.getElementById('plYearToggle')?.querySelectorAll('button').forEach(b=>{
+      const yr = parseInt(b.dataset.yr,10);
+      b.classList.toggle('active', yr===_plYear);
+      b.style.display = (_plCycleMode==='show' && yr<SC_YEARS[0]) ? 'none' : '';
+    });
 
     // Update title + show only the active view
     _plUpdateView(_plYear, priorYear);
@@ -4849,9 +4941,14 @@ async function renderPL(){
 }
 
 function _plUpdateView(curYear, priorYear){
-  const titles = {
-    yoy: `Year-over-Year Comparison — ${priorYear} vs ${curYear}`,
-    yearly: 'All Years Comparison',
+  const isShow = _plCycleMode === 'show';
+  const titles = isShow ? {
+    yoy:     `Show Cycle — ${priorYear} vs ${curYear} (Apr–Mar)`,
+    yearly:  'All Show Cycles Comparison',
+    monthly: `Show Cycle ${curYear} (Apr ${curYear-1} – Mar ${curYear}) — Monthly`
+  } : {
+    yoy:     `Year-over-Year Comparison — ${priorYear} vs ${curYear}`,
+    yearly:  'All Years Comparison',
     monthly: `Monthly Detail — ${curYear}`
   };
   const titleEl = document.getElementById('plViewTitle');
@@ -5081,11 +5178,11 @@ function renderPLYoYTable(tableId, cur, prior, curYear, priorYear){
 }
 
 // ── All Years Comparison ──
-function renderPLYearlyTable(tableId, allBreakdowns){
+function renderPLYearlyTable(tableId, allBreakdowns, yearsOverride){
   const table = document.getElementById(tableId);
   if(!table) return;
 
-  const years = PL_YEARS.filter(y => allBreakdowns[y]);
+  const years = (yearsOverride || PL_YEARS).filter(y => allBreakdowns[y]);
   if(years.length === 0){ table.innerHTML = ''; return; }
 
   const refYear = years[years.length - 1];
@@ -6484,6 +6581,13 @@ _bindYearToggle('bvaYearToggle1', y=>{_bvaYear=y;_bvaMonthFilter=null;}, renderB
 _bindYearToggle('bvaYearToggle2', y=>_bvaYear2=y, renderBVA);
 _bindYearToggle('plYearToggle', y=>_plYear=y, renderPL);
 _bindYearToggle('cfYearToggle', y=>_cfYear=y, renderCashFlow);
+
+document.getElementById('plCycleToggle')?.addEventListener('click', e=>{
+  const btn=e.target.closest('button[data-cy]'); if(!btn) return;
+  _plCycleMode=btn.dataset.cy;
+  document.getElementById('plCycleToggle')?.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===btn));
+  renderPL();
+});
 
 window.renderPL = renderPL;
 window.renderCashFlow = renderCashFlow;
