@@ -6138,7 +6138,7 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter){
 
   const stk=bg=>`position:sticky;left:0;z-index:1;background:${bg||'#fff'};box-shadow:2px 0 5px rgba(0,0,0,.06);min-width:160px`;
   const stkHdr=`position:sticky;left:0;z-index:15;background:#fff;text-align:left;padding:6px 10px;font-size:10px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;box-shadow:2px 0 5px rgba(0,0,0,.06);min-width:160px`;
-  const mcs=`text-align:right;padding:3px 4px;font-size:11px;font-family:'Source Sans 3',monospace;white-space:nowrap`;
+  const mcs=`text-align:right;padding:3px 6px;font-size:11px;font-family:'Source Sans 3',monospace;white-space:nowrap;min-width:65px`;
   const hcs=`text-align:center;padding:4px 3px;font-size:9px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.03em`;
   const acs1=`text-align:right;padding:3px 6px;font-size:11px;font-family:'Source Sans 3',monospace;white-space:nowrap;border-left:2px solid #1B4D4A`;
   const acs=`text-align:right;padding:3px 6px;font-size:11px;font-family:'Source Sans 3',monospace;white-space:nowrap`;
@@ -6199,8 +6199,8 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter){
   for(let i=0;i<nM;i++){
     if(mf!=null&&mf!==i) continue;
     const cl=i<=lastIdx?';background:#EEF5F3':'';
-    html+=`<th style="${hcs};color:#B8D0C8${cl}">BDG</th>`;
-    html+=`<th style="${hcs};color:${i<=lastIdx?'#1B7A4B':'#C8DAD6'}${cl}">ACT</th>`;
+    html+=`<th style="${hcs};color:#B8D0C8;min-width:65px${cl}">BDG</th>`;
+    html+=`<th style="${hcs};color:${i<=lastIdx?'#1B7A4B':'#C8DAD6'};min-width:65px${cl}">ACT</th>`;
   }
   html+=`</tr></thead><tbody>`;
 
