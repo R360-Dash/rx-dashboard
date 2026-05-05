@@ -6165,9 +6165,11 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter){
   }
 
   function row(label,bdg12,act12,opts){
-    const o=Object.assign({lc:'#0D2B29',fw:'500',indent:false,bg:'#fff',summary:false},opts||{});
+    const o=Object.assign({lc:'#0D2B29',fw:'500',indent:false,bg:'#fff',summary:false,isCost:false},opts||{});
     const ind=o.indent?'padding:3px 8px 3px 18px':'padding:3px 8px';
     const av=annV(bdg12,act12);
+    // For cost rows, favourable = spending LESS than budget (varD <= 0)
+    const good=(delta)=>o.isCost ? delta<=0 : delta>=0;
     let r=`<tr style="background:${o.bg}"><td style="${stk(o.bg)};${ind};color:${o.lc};font-size:11px;font-weight:${o.fw}">${label}</td>`;
     for(let i=0;i<nM;i++){
       if(mf!=null&&mf!==i) continue;
@@ -6176,9 +6178,10 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter){
         const aVal=act12[i];
         const ac=o.summary?(aVal>=0?'#1B7A3D':'#C0392B'):'#1B7A4B';
         const varD=aVal-bdg12[i];
-        const varPct=Math.abs(bdg12[i])>0.01?varD/Math.abs(bdg12[i])*100:null;
-        const vc=varD>=0?'#1B7A3D':'#C0392B';
-        const vBg=varD>=0?'#E8F5EE':'#FDEAEA';
+        // Only show VAR% when budget is meaningful (≥$500); avoids +100000% noise
+        const varPct=Math.abs(bdg12[i])>=500?varD/Math.abs(bdg12[i])*100:null;
+        const vc=good(varD)?'#1B7A3D':'#C0392B';
+        const vBg=good(varD)?'#E8F5EE':'#FDEAEA';
         r+=`<td style="${mcs};color:${ac};font-weight:${o.fw}">${_bvaFmtN(aVal)}</td>`;
         r+=`<td style="${mcs};color:${vc};font-weight:600;background:${vBg}">${_bvaFmtN(varD)}</td>`;
         r+=`<td style="${mcs};color:${vc};font-weight:600;background:${vBg}">${fmtPct(varPct)}</td>`;
@@ -6188,12 +6191,13 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter){
         r+=`<td style="${mcs};color:#C8DAD6;font-weight:400">—</td>`;
       }
     }
-    const vc=av.v>=0?'#1B7A3D':'#C0392B';
+    const annGood=good(av.v);
+    const vc=annGood?'#1B7A3D':'#C0392B';
     r+=`<td style="${acs1};color:${o.lc};font-weight:${o.fw}">${_bvaFmtN(av.ytd)}</td>`;
     r+=`<td style="${acs};color:${o.lc};font-weight:${o.fw};opacity:0.7">${_bvaFmtN(av.rem)}</td>`;
     r+=`<td style="${acs};color:${o.lc};font-weight:700">${_bvaFmtN(av.full)}</td>`;
     r+=`<td style="${acs};color:${o.lc};font-weight:${o.fw};opacity:0.6">${_bvaFmtN(av.annBdg)}</td>`;
-    r+=`<td style="${acs};color:${vc};font-weight:700;background:${av.v>=0?'#E8F5EE':'#FDEAEA'}">${_bvaFmtN(av.v)}</td>`;
+    r+=`<td style="${acs};color:${vc};font-weight:700;background:${annGood?'#E8F5EE':'#FDEAEA'}">${_bvaFmtN(av.v)}</td>`;
     r+=`</tr>`;
     return r;
   }
@@ -6236,18 +6240,18 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter){
   html+=row('Total Revenues',tRB,tRAct12,{lc:'#1B4D4A',bg:'#F4F8F6',fw:'700'});
   html+=sp();
   html+=sHdr('Direct Costs','#B8860B');
-  dcL.forEach(l=>html+=row(l.label,bArr(l.key),aArr(l.key),{indent:true,lc:'#8B6914'}));
-  html+=row('Total Direct Costs',tDB,tDAct12,{lc:'#B8860B',bg:'#F4F8F6',fw:'700'});
+  dcL.forEach(l=>html+=row(l.label,bArr(l.key),aArr(l.key),{indent:true,lc:'#8B6914',isCost:true}));
+  html+=row('Total Direct Costs',tDB,tDAct12,{lc:'#B8860B',bg:'#F4F8F6',fw:'700',isCost:true});
   html+=sp();
   html+=row('Gross Profit',gpB,gpAct12,{lc:'#1B4D4A',bg:'#E8F0ED',fw:'800',summary:true});
   html+=sp();
   html+=sHdr('Operating Expenses','#8E44AD');
-  html+=row(sgaLine.label,bArr('sga'),sgaAct12,{indent:true,lc:'#6C3483'});
+  html+=row(sgaLine.label,bArr('sga'),sgaAct12,{indent:true,lc:'#6C3483',isCost:true});
   html+=sp();
   html+=row('EBITDA',eB,eAct12,{lc:'#1B4D4A',bg:'#E8F0ED',fw:'800',summary:true});
   html+=sp();
   if(bk.ceaTot.total!==0||sum(bArr('cea'))!==0){
-    html+=row(ceaLine.label,bArr('cea'),aArr('cea'),{indent:true,lc:'#6C3483'});
+    html+=row(ceaLine.label,bArr('cea'),aArr('cea'),{indent:true,lc:'#6C3483',isCost:true});
     html+=sp();
   }
   html+=row('Net Income',nB,nAct12,{lc:'#1B4D4A',bg:'#E8F0ED',fw:'800',summary:true});
