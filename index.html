@@ -475,6 +475,7 @@ tr:hover td{background:#E8F0ED}
     <div class="section-header" style="justify-content:space-between">
       <div style="display:flex;align-items:center;gap:8px"><div class="section-bar"></div><div class="section-title">Budget Assumptions</div></div>
       <div style="display:flex;align-items:center;gap:10px">
+        <button id="bvaSaveBtn" style="display:none;padding:5px 12px;border:1px solid #1B4D4A;border-radius:6px;font-size:11px;color:#1B4D4A;background:#fff;cursor:pointer;font-weight:600">💾 Save</button>
         <button id="bvaResetBtn" style="display:none;padding:5px 12px;border:1px solid #D4E2DD;border-radius:6px;font-size:11px;color:#7BA69E;background:#fff;cursor:pointer;font-weight:600">↺ Reset</button>
         <div class="hs-pipeline-toggle" id="bvaYearToggle2" style="margin-bottom:0">
           <button data-yr="2024">2024</button><button data-yr="2025">2025</button><button class="active" data-yr="2026">2026</button><button data-yr="2027">2027</button>
@@ -482,6 +483,7 @@ tr:hover td{background:#E8F0ED}
       </div>
     </div>
     <div class="card" style="padding:0"><div class="ar-wrap"><table id="bvaTable2" style="width:100%"></table></div></div>
+    <div id="bvaSnaps"></div>
   </div>
 </div>
 
@@ -6049,6 +6051,58 @@ function _bvaSave(y,d){ try{localStorage.setItem('rx_bva_'+y,JSON.stringify(d));
 
 const _bvaFmtN=v=>v===0?'<span style="color:#D4E2DD">—</span>':(v<0?`<span style="color:#C0392B">(${_$k(Math.abs(v))})</span>`:_$k(v));
 
+// ── Snapshot helpers ────────────────────────────────────────────
+const _bvaSnapKey=y=>`rx_bva_snaps_${y}`;
+
+function _bvaLoadSnaps(y){
+  try{return JSON.parse(localStorage.getItem(_bvaSnapKey(y)))||[];}catch(e){return [];}
+}
+
+function _bvaPushSnap(y,data){
+  const snaps=_bvaLoadSnaps(y);
+  const label=new Date().toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+  snaps.unshift({label,ts:Date.now(),data:JSON.parse(JSON.stringify(data))});
+  localStorage.setItem(_bvaSnapKey(y),JSON.stringify(snaps.slice(0,30)));
+}
+
+function _bvaRenderSnaps(y,isOwner){
+  const el=document.getElementById('bvaSnaps');
+  if(!el) return;
+  const snaps=_bvaLoadSnaps(y);
+  if(!snaps.length){el.innerHTML='';return;}
+  const btnStyle=`padding:3px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600`;
+  el.innerHTML=`<div style="margin-top:16px;border-top:1px solid #EDF2F0;padding-top:12px">
+    <div style="font-size:10px;font-weight:700;color:#7BA69E;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Saved Snapshots</div>
+    ${snaps.map((s,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:#F7F9F8;border-radius:6px;margin-bottom:4px">
+      <span style="font-size:12px;color:#0D2B29;flex:1;font-weight:500">${s.label}</span>
+      ${isOwner?`<button data-snap-restore="${i}" style="${btnStyle};border:1px solid #1B4D4A;color:#1B4D4A;background:#fff">Restore</button>`:''}
+      <button data-snap-delete="${i}" style="${btnStyle};border:1px solid #EDF2F0;color:#B0C4BE;background:#fff">✕</button>
+    </div>`).join('')}
+  </div>`;
+  el.querySelectorAll('[data-snap-restore]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const idx=parseInt(btn.dataset.snapRestore,10);
+      const snap=_bvaLoadSnaps(y)[idx]; if(!snap||!_bvaState) return;
+      _BVA_LINES.forEach(l=>{_bvaState.budget2[l.key]=_bvaPad(snap.data[l.key]);});
+      _bvaSave(y,_bvaState.budget2);
+      document.getElementById('bvaTable2')?.querySelectorAll('input[data-bva]').forEach(inp=>{
+        inp.value=Math.round(_bvaState.budget2[inp.dataset.bva]?.[parseInt(inp.dataset.mo,10)]||0);
+      });
+      _bvaLiveUpdate();
+    });
+  });
+  el.querySelectorAll('[data-snap-delete]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const idx=parseInt(btn.dataset.snapDelete,10);
+      const snaps=_bvaLoadSnaps(y);
+      snaps.splice(idx,1);
+      localStorage.setItem(_bvaSnapKey(y),JSON.stringify(snaps));
+      _bvaRenderSnaps(y,isOwner);
+    });
+  });
+}
+
 function _bvaBuildTable1(bk, budget, mns, nM){
   const bArr=k=>budget[k]||Array(12).fill(0);
   const aArr=k=>_bvaActualMonthly(bk,k);
@@ -6225,6 +6279,8 @@ async function renderBVA(){
     if(helpEl) helpEl.innerHTML=isOwner
       ?'Enter monthly budget figures below. Actuals are pulled from QuickBooks and update automatically.'
       :'<span style="color:#B8860B">🔒 Read-only — only the Owner can edit budget figures.</span>';
+    const sb=document.getElementById('bvaSaveBtn');
+    if(sb) sb.style.display=isOwner?'inline-block':'none';
     const rb=document.getElementById('bvaResetBtn');
     if(rb) rb.style.display=isOwner?'inline-block':'none';
 
@@ -6306,6 +6362,11 @@ async function renderBVA(){
           _bvaLiveUpdate();
         });
       });
+      if(sb) sb.onclick=()=>{
+        _bvaPushSnap(_bvaYear2,budget2);
+        _bvaRenderSnaps(_bvaYear2,true);
+        if(sb){sb.textContent='✓ Saved';setTimeout(()=>{sb.textContent='💾 Save';},1500);}
+      };
       if(rb) rb.onclick=()=>{
         localStorage.removeItem('rx_bva_'+_bvaYear2);
         _BVA_LINES.forEach(l=>budget2[l.key]=Array(12).fill(0));
@@ -6313,6 +6374,7 @@ async function renderBVA(){
         _bvaLiveUpdate();
       };
     }
+    _bvaRenderSnaps(_bvaYear2,isOwner);
   } catch(err){
     console.error('BVA render failed:',err);
     const u=document.getElementById('bvaUpdated');
