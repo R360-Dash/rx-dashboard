@@ -328,6 +328,24 @@ tr:hover td{background:#E8F0ED}
       <button data-s="2025">2025 Show</button>
       <button data-s="2024">2024 Show</button>
     </div>
+    <div class="toggle" id="plYearToggle" style="display:none">
+      <button data-yr="2023">2023</button>
+      <button data-yr="2024">2024</button>
+      <button data-yr="2025">2025</button>
+      <button class="active" data-yr="2026">2026</button>
+    </div>
+    <div class="toggle" id="cfYearToggle" style="display:none">
+      <button data-yr="2023">2023</button>
+      <button data-yr="2024">2024</button>
+      <button data-yr="2025">2025</button>
+      <button class="active" data-yr="2026">2026</button>
+    </div>
+    <div class="toggle" id="bvaYearToggle1" style="display:none">
+      <button data-yr="2024">2024</button>
+      <button data-yr="2025">2025</button>
+      <button class="active" data-yr="2026">2026</button>
+      <button data-yr="2027">2027</button>
+    </div>
     <div class="user-info" id="userInfo" style="display:none">
       <div class="user-avatar" id="userAvatar">—</div>
       <div>
@@ -426,15 +444,7 @@ tr:hover td{background:#E8F0ED}
 
 <!-- ═══ FINANCIALS — PROFIT & LOSS ═══ -->
 <div id="sec-pl" class="page">
-  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px">
-    <div style="font-size:13px;color:#7BA69E">Source: QuickBooks Online · <span id="plUpdated"></span></div>
-    <div class="hs-pipeline-toggle" id="plYearToggle" style="margin-bottom:0">
-      <button data-yr="2023">2023</button>
-      <button data-yr="2024">2024</button>
-      <button data-yr="2025">2025</button>
-      <button class="active" data-yr="2026">2026</button>
-    </div>
-  </div>
+  <div style="font-size:13px;color:#7BA69E;margin-bottom:16px">Source: QuickBooks Online · <span id="plUpdated"></span></div>
   <div class="kpi-grid" id="plKpis"></div>
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:14px">
     <div class="section-title" id="plViewTitle" style="font-size:15px">Year-over-Year Comparison</div>
@@ -462,11 +472,8 @@ tr:hover td{background:#E8F0ED}
   </div>
   <div class="kpi-grid" id="bvaKpis"></div>
   <div id="bvaSec1" class="section">
-    <div class="section-header" style="justify-content:space-between">
-      <div style="display:flex;align-items:center;gap:8px"><div class="section-bar"></div><div class="section-title" id="bvaTitle">Actuals vs Budget — 2026</div></div>
-      <div class="hs-pipeline-toggle" id="bvaYearToggle1" style="margin-bottom:0">
-        <button data-yr="2024">2024</button><button data-yr="2025">2025</button><button class="active" data-yr="2026">2026</button><button data-yr="2027">2027</button>
-      </div>
+    <div class="section-header">
+      <div class="section-bar"></div><div class="section-title" id="bvaTitle">Actuals vs Budget — 2026</div>
     </div>
     <div id="bvaHelp" style="font-size:12px;color:#7BA69E;padding:0 4px 8px"></div>
     <div id="bvaMonthFilterBar" style="padding:0 4px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"></div>
@@ -490,15 +497,7 @@ tr:hover td{background:#E8F0ED}
 
 <!-- ═══ FINANCIALS — CASH FLOW ═══ -->
 <div id="sec-cashflow" class="page">
-  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px">
-    <div style="font-size:13px;color:#7BA69E">Source: QuickBooks Online · <span id="cfUpdated"></span></div>
-    <div class="hs-pipeline-toggle" id="cfYearToggle" style="margin-bottom:0">
-      <button data-yr="2023">2023</button>
-      <button data-yr="2024">2024</button>
-      <button data-yr="2025">2025</button>
-      <button class="active" data-yr="2026">2026</button>
-    </div>
-  </div>
+  <div style="font-size:13px;color:#7BA69E;margin-bottom:16px">Source: QuickBooks Online · <span id="cfUpdated"></span></div>
   <div class="kpi-grid" id="cfKpis"></div>
   <div class="two-col">
     <div class="section">
@@ -2338,6 +2337,11 @@ function showPage(id){
     if(g.querySelector(`.nav-item[data-nav="${id}"]`))g.classList.remove('collapsed');
   });
   document.getElementById('tog').style.display=(id==='sec-mkt'||id==='sec-cumfirm'||id==='sec-cumsp'||id==='sec-settings'||id==='sec-hsoverview'||id==='sec-hsdeals'||id==='sec-grip'||id==='sec-hsmix'||id==='sec-hsnew'||id==='sec-hsrebooks'||id==='sec-hsmom'||id==='sec-hscumsp'||id==='sec-hscumfirm'||id==='sec-partners'||id==='sec-linkedin'||id==='sec-ga4'||id==='sec-pl'||id==='sec-bva'||id==='sec-cashflow'||id==='sec-revproj'||id==='sec-scenario'||id==='sec-expenses')?'none':'flex';
+  // Show page-specific year toggle in header
+  ['plYearToggle','cfYearToggle','bvaYearToggle1'].forEach(t=>{const el=document.getElementById(t);if(el)el.style.display='none';});
+  if(id==='sec-pl'){const el=document.getElementById('plYearToggle');if(el)el.style.display='flex';}
+  if(id==='sec-cashflow'){const el=document.getElementById('cfYearToggle');if(el)el.style.display='flex';}
+  if(id==='sec-bva'){const el=document.getElementById('bvaYearToggle1');if(el)el.style.display='flex';}
   // Hide 2024 button on rebooks page
   const btn24=document.querySelector('.toggle button[data-s="2024"]');
   if(btn24) btn24.style.display=(id==='sec-rebooks')?'none':'';
