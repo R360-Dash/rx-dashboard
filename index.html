@@ -6136,12 +6136,13 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter){
   const mf=monthFilter;  // null = all months, 0-11 = single month
   const mCols=mf!=null?2:nM*2;
 
-  const stk=bg=>`position:sticky;left:0;z-index:1;background:${bg||'#fff'};box-shadow:2px 0 5px rgba(0,0,0,.06);min-width:160px`;
-  const stkHdr=`position:sticky;left:0;z-index:15;background:#fff;text-align:left;padding:6px 10px;font-size:10px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;box-shadow:2px 0 5px rgba(0,0,0,.06);min-width:160px`;
-  const mcs=`text-align:right;padding:3px 6px;font-size:11px;font-family:'Source Sans 3',monospace;white-space:nowrap;min-width:65px`;
-  const hcs=`text-align:center;padding:4px 3px;font-size:9px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.03em`;
-  const acs1=`text-align:right;padding:3px 6px;font-size:11px;font-family:'Source Sans 3',monospace;white-space:nowrap;border-left:2px solid #1B4D4A`;
-  const acs=`text-align:right;padding:3px 6px;font-size:11px;font-family:'Source Sans 3',monospace;white-space:nowrap`;
+  const COL_W=`width:72px;min-width:72px`;
+  const stk=bg=>`position:sticky;left:0;z-index:1;background:${bg||'#fff'};box-shadow:2px 0 5px rgba(0,0,0,.06);min-width:120px`;
+  const stkHdr=`position:sticky;left:0;z-index:15;background:#fff;text-align:left;padding:6px 10px;font-size:10px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;box-shadow:2px 0 5px rgba(0,0,0,.06);min-width:120px`;
+  const mcs=`text-align:right;padding:3px 6px;font-size:11px;font-family:'Source Sans 3',monospace;white-space:nowrap;${COL_W}`;
+  const hcs=`text-align:center;padding:4px 3px;font-size:9px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;${COL_W}`;
+  const acs1=`text-align:right;padding:3px 6px;font-size:11px;font-family:'Source Sans 3',monospace;white-space:nowrap;border-left:2px solid #1B4D4A;${COL_W}`;
+  const acs=`text-align:right;padding:3px 6px;font-size:11px;font-family:'Source Sans 3',monospace;white-space:nowrap;${COL_W}`;
 
   function annV(bdg12,act12){
     const ytd=lastIdx>=0?sum(act12.slice(0,lastIdx+1)):0;
@@ -6190,17 +6191,18 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter){
     const cl=i<=lastIdx?';background:#EEF5F3':'';
     html+=`<th colspan="2" style="${hcs}${cl}">${mns[i]}</th>`;
   }
-  html+=`<th style="text-align:center;padding:4px 6px;font-size:9px;color:#1B4D4A;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;border-left:2px solid #1B4D4A" rowspan="2">YTD<br>Actual</th>`;
-  html+=`<th style="text-align:center;padding:4px 6px;font-size:9px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.03em" rowspan="2">Remaining<br>BDG</th>`;
-  html+=`<th style="text-align:center;padding:4px 6px;font-size:9px;color:#1B4D4A;font-weight:700;text-transform:uppercase;letter-spacing:0.03em" rowspan="2">Full Year<br>Est.</th>`;
-  html+=`<th style="text-align:center;padding:4px 6px;font-size:9px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.03em" rowspan="2">Annual<br>BDG</th>`;
-  html+=`<th style="text-align:center;padding:4px 6px;font-size:9px;color:#1B4D4A;font-weight:700;text-transform:uppercase;letter-spacing:0.03em" rowspan="2">Variance</th>`;
+  const annTh=(label,color,border)=>`<th style="${hcs};color:${color};font-weight:700${border?';border-left:2px solid #1B4D4A':''}" rowspan="2">${label}</th>`;
+  html+=annTh('YTD<br>Actual','#1B4D4A',true);
+  html+=annTh('Remaining<br>BDG','#7BA69E',false);
+  html+=annTh('Full Year<br>Est.','#1B4D4A',false);
+  html+=annTh('Annual<br>BDG','#7BA69E',false);
+  html+=annTh('Variance','#1B4D4A',false);
   html+=`</tr><tr>`;
   for(let i=0;i<nM;i++){
     if(mf!=null&&mf!==i) continue;
     const cl=i<=lastIdx?';background:#EEF5F3':'';
-    html+=`<th style="${hcs};color:#B8D0C8;min-width:65px${cl}">BDG</th>`;
-    html+=`<th style="${hcs};color:${i<=lastIdx?'#1B7A4B':'#C8DAD6'};min-width:65px${cl}">ACT</th>`;
+    html+=`<th style="${hcs};color:#B8D0C8${cl}">BDG</th>`;
+    html+=`<th style="${hcs};color:${i<=lastIdx?'#1B7A4B':'#C8DAD6'}${cl}">ACT</th>`;
   }
   html+=`</tr></thead><tbody>`;
 
