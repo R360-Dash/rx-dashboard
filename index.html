@@ -5505,26 +5505,55 @@ const _CF_LINES = [
 
 // LocalStorage keys (v2 schema = object of line arrays, not flat array)
 const _cfStorageKey = (year) => `rx_cf_forecast_${year}_v2`;
+const _cfProxyUrl   = (year) => `https://racquetx-qbo-proxy.racquetx.workers.dev/api/forecast?year=${year}`;
 
-// Load saved forecast for a year. Returns { revColl: [12], showCosts: [12], ... } or null.
-function _cfLoadForecast(year){
+function _cfValidateForecast(obj){
+  if(!obj || typeof obj !== 'object') return false;
+  for(const line of _CF_LINES){
+    if(!Array.isArray(obj[line.key]) || obj[line.key].length !== 12) return false;
+  }
+  return true;
+}
+
+// Load saved forecast — proxy-first, localStorage as fallback.
+async function _cfLoadForecast(year){
+  try {
+    const res = await fetch(_cfProxyUrl(year));
+    if(res.ok){
+      const data = await res.json();
+      if(_cfValidateForecast(data.forecast)){
+        // Keep localStorage in sync as a warm cache
+        try { localStorage.setItem(_cfStorageKey(year), JSON.stringify(data.forecast)); } catch(e){}
+        return data.forecast;
+      }
+    }
+  } catch(e){ console.warn('Forecast proxy fetch failed, falling back to localStorage:', e.message); }
+  // Fallback: localStorage
   try {
     const raw = localStorage.getItem(_cfStorageKey(year));
     if(!raw) return null;
     const obj = JSON.parse(raw);
-    if(!obj || typeof obj !== 'object') return null;
-    // Validate shape
-    for(const line of _CF_LINES){
-      if(!Array.isArray(obj[line.key]) || obj[line.key].length !== 12) return null;
-    }
-    return obj;
+    return _cfValidateForecast(obj) ? obj : null;
   } catch(e){ return null; }
 }
+
+// Save forecast — writes to proxy (shared) and localStorage (cache).
 function _cfSaveForecast(year, lineMap){
+  // localStorage first (instant, no flicker)
   try { localStorage.setItem(_cfStorageKey(year), JSON.stringify(lineMap)); } catch(e){}
+  // Fire-and-forget PUT to proxy so all users get the update
+  fetch(_cfProxyUrl(year), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(lineMap),
+  }).catch(e => console.warn('Forecast proxy save failed:', e.message));
 }
+
+// Clear forecast — deletes from proxy and localStorage.
 function _cfClearForecast(year){
   try { localStorage.removeItem(_cfStorageKey(year)); } catch(e){}
+  fetch(_cfProxyUrl(year), { method: 'DELETE' })
+    .catch(e => console.warn('Forecast proxy delete failed:', e.message));
 }
 
 // Find Bank Accounts section in Balance Sheet — returns monthly array of cash balances
@@ -5646,7 +5675,7 @@ async function renderCashFlow(){
     });
 
     // Load saved forecast (object of line → monthly[12]) or build defaults
-    const saved = _cfLoadForecast(_cfYear);
+    const saved = await _cfLoadForecast(_cfYear);
     const forecast = {};
     _CF_LINES.forEach(l => {
       forecast[l.key] = Array(12).fill(0);
