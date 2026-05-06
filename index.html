@@ -4718,6 +4718,7 @@ function groupByCategory(leafs){
 // ──────────────────────────────────────────────────────────────
 
 let _expYear = 2026;
+let _expActiveKey = null; // null = show all
 
 async function renderExpenses(){
   const updEl = document.getElementById('expUpdated');
@@ -4737,30 +4738,34 @@ async function renderExpenses(){
 
     // ── 4 sections config ────────────────────────────────────
     const SECTIONS = [
-      { key:'showCosts',    label:'Show Costs',         color:'#B8860B', get:(b)=>b.dcByCat['Show Costs'] },
-      { key:'cityCosts',    label:'City Series Costs',  color:'#2D7A6F', get:(b)=>b.dcByCat['City Series Costs'] },
-      { key:'mktCosts',     label:'Marketing Costs',    color:'#1B4D4A', get:(b)=>b.dcByCat['Marketing Costs'] },
-      { key:'sga',          label:'SG&A',               color:'#8E44AD', get:(b)=>Object.values(b.sgaByCat||{}).reduce(
+      { key:'showCosts',  label:'Show Costs',        color:'#B8860B', get:(b)=>b.dcByCat['Show Costs'] },
+      { key:'cityCosts',  label:'City Series Costs', color:'#2D7A6F', get:(b)=>b.dcByCat['City Series Costs'] },
+      { key:'mktCosts',   label:'Marketing Costs',   color:'#1B4D4A', get:(b)=>b.dcByCat['Marketing Costs'] },
+      { key:'sga',        label:'SG&A',              color:'#8E44AD', get:(b)=>Object.values(b.sgaByCat||{}).reduce(
           (acc,c)=>{ acc.total+=c.total; c.monthly.forEach((v,i)=>acc.monthly[i]+=v); acc.leafs.push(...c.leafs); return acc; },
           { total:0, monthly:Array(parsed.monthLabels.length).fill(0), leafs:[] }
         )},
     ];
-
-    // ── KPI cards ─────────────────────────────────────────────
     const totalExp = SECTIONS.reduce((s,sec)=>{ const d=sec.get(bk); return s+(d?.total||0); }, 0);
-    document.getElementById('expKpis').innerHTML = SECTIONS.map(sec=>{
+    const totalLineItems = Object.values(bk.dcByCat).concat(Object.values(bk.sgaByCat)).flatMap(c=>c.leafs).length;
+
+    // ── KPI cards (clickable) ──────────────────────────────────
+    const kpiEl = document.getElementById('expKpis');
+    kpiEl.innerHTML = SECTIONS.map(sec=>{
       const d = sec.get(bk);
       const tot = d?.total || 0;
       const pct = totalExp>0 ? (tot/totalExp*100).toFixed(1)+'%' : '—';
-      return `<div class="kpi" style="border-left-color:${sec.color}">
+      return `<div class="kpi exp-kpi-card" data-expkey="${sec.key}"
+        style="border-left-color:${sec.color};cursor:pointer;transition:box-shadow .15s,opacity .15s">
         <div class="kpi-label" style="color:${sec.color}">${sec.label}</div>
         <div class="kpi-value" style="color:${sec.color}">${_$Knd(tot)}</div>
         <div class="kpi-sub">${pct} of total expenses</div>
       </div>`;
-    }).join('') + `<div class="kpi" style="border-left-color:#1B4D4A">
+    }).join('') + `<div class="kpi exp-kpi-card" data-expkey="all"
+      style="border-left-color:#1B4D4A;cursor:pointer;transition:box-shadow .15s,opacity .15s">
       <div class="kpi-label">Total Expenses</div>
       <div class="kpi-value" style="color:#1B4D4A">${_$Knd(totalExp)}</div>
-      <div class="kpi-sub">${Object.values(bk.dcByCat).concat(Object.values(bk.sgaByCat)).flatMap(c=>c.leafs).length} line items</div>
+      <div class="kpi-sub">${totalLineItems} line items</div>
     </div>`;
 
     // ── Table ─────────────────────────────────────────────────
@@ -4771,54 +4776,80 @@ async function renderExpenses(){
     const sticky = (bg,extra='')=>`position:sticky;left:0;z-index:1;background:${bg};box-shadow:2px 0 5px rgba(0,0,0,.06);${extra}`;
     const fmt = v => v===0?'<span style="color:#D4E2DD">—</span>':(v<0?`<span style="color:#C0392B">(${_$Knd(Math.abs(v))})</span>`:_$Knd(v));
 
-    // colgroup
     let html = `<colgroup><col style="width:${LABEL_W}px">`;
     for(let i=0;i<mLabels.length+1;i++) html+=`<col style="width:${NUM_W}px">`;
-    html += `</colgroup>`;
-
-    // thead
-    html += `<thead><tr><th style="${stickyHdr}"></th>`;
+    html += `</colgroup><thead><tr><th style="${stickyHdr}"></th>`;
     mLabels.forEach(m=>html+=`<th style="${cs};color:#7BA69E;font-weight:600;padding:6px 6px">${m.split(' ')[0]}</th>`);
     html += `<th style="${cs};color:#1B4D4A;font-weight:700;padding:6px 6px">Total</th></tr></thead><tbody>`;
 
-    // sections
     SECTIONS.forEach(sec=>{
       const d = sec.get(bk);
       if(!d) return;
-      // sort leafs by absolute total desc
       const leafs = [...(d.leafs||[])].sort((a,b)=>Math.abs(b.total)-Math.abs(a.total));
+      const rowAttr = `class="exp-sec-row" data-expsec="${sec.key}"`;
 
-      // section header row
-      html += `<tr style="background:#F7F9F8">
+      html += `<tr ${rowAttr} style="background:#F7F9F8">
         <td colspan="${mLabels.length+2}" style="${sticky('#F7F9F8')};padding:6px 10px;font-weight:800;font-size:11px;font-style:italic;text-transform:uppercase;letter-spacing:0.04em;color:${sec.color}">${sec.label}</td>
       </tr>`;
 
-      // leaf rows
       leafs.forEach(leaf=>{
-        if(Math.abs(leaf.total)<1) return; // skip zero lines
-        html += `<tr><td style="${sticky('#fff')};padding:3px 10px 3px 24px;color:#0D2B29;font-size:11px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:${LABEL_W}px">${leaf.label}</td>`;
+        if(Math.abs(leaf.total)<1) return;
+        html += `<tr ${rowAttr}><td style="${sticky('#fff')};padding:3px 10px 3px 24px;color:#0D2B29;font-size:11px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:${LABEL_W}px">${leaf.label}</td>`;
         leaf.monthly.forEach(v=>html+=`<td style="${cs}">${fmt(v)}</td>`);
         html += `<td style="${cs};font-weight:600;color:#0D2B29">${fmt(leaf.total)}</td></tr>`;
       });
 
-      // section total
-      html += `<tr style="background:#F4F8F6">
+      html += `<tr ${rowAttr} style="background:#F4F8F6">
         <td style="${sticky('#F4F8F6')};padding:4px 10px;font-weight:700;font-size:11px;color:${sec.color}">Total ${sec.label}</td>`;
       d.monthly.forEach(v=>html+=`<td style="${cs};font-weight:600;color:${sec.color}">${fmt(v)}</td>`);
       html += `<td style="${cs};font-weight:700;color:${sec.color}">${fmt(d.total)}</td></tr>`;
-      html += `<tr style="height:6px"><td colspan="${mLabels.length+2}"></td></tr>`;
+      html += `<tr ${rowAttr} style="height:6px"><td colspan="${mLabels.length+2}"></td></tr>`;
     });
 
-    // grand total
+    // grand total row
     const totMonthly = Array(mLabels.length).fill(0);
     SECTIONS.forEach(sec=>{ const d=sec.get(bk); if(d) d.monthly.forEach((v,i)=>totMonthly[i]+=v); });
-    html += `<tr style="background:#E8F0ED">
+    html += `<tr class="exp-total-row" style="background:#E8F0ED">
       <td style="${sticky('#E8F0ED')};padding:5px 10px;font-weight:800;font-size:12px;color:#1B4D4A">Total Expenses</td>`;
     totMonthly.forEach(v=>html+=`<td style="${cs};font-weight:700;color:#1B4D4A">${fmt(v)}</td>`);
-    html += `<td style="${cs};font-weight:800;color:#1B4D4A">${fmt(totalExp)}</td></tr>`;
+    html += `<td style="${cs};font-weight:800;color:#1B4D4A">${fmt(totalExp)}</td></tr></tbody>`;
 
-    html += `</tbody>`;
     document.getElementById('expTable').innerHTML = html;
+
+    // ── Card filter interaction ────────────────────────────────
+    function _expApplyFilter(key){
+      _expActiveKey = key;
+      const isAll = !key || key==='all';
+      // Cards
+      kpiEl.querySelectorAll('.exp-kpi-card').forEach(card=>{
+        const ck = card.dataset.expkey;
+        const active = isAll ? ck==='all' : ck===key;
+        card.style.boxShadow = active ? `0 0 0 2px ${SECTIONS.find(s=>s.key===ck)?.color||'#1B4D4A'}` : '';
+        card.style.opacity = isAll || active ? '1' : '0.35';
+      });
+      // Table rows
+      document.querySelectorAll('#expTable .exp-sec-row').forEach(tr=>{
+        tr.style.display = isAll || tr.dataset.expsec===key ? '' : 'none';
+      });
+      // Grand total row: only visible when showing all
+      document.querySelector('#expTable .exp-total-row').style.display = isAll ? '' : 'none';
+      // Title
+      const sec = SECTIONS.find(s=>s.key===key);
+      if(titleEl) titleEl.textContent = isAll
+        ? `Expense Detail — ${_expYear}`
+        : `${sec.label} — ${_expYear}`;
+    }
+
+    kpiEl.addEventListener('click', e=>{
+      const card = e.target.closest('.exp-kpi-card');
+      if(!card) return;
+      const key = card.dataset.expkey;
+      // Toggle: clicking the active card resets to all
+      _expApplyFilter(key===_expActiveKey || key==='all' ? 'all' : key);
+    });
+
+    // Re-apply last active filter if user switched year
+    _expApplyFilter(_expActiveKey || 'all');
 
   } catch(err){
     console.error('Expense render failed:', err);
