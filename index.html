@@ -4725,48 +4725,42 @@ let _expActiveKey = null; // null = show all
 // GL is organized by bank/payment account; expense accounts appear in the Split column.
 // Returns: { expenseAccountName → { vendorName → { monthly:[12], total } } }
 function _parseGLVendors(glReport, targetAccountNames){
-  // targetAccountNames: Set of QBO account names to capture (e.g. Marketing Costs accounts)
+  // Match on GL *section headers* (which are the expense accounts), not the Split column.
+  // QBO organises the GL with one section per account. Each transaction row inside that
+  // section shows the payee in the Name column. Multi-line bills show "-Split-" in the
+  // Split column, so using the split approach silently drops those entries.
   if(!glReport?.Rows) return {};
   const cols = glReport.Columns?.Column || [];
-
-  // Detect column indices by ColType
-  const dateIdx  = cols.findIndex(c=>c.ColType==='tx_date');
-  const nameIdx  = cols.findIndex(c=>c.ColType==='name');
-  const splitIdx = cols.findIndex(c=>c.ColType==='split_acc');
-  const amtIdx   = cols.findIndex(c=>c.ColType==='subt_nat_amount');
-
-  // Fallback to positional if ColType detection fails
-  const dIdx = dateIdx  >= 0 ? dateIdx  : 0;
-  const nIdx = nameIdx  >= 0 ? nameIdx  : 3;
-  const sIdx = splitIdx >= 0 ? splitIdx : 5;
-  const aIdx = amtIdx   >= 0 ? amtIdx   : 6;
+  const dateIdx = cols.findIndex(c=>c.ColType==='tx_date');
+  const nameIdx = cols.findIndex(c=>c.ColType==='name');
+  const amtIdx  = cols.findIndex(c=>c.ColType==='subt_nat_amount');
+  const dIdx = dateIdx>=0?dateIdx:0, nIdx=nameIdx>=0?nameIdx:3, aIdx=amtIdx>=0?amtIdx:6;
 
   const result = {};
 
-  function walkRows(rows){
+  function matchAcct(raw){
+    const t = (raw||'').trim();
+    const leaf = t.includes(':') ? t.split(':').pop().trim() : t;
+    return targetAccountNames.has(t) ? t : targetAccountNames.has(leaf) ? leaf : null;
+  }
+
+  function walkRows(rows, acctKey=null){
     (rows||[]).forEach(row=>{
-      if(row.Header && row.Rows) { walkRows(row.Rows.Row); return; } // nested section
-      if(!row.ColData) return;
+      if(row.Header && row.Rows){
+        // Each section header names the account — check if it's one we care about
+        const sectionName = (row.Header.ColData?.[0]?.value||'').trim();
+        const matched = matchAcct(sectionName);
+        // If this section matches, use it as the key; otherwise inherit parent key
+        walkRows(row.Rows.Row, matched ?? acctKey);
+        return;
+      }
+      if(!row.ColData || !acctKey) return;
       const cd = row.ColData;
-      const splitRaw = (cd[sIdx]?.value||'').trim();
-      // QBO uses "Parent:Child" paths for sub-accounts — match on the leaf segment
-      const splitLeaf = splitRaw.includes(':') ? splitRaw.split(':').pop().trim() : splitRaw;
-      const acctKey = targetAccountNames.has(splitRaw)   ? splitRaw
-                    : targetAccountNames.has(splitLeaf)  ? splitLeaf
-                    : null;
-      if(!acctKey) return;
-
-      const vendorName = (cd[nIdx]?.value||'').trim();
-      if(!vendorName) return;
-
-      const dateStr = (cd[dIdx]?.value||'').trim();
-      if(!dateStr) return;
+      const vendorName = (cd[nIdx]?.value||'').trim(); if(!vendorName) return;
+      const dateStr    = (cd[dIdx]?.value||'').trim(); if(!dateStr) return;
       const mo = new Date(dateStr).getMonth();
       if(isNaN(mo)||mo<0||mo>11) return;
-
-      const amt = Math.abs(parseFloat(cd[aIdx]?.value||0)||0);
-      if(amt===0) return;
-
+      const amt = Math.abs(parseFloat(cd[aIdx]?.value||0)||0); if(amt===0) return;
       if(!result[acctKey]) result[acctKey]={};
       if(!result[acctKey][vendorName]) result[acctKey][vendorName]={monthly:Array(12).fill(0),total:0};
       result[acctKey][vendorName].monthly[mo]+=amt;
