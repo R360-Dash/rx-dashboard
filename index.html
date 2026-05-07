@@ -4941,13 +4941,6 @@ async function renderExpenses(){
           combined[vn].total+=vd.total;
         });
       });
-      // Supplement with Accrued Expenses payments for vendors already in this section
-      const accruedMap = vendorMap['_accrued']||{};
-      Object.keys(combined).forEach(vn=>{
-        const av = accruedMap[vn]; if(!av) return;
-        av.monthly.forEach((v,i)=>combined[vn].monthly[i]+=v);
-        combined[vn].total+=av.total;
-      });
       return Object.keys(combined).length ? combined : null;
     }
     if(updEl) updEl.textContent = 'Last synced: ' + new Date(plData.ts).toLocaleString();
@@ -4995,8 +4988,11 @@ async function renderExpenses(){
     const fmt = v => v===0?'<span style="color:#D4E2DD">—</span>':(v<0?`<span style="color:#C0392B">(${expFmtK(v)})</span>`:expFmtK(v));
 
     // ── SG&A display merges (combine accounts into logical lines) ──
+    // '_accrued' = Accrued Expenses cash payments (payroll retainers coded to balance sheet).
+    // Included in Payroll so vendors like SKO Buffs/Bautista retainers roll up here,
+    // not into Commissions or other sections where they also have bill-based entries.
     const SGA_MERGES = [
-      { label:'Payroll',       sources:new Set(['Contractors','Management Fees','Recruitment Fees']) },
+      { label:'Payroll',       sources:new Set(['Contractors','Management Fees','Recruitment Fees','_accrued']) },
       { label:'Merchant Fees', sources:new Set(['QuickBooks Payments Fees','Merchant Fees','Bank Charges','Stripe fees']) },
     ];
     function _mergeLeafs(rawLeafs, merges){
