@@ -4847,6 +4847,25 @@ async function renderExpenses(){
     const sticky = (bg,extra='')=>`position:sticky;left:0;z-index:1;background:${bg};box-shadow:2px 0 5px rgba(0,0,0,.06);${extra}`;
     const fmt = v => v===0?'<span style="color:#D4E2DD">—</span>':(v<0?`<span style="color:#C0392B">(${_$Knd(Math.abs(v))})</span>`:_$Knd(v));
 
+    // ── SG&A display merges (combine accounts into logical lines) ──
+    const SGA_MERGES = [
+      { label:'Payroll',       sources:new Set(['Contractors','Management Fees','Recruitment Fees']) },
+      { label:'Merchant Fees', sources:new Set(['QuickBooks Payments Fees','Merchant Fees','Bank Charges','Stripe fees']) },
+    ];
+    function _mergeLeafs(rawLeafs, merges){
+      const nM = rawLeafs[0]?.monthly.length || 12;
+      const acc = {}; const pass = [];
+      rawLeafs.forEach(leaf=>{
+        const m = merges.find(g=>g.sources.has(leaf.label));
+        if(m){
+          if(!acc[m.label]) acc[m.label]={label:m.label,monthly:Array(nM).fill(0),total:0};
+          leaf.monthly.forEach((v,i)=>acc[m.label].monthly[i]+=v);
+          acc[m.label].total+=leaf.total;
+        } else pass.push(leaf);
+      });
+      return [...pass,...Object.values(acc)];
+    }
+
     let html = `<colgroup><col style="width:${LABEL_W}px">`;
     for(let i=0;i<mLabels.length+1;i++) html+=`<col style="width:${NUM_W}px">`;
     html += `</colgroup><thead><tr><th style="${stickyHdr}"></th>`;
@@ -4856,7 +4875,8 @@ async function renderExpenses(){
     SECTIONS.forEach(sec=>{
       const d = sec.get(bk);
       if(!d) return;
-      const leafs = [...(d.leafs||[])].sort((a,b)=>Math.abs(b.total)-Math.abs(a.total));
+      let leafs = [...(d.leafs||[])].sort((a,b)=>Math.abs(b.total)-Math.abs(a.total));
+      if(sec.key==='sga') leafs = _mergeLeafs(leafs, SGA_MERGES).sort((a,b)=>Math.abs(b.total)-Math.abs(a.total));
       const ds = `data-expsec="${sec.key}"`;
       const isMarketing = sec.key==='mktCosts';
       const nCols = mLabels.length + 2;
