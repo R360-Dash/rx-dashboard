@@ -4909,8 +4909,8 @@ async function renderExpenses(){
 
         // Label cell: show toggle arrow if leaf has vendor breakdown
         const toggleBtn = hasVendors
-          ? `<span data-vgtoggle="${vgId}" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin-right:6px;cursor:pointer;color:#B8860B;font-size:10px;flex-shrink:0;border:1px solid #E8D98F;border-radius:3px;background:#FFFBEE" title="Show vendors">▶</span>`
-          : `<span style="display:inline-block;width:22px;flex-shrink:0"></span>`;
+          ? `<span class="pl-chev" data-vgtoggle="${vgId}" style="color:#A8C5BE;font-size:9px;margin-right:6px;display:inline-block;width:8px;transition:transform .15s;cursor:pointer;flex-shrink:0" title="Show vendors">▶</span>`
+          : `<span style="display:inline-block;width:14px;flex-shrink:0"></span>`;
         const labelCell = `<td style="${sticky('#fff')};padding:3px 10px 3px 14px;color:#0D2B29;font-size:11px;font-weight:600;white-space:nowrap;max-width:${LABEL_W}px"><div style="display:flex;align-items:center;overflow:hidden">${toggleBtn}<span style="overflow:hidden;text-overflow:ellipsis">${leaf.label}</span></div></td>`;
 
         html += `<tr class="exp-sec-leaf" ${ds}>${labelCell}`;
@@ -4944,15 +4944,15 @@ async function renderExpenses(){
 
     document.getElementById('expTable').innerHTML = html;
 
-    // ── Vendor toggle (▶/▼ arrows on marketing leaf rows) ──────────
+    // ── Vendor toggle (▶ chevron, same style as P&L) ──────────────
     document.getElementById('expTable').addEventListener('click', e=>{
       const btn = e.target.closest('[data-vgtoggle]');
       if(!btn) return;
       const vgId = btn.dataset.vgtoggle;
       const rows = document.querySelectorAll(`[data-vendorgrp="${vgId}"]`);
-      const isOpen = btn.textContent.trim() === '▼';
+      const isOpen = btn.style.transform === 'rotate(90deg)';
       rows.forEach(tr=> tr.style.display = isOpen ? 'none' : '');
-      btn.textContent = isOpen ? '▶' : '▼';
+      btn.style.transform = isOpen ? '' : 'rotate(90deg)';
       btn.title = isOpen ? 'Show vendors' : 'Hide vendors';
     });
 
@@ -4985,9 +4985,9 @@ async function renderExpenses(){
       document.querySelectorAll('#expTable .exp-sec-leaf').forEach(tr=>{
         tr.style.display = !isAll && tr.dataset.expsec===key ? '' : 'none';
       });
-      document.querySelectorAll('#expTable .exp-sec-vendor').forEach(tr=>{
-        tr.style.display = !isAll && tr.dataset.expsec===key ? '' : 'none';
-      });
+      // Vendor rows: always collapsed when navigating — user opens them manually
+      document.querySelectorAll('#expTable .exp-sec-vendor').forEach(tr=> tr.style.display = 'none');
+      document.querySelectorAll('#expTable [data-vgtoggle]').forEach(btn=> btn.style.transform = '');
       document.querySelectorAll('#expTable .exp-sec-detail-total').forEach(tr=>{
         tr.style.display = !isAll && tr.dataset.expsec===key ? '' : 'none';
       });
