@@ -582,7 +582,8 @@ tr:hover td{background:#E8F0ED}
 
 <!-- ═══ FINANCIALS — EXPENSE BREAKDOWN ═══ -->
 <div id="sec-expenses" class="page">
-  <div style="font-size:13px;color:#7BA69E;margin-bottom:16px">Source: QuickBooks Online · <span id="expUpdated"></span></div>
+  <div style="font-size:13px;color:#7BA69E;margin-bottom:12px">Source: QuickBooks Online · <span id="expUpdated"></span></div>
+  <nav id="expBreadcrumb" style="font-size:12px;color:#7BA69E;margin-bottom:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap"></nav>
   <div class="kpi-grid" id="expKpis"></div>
   <div class="section">
     <div class="section-header"><div class="section-bar"></div><div class="section-title" id="expTitle">Expense Detail — 2026</div></div>
@@ -4747,8 +4748,13 @@ function _parseGLVendors(glReport, targetAccountNames){
       if(row.Header && row.Rows) { walkRows(row.Rows.Row); return; } // nested section
       if(!row.ColData) return;
       const cd = row.ColData;
-      const splitAcct = (cd[sIdx]?.value||'').trim();
-      if(!targetAccountNames.has(splitAcct)) return;  // not a target expense account
+      const splitRaw = (cd[sIdx]?.value||'').trim();
+      // QBO uses "Parent:Child" paths for sub-accounts — match on the leaf segment
+      const splitLeaf = splitRaw.includes(':') ? splitRaw.split(':').pop().trim() : splitRaw;
+      const acctKey = targetAccountNames.has(splitRaw)   ? splitRaw
+                    : targetAccountNames.has(splitLeaf)  ? splitLeaf
+                    : null;
+      if(!acctKey) return;
 
       const vendorName = (cd[nIdx]?.value||'').trim();
       if(!vendorName) return;
@@ -4761,10 +4767,10 @@ function _parseGLVendors(glReport, targetAccountNames){
       const amt = Math.abs(parseFloat(cd[aIdx]?.value||0)||0);
       if(amt===0) return;
 
-      if(!result[splitAcct]) result[splitAcct]={};
-      if(!result[splitAcct][vendorName]) result[splitAcct][vendorName]={monthly:Array(12).fill(0),total:0};
-      result[splitAcct][vendorName].monthly[mo]+=amt;
-      result[splitAcct][vendorName].total+=amt;
+      if(!result[acctKey]) result[acctKey]={};
+      if(!result[acctKey][vendorName]) result[acctKey][vendorName]={monthly:Array(12).fill(0),total:0};
+      result[acctKey][vendorName].monthly[mo]+=amt;
+      result[acctKey][vendorName].total+=amt;
     });
   }
 
@@ -4919,6 +4925,15 @@ async function renderExpenses(){
       if(titleEl) titleEl.textContent = isAll
         ? `Expense Detail — ${_expYear}`
         : `${sec.label} — ${_expYear}`;
+      // Breadcrumb
+      const bc = document.getElementById('expBreadcrumb');
+      if(bc){
+        if(isAll){
+          bc.innerHTML = `<span style="color:#1B4D4A;font-weight:600">Expense Breakdown</span>`;
+        } else {
+          bc.innerHTML = `<span style="cursor:pointer;text-decoration:underline;color:#7BA69E" onclick="_expApplyFilter('all')">Expense Breakdown</span><span style="color:#7BA69E">›</span><span style="color:${sec.color};font-weight:600">${sec.label}</span>`;
+        }
+      }
     }
 
     kpiEl.addEventListener('click', e=>{
