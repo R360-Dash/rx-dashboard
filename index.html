@@ -4958,17 +4958,7 @@ async function renderExpenses(){
 
     document.getElementById('expTable').innerHTML = html;
 
-    // ── Vendor toggle (▶ chevron, same style as P&L) ──────────────
-    document.getElementById('expTable').addEventListener('click', e=>{
-      const btn = e.target.closest('[data-vgtoggle]');
-      if(!btn) return;
-      const vgId = btn.dataset.vgtoggle;
-      const rows = document.querySelectorAll(`[data-vendorgrp="${vgId}"]`);
-      const isOpen = btn.style.transform === 'rotate(90deg)';
-      rows.forEach(tr=> tr.style.display = isOpen ? 'none' : '');
-      btn.style.transform = isOpen ? '' : 'rotate(90deg)';
-      btn.title = isOpen ? 'Show vendors' : 'Hide vendors';
-    });
+    // (vendor toggle listener is registered once at init — see below)
 
     // ── Drill-down navigation (sidebar-style two levels) ──────────
     window._expApplyFilter = function _expApplyFilter(key){
@@ -6957,6 +6947,18 @@ document.getElementById('plCycleToggle')?.addEventListener('click', e=>{
 window.renderExpenses = renderExpenses;
 window.renderPL = renderPL;
 window.renderCashFlow = renderCashFlow;
+
+// ── Vendor toggle — registered once so year switches don't stack listeners ──
+document.getElementById('expTable').addEventListener('click', e=>{
+  const btn = e.target.closest('[data-vgtoggle]');
+  if(!btn) return;
+  const vgId = btn.dataset.vgtoggle;
+  const rows = document.querySelectorAll(`[data-vendorgrp="${vgId}"]`);
+  const isOpen = btn.style.transform === 'rotate(90deg)';
+  rows.forEach(tr=> tr.style.display = isOpen ? 'none' : '');
+  btn.style.transform = isOpen ? '' : 'rotate(90deg)';
+  btn.title = isOpen ? 'Show vendors' : 'Hide vendors';
+});
 
 })();
 </script>
