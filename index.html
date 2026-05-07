@@ -4836,6 +4836,8 @@ async function renderExpenses(){
     ];
     const totalExp = SECTIONS.reduce((s,sec)=>{ const d=sec.get(bk); return s+(d?.total||0); }, 0);
     const totalLineItems = Object.values(bk.dcByCat).concat(Object.values(bk.sgaByCat)).flatMap(c=>c.leafs).length;
+    // Unified formatter for this section: always $0.0K
+    const expFmtK = v => `$${(Math.abs(v)/1e3).toFixed(1)}K`;
 
     // ── KPI cards (clickable) ──────────────────────────────────
     const kpiEl = document.getElementById('expKpis');
@@ -4846,13 +4848,13 @@ async function renderExpenses(){
       return `<div class="kpi exp-kpi-card" data-expkey="${sec.key}"
         style="border-left-color:${sec.color};cursor:pointer;transition:box-shadow .15s,opacity .15s">
         <div class="kpi-label" style="color:${sec.color}">${sec.label}</div>
-        <div class="kpi-value" style="color:${sec.color}">${_$Knd(tot)}</div>
+        <div class="kpi-value" style="color:${sec.color}">${expFmtK(tot)}</div>
         <div class="kpi-sub">${pct} of total expenses</div>
       </div>`;
     }).join('') + `<div class="kpi exp-kpi-card" data-expkey="all"
       style="border-left-color:#1B4D4A;cursor:pointer;transition:box-shadow .15s,opacity .15s">
       <div class="kpi-label">Total Expenses</div>
-      <div class="kpi-value" style="color:#1B4D4A">${_$Knd(totalExp)}</div>
+      <div class="kpi-value" style="color:#1B4D4A">${expFmtK(totalExp)}</div>
       <div class="kpi-sub">${totalLineItems} line items</div>
     </div>`;
 
@@ -4862,7 +4864,7 @@ async function renderExpenses(){
     const cs = `text-align:right;padding:3px 6px;font-size:11px;font-family:'Source Sans 3',monospace;white-space:nowrap;overflow:hidden`;
     const stickyHdr = `position:sticky;left:0;z-index:15;background:#fff;box-shadow:2px 0 5px rgba(0,0,0,.06);text-align:left;padding:6px 10px;font-size:10px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.05em`;
     const sticky = (bg,extra='')=>`position:sticky;left:0;z-index:1;background:${bg};box-shadow:2px 0 5px rgba(0,0,0,.06);${extra}`;
-    const fmt = v => v===0?'<span style="color:#D4E2DD">—</span>':(v<0?`<span style="color:#C0392B">(${_$Knd(Math.abs(v))})</span>`:_$Knd(v));
+    const fmt = v => v===0?'<span style="color:#D4E2DD">—</span>':(v<0?`<span style="color:#C0392B">(${expFmtK(v)})</span>`:expFmtK(v));
 
     // ── SG&A display merges (combine accounts into logical lines) ──
     const SGA_MERGES = [
