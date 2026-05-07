@@ -328,6 +328,10 @@ tr:hover td{background:#E8F0ED}
       <button data-s="2025">2025 Show</button>
       <button data-s="2024">2024 Show</button>
     </div>
+    <div class="toggle" id="expCycleToggle" style="display:none">
+      <button class="active" data-cy="fiscal">Fiscal Year</button>
+      <button data-cy="show">Show Cycle</button>
+    </div>
     <div class="toggle" id="expYearToggle" style="display:none">
       <button data-yr="2023">2023</button>
       <button data-yr="2024">2024</button>
@@ -2290,8 +2294,11 @@ function showPage(id){
   });
   document.getElementById('tog').style.display=(id==='sec-mkt'||id==='sec-cumfirm'||id==='sec-cumsp'||id==='sec-settings'||id==='sec-hsoverview'||id==='sec-hsdeals'||id==='sec-grip'||id==='sec-hsmix'||id==='sec-hsnew'||id==='sec-hsrebooks'||id==='sec-hsmom'||id==='sec-hscumsp'||id==='sec-hscumfirm'||id==='sec-partners'||id==='sec-linkedin'||id==='sec-ga4'||id==='sec-pl'||id==='sec-bva'||id==='sec-cashflow'||id==='sec-revproj'||id==='sec-scenario'||id==='sec-expenses')?'none':'flex';
   // Show page-specific year toggle in header
-  ['expYearToggle','plCycleToggle','plYearToggle','cfYearToggle','bvaYearToggle1'].forEach(t=>{const el=document.getElementById(t);if(el)el.style.display='none';});
-  if(id==='sec-expenses'){const el=document.getElementById('expYearToggle');if(el)el.style.display='flex';}
+  ['expCycleToggle','expYearToggle','plCycleToggle','plYearToggle','cfYearToggle','bvaYearToggle1'].forEach(t=>{const el=document.getElementById(t);if(el)el.style.display='none';});
+  if(id==='sec-expenses'){
+    const ct=document.getElementById('expCycleToggle');if(ct)ct.style.display='flex';
+    const yt=document.getElementById('expYearToggle');if(yt)yt.style.display='flex';
+  }
   if(id==='sec-pl'){
     const cy=document.getElementById('plCycleToggle');if(cy)cy.style.display='flex';
     const el=document.getElementById('plYearToggle');if(el)el.style.display='flex';
@@ -4692,6 +4699,8 @@ function groupByCategory(leafs){
 // ──────────────────────────────────────────────────────────────
 
 let _expYear = 2026;
+let _expCycleMode = 'fiscal'; // 'fiscal' | 'show'
+const EXP_SC_YEARS = [2024, 2025, 2026]; // Show Cycle needs Y-1 data; 2023 not available
 let _expActiveKey = null; // null = show all
 
 // Parse a QBO GeneralLedger report into a vendor map keyed by expense account name.
@@ -4901,25 +4910,76 @@ async function renderAR(){
   }
 }
 
+// Build show-cycle vendor map: Apr-Dec from prevYear GL + Jan-Mar from currYear GL
+function _buildShowCycleVendorMap(vmPrev, vmCurr){
+  const result = {};
+  const allAccts = new Set([...Object.keys(vmPrev||{}), ...Object.keys(vmCurr||{})]);
+  allAccts.forEach(acct=>{
+    const vpA = (vmPrev||{})[acct]||{};
+    const vcA = (vmCurr||{})[acct]||{};
+    const allV = new Set([...Object.keys(vpA),...Object.keys(vcA)]);
+    result[acct]={};
+    allV.forEach(vn=>{
+      const mp=(vpA[vn]?.monthly)||Array(12).fill(0);
+      const mc=(vcA[vn]?.monthly)||Array(12).fill(0);
+      // Apr(3)..Dec(11) from prev + Jan(0)..Mar(2) from curr → indices 0..11 = Apr..Mar
+      const monthly=[...mp.slice(3,12),...mc.slice(0,3)];
+      while(monthly.length<12) monthly.push(0);
+      const total=monthly.reduce((a,b)=>a+b,0);
+      if(total!==0) result[acct][vn]={monthly,total};
+    });
+  });
+  return result;
+}
+
 async function renderExpenses(){
   const updEl = document.getElementById('expUpdated');
   if(updEl) updEl.innerHTML = '<span style="color:#3D9B8F">Loading&hellip;</span>';
   const titleEl = document.getElementById('expTitle');
-  if(titleEl) titleEl.textContent = `Expense Detail — ${_expYear}`;
+  const isShowCycle = _expCycleMode === 'show';
+  const cycleLabel  = isShowCycle ? `Show Cycle ${_expYear}` : String(_expYear);
+  if(titleEl) titleEl.textContent = `Expense Detail — ${cycleLabel}`;
+
+  // Sync year toggle buttons: hide 2023 in show-cycle mode
+  document.getElementById('expYearToggle')?.querySelectorAll('button[data-yr]').forEach(b=>{
+    const yr = +b.dataset.yr;
+    b.classList.toggle('active', yr===_expYear);
+    b.style.display = (isShowCycle && !EXP_SC_YEARS.includes(yr)) ? 'none' : '';
+  });
+  // Snap year to a valid SC year if needed
+  if(isShowCycle && !EXP_SC_YEARS.includes(_expYear)) _expYear = EXP_SC_YEARS[EXP_SC_YEARS.length-1];
 
   try {
-    // Fetch P&L + GL in parallel (GL gives vendor names per account)
-    const [plData, glData] = await Promise.all([
-      _qboCache.pl[_expYear]
-        ? Promise.resolve(_qboCache.pl[_expYear])
-        : fetchQbo(`/api/pl?year=${_expYear}`).then(d=>{ _qboCache.pl[_expYear]=d; return d; }),
-      _qboCache.gl[_expYear]
-        ? Promise.resolve(_qboCache.gl[_expYear])
-        : fetchQbo(`/api/gl?year=${_expYear}`).then(d=>{ _qboCache.gl[_expYear]=d; return d; })
-          .catch(()=>null),
-    ]);
+    // Fetch P&L + GL — show cycle needs both the current and prior calendar year
+    const fetchPL = y => _qboCache.pl[y] ? Promise.resolve(_qboCache.pl[y])
+      : fetchQbo(`/api/pl?year=${y}`).then(d=>{ _qboCache.pl[y]=d; return d; });
+    const fetchGL = y => _qboCache.gl[y] ? Promise.resolve(_qboCache.gl[y])
+      : fetchQbo(`/api/gl?year=${y}`).then(d=>{ _qboCache.gl[y]=d; return d; }).catch(()=>null);
 
-    const parsed = parseQboReport(plData.report);
+    const fetchList = isShowCycle
+      ? [fetchPL(_expYear-1), fetchPL(_expYear), fetchGL(_expYear-1), fetchGL(_expYear)]
+      : [fetchPL(_expYear), fetchGL(_expYear)];
+
+    const results = await Promise.all(fetchList);
+    let plData, glData;
+    if(isShowCycle){
+      const [plPrev, plCurr, glPrev, glCurr] = results;
+      const pPrev = plPrev ? parseQboReport(plPrev.report) : null;
+      const pCurr = plCurr ? parseQboReport(plCurr.report) : null;
+      const scParsed = _buildShowCycleParsed(pPrev, pCurr);
+      plData = { report: null, _scParsed: scParsed };
+
+      const mktAcctNames2 = new Set(Object.entries(QBO_MAPPING).filter(([,v])=>v==='Marketing Costs').map(([k])=>k));
+      const sgaAcctNames2  = new Set(Object.entries(QBO_MAPPING).filter(([,v])=>v==='SG&A').map(([k])=>k));
+      const allVA2 = new Set([...mktAcctNames2, ...sgaAcctNames2]);
+      const vmPrev = glPrev ? _parseGLVendors(glPrev.report, allVA2) : {};
+      const vmCurr = glCurr ? _parseGLVendors(glCurr.report, allVA2) : {};
+      glData = { _scVendorMap: _buildShowCycleVendorMap(vmPrev, vmCurr) };
+    } else {
+      [plData, glData] = results;
+    }
+
+    const parsed = plData._scParsed || parseQboReport(plData.report);
     if(!parsed){ document.getElementById('expKpis').innerHTML='<div style="color:#C0392B;padding:16px">No data</div>'; return; }
     const bk = _buildPLBreakdown(parsed);
     // QBO account names for sections that show vendor detail
@@ -4927,7 +4987,8 @@ async function renderExpenses(){
     const sgaAcctNames  = new Set(Object.entries(QBO_MAPPING).filter(([,v])=>v==='SG&A').map(([k])=>k));
     const allVendorAccts = new Set([...mktAcctNames, ...sgaAcctNames]);
     // Vendor map from GL: { qboAccountName → { vendorName → { monthly, total } } }
-    const vendorMap = glData ? _parseGLVendors(glData.report, allVendorAccts) : {};
+    const vendorMap = glData?._scVendorMap
+      || (glData?.report ? _parseGLVendors(glData.report, allVendorAccts) : {});
     // Get vendor data for a leaf — handles merged display lines (e.g. Payroll = Contractors + Management Fees)
     function getLeafVendors(leafLabel, merges){
       const merge = merges ? merges.find(m=>m.label===leafLabel) : null;
@@ -5129,8 +5190,8 @@ async function renderExpenses(){
 
       // ── Title ──
       if(titleEl) titleEl.textContent = isAll
-        ? `Expense Detail — ${_expYear}`
-        : `${sec.label} — ${_expYear}`;
+        ? `Expense Detail — ${cycleLabel}`
+        : `${sec.label} — ${cycleLabel}`;
 
       // ── Breadcrumb ──
       const bc = document.getElementById('expBreadcrumb');
@@ -7066,6 +7127,13 @@ _bindYearToggle('bvaYearToggle2', y=>_bvaYear2=y, renderBVA);
 _bindYearToggle('expYearToggle', y=>_expYear=y, renderExpenses);
 _bindYearToggle('plYearToggle', y=>_plYear=y, renderPL);
 _bindYearToggle('cfYearToggle', y=>_cfYear=y, renderCashFlow);
+
+document.getElementById('expCycleToggle')?.addEventListener('click', e=>{
+  const btn=e.target.closest('button[data-cy]'); if(!btn) return;
+  _expCycleMode=btn.dataset.cy;
+  document.getElementById('expCycleToggle')?.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===btn));
+  renderExpenses();
+});
 
 document.getElementById('plCycleToggle')?.addEventListener('click', e=>{
   const btn=e.target.closest('button[data-cy]'); if(!btn) return;
