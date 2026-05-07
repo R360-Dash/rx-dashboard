@@ -448,9 +448,9 @@ tr:hover td{background:#E8F0ED}
 
 <div id="sec-tbl" class="page"><div class="section"><div class="section-header"><div class="section-bar"></div><div class="section-title" id="tTbl"></div></div><div class="card" style="padding:0"><div class="ar-wrap"><table id="tbl"></table></div></div></div></div>
 
-<div id="sec-arcl" class="page"><div class="section"><div class="section-header"><div class="section-bar"></div><div class="section-title">Accounts Receivable — By Client</div></div><div id="arTotals"></div><div class="card" style="padding:0"><div class="ar-wrap"><table id="tblAR"></table></div></div></div></div>
+<div id="sec-arcl" class="page"><div class="section"><div class="section-header"><div class="section-bar"></div><div class="section-title">Accounts Receivable — By Client</div><span id="arSyncBadge" style="font-size:11px;color:#A8C5BE;margin-left:12px"></span></div><div id="arTotals"></div><div class="card" style="padding:0"><div class="ar-wrap"><table id="tblAR"></table></div></div></div></div>
 
-<div id="sec-arinv" class="page"><div class="section"><div class="section-header"><div class="section-bar"></div><div class="section-title">Accounts Receivable — By Invoice</div></div><div class="card" style="padding:0"><div class="ar-wrap"><table id="tblARInv"></table></div></div></div></div>
+<div id="sec-arinv" class="page"><div class="section"><div class="section-header"><div class="section-bar"></div><div class="section-title">Accounts Receivable — By Invoice</div></div><div id="arInvTotals"></div><div class="card" style="padding:0"><div class="ar-wrap"><table id="tblARInv"></table></div></div></div></div>
 
 <!-- ═══ FINANCIALS — PROFIT & LOSS ═══ -->
 <div id="sec-pl" class="page">
@@ -1887,61 +1887,7 @@ function render(){
     tb+=`<tr><td style="color:${COL.a};font-weight:500">${r.m}</td><td style="color:#1B4D4A">${$k(r.v)}</td><td style="color:${COL.b}">${$k(tk)}</td><td style="color:#1B4D4A;font-weight:700">${$k(tot)}</td><td>${r.ct}</td><td style="color:${COL.g}">${r.nc}</td><td style="color:${COL.p}">${r.rc}</td><td>${r.uf}</td><td style="color:${COL.g}">${r.nf}</td><td style="color:${COL.p}">${r.rf}</td><td style="color:${COL.t}">${r.uf>0?$k(Math.round(r.v/r.uf)):'—'}</td></tr>`});
   tb+='</tbody>';document.getElementById('tbl').innerHTML=tb;
 
-  // AR By Client table
-  const bc='color:#C0392B;font-weight:600';
-  let t91=0,t61=0,t31=0,t1=0,tcur=0,ttot=0,tsal=0;
-  AR_CL.forEach(r=>{t91+=r.b91;t61+=r.b61;t31+=r.b31;t1+=r.b1;tcur+=r.cur;ttot+=r.tot;tsal+=r.sal});
-  const tpd=t91+t61+t31+t1;
-  document.getElementById('arTotals').innerHTML=`<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-<div style="flex:1;min-width:140px;background:#FDF2F2;border:1px solid #F5C6CB;border-radius:10px;padding:14px 18px">
-<div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#C0392B;margin-bottom:4px">Total Past Due</div>
-<div style="font-size:26px;font-weight:800;color:#C0392B">${$$(tpd)}</div>
-<div style="font-size:12px;color:#C0392B;opacity:0.7;margin-top:2px">${AR_CL.length} clients · ${AR_INV.length} invoices</div></div>
-<div style="flex:1;min-width:120px;background:#FFF5F5;border:1px solid #FADBD8;border-radius:10px;padding:14px 18px">
-<div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#C0392B;margin-bottom:4px">91+ Days</div>
-<div style="font-size:20px;font-weight:700;color:#C0392B">${$$(t91)}</div></div>
-<div style="flex:1;min-width:120px;background:#FEF9F0;border:1px solid #FDEBD0;border-radius:10px;padding:14px 18px">
-<div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#E67E22;margin-bottom:4px">61-90 Days</div>
-<div style="font-size:20px;font-weight:700;color:#E67E22">${$$(t61)}</div></div>
-<div style="flex:1;min-width:120px;background:#FFFBF0;border:1px solid #FAE5A0;border-radius:10px;padding:14px 18px">
-<div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#B7950B;margin-bottom:4px">31-60 Days</div>
-<div style="font-size:20px;font-weight:700;color:#B7950B">${$$(t31)}</div></div>
-<div style="flex:1;min-width:120px;background:#F0F6F4;border:1px solid #D4E2DD;border-radius:10px;padding:14px 18px">
-<div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:${COL.a};margin-bottom:4px">1-30 Days</div>
-<div style="font-size:20px;font-weight:700;color:${COL.a}">${$$(t1)}</div></div>
-<div style="flex:1;min-width:120px;background:#F0F6F4;border:1px solid #D4E2DD;border-radius:10px;padding:14px 18px">
-<div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:${COL.b};margin-bottom:4px">Current</div>
-<div style="font-size:20px;font-weight:700;color:${COL.b}">${$$(tcur)}</div></div></div>`;
-  let ar='<thead><tr><th style="text-align:left">Client</th><th>91+ Days</th><th>61-90 Days</th><th>31-60 Days</th><th>1-30 Days</th><th>Current</th><th style="font-weight:700">Total AR</th><th># Inv</th></tr></thead><tbody>';
-  AR_CL.forEach(r=>{
-    ar+=`<tr><td style="text-align:left;color:${COL.a};font-weight:500">${r.cl}</td>`;
-    ar+=`<td style="${r.b91>0?bc:''}">${r.b91?$$(r.b91):'—'}</td>`;
-    ar+=`<td style="${r.b61>0?bc:''}">${r.b61?$$(r.b61):'—'}</td>`;
-    ar+=`<td>${r.b31?$$(r.b31):'—'}</td>`;
-    ar+=`<td>${r.b1?$$(r.b1):'—'}</td>`;
-    ar+=`<td>${r.cur?$$(r.cur):'—'}</td>`;
-    ar+=`<td style="font-weight:700">${$$(r.tot)}</td>`;
-    ar+=`<td>${r.inv}</td></tr>`;
-  });
-  ar+='</tbody>';document.getElementById('tblAR').innerHTML=ar;
-
-  // AR By Invoice table
-  let ai='<thead><tr><th style="text-align:left">Aging</th><th>Date</th><th>Type</th><th>#</th><th style="text-align:left">Client</th><th>Due Date</th><th>Amount</th><th>Open Balance</th></tr></thead><tbody>';
-  let curBucket='';
-  const bColors={'91+':'#C0392B','61-90':'#E67E22','31-60':'#F39C12','1-30':COL.a,'Current':COL.b};
-  const bLabels={'91+':'91+ Days','61-90':'61-90 Days','31-60':'31-60 Days','1-30':'1-30 Days','Current':'Current'};
-  let bucketTotals={};AR_INV.forEach(r=>{bucketTotals[r.b]=(bucketTotals[r.b]||0)+r.bal});
-  AR_INV.forEach(r=>{
-    if(r.b!==curBucket){
-      if(curBucket&&bucketTotals[curBucket]){ai+=`<tr style="background:#F0F6F4;font-weight:600"><td colspan="6" style="text-align:left;padding-left:20px">Subtotal ${bLabels[curBucket]}</td><td></td><td>${$$(bucketTotals[curBucket])}</td></tr>`}
-      curBucket=r.b;
-      ai+=`<tr style="background:${bColors[r.b]}15"><td colspan="8" style="text-align:left;font-weight:700;color:${bColors[r.b]}">${bLabels[r.b]}</td></tr>`;
-    }
-    ai+=`<tr><td></td><td>${r.dt}</td><td>${r.tp}</td><td>${r.num}</td><td style="text-align:left;color:${COL.a}">${r.cl}</td><td>${r.due}</td><td>${$$(r.amt)}</td><td style="font-weight:600">${$$(r.bal)}</td></tr>`;
-  });
-  if(curBucket&&bucketTotals[curBucket]){ai+=`<tr style="background:#F0F6F4;font-weight:600"><td colspan="6" style="text-align:left;padding-left:20px">Subtotal ${bLabels[curBucket]}</td><td></td><td>${$$(bucketTotals[curBucket])}</td></tr>`}
-  ai+=`<tr style="border-top:2px solid ${COL.a};font-weight:700;background:#E8EFED"><td colspan="6" style="text-align:left">GRAND TOTAL</td><td></td><td>${$$(ttot)}</td></tr>`;
-  ai+='</tbody>';document.getElementById('tblARInv').innerHTML=ai;
+  // AR tables rendered live by renderAR() — triggered on section nav
 
   // === MARKET ANALYSIS ===
   // Firm-level data for drill-down
@@ -2375,6 +2321,7 @@ function showPage(id){
   if(id==='sec-pl')setTimeout(renderPL,80);
   if(id==='sec-bva')setTimeout(renderBVA,80);
   if(id==='sec-cashflow')setTimeout(renderCashFlow,80);
+  if(id==='sec-arcl'||id==='sec-arinv')setTimeout(renderAR,80);
 }
 document.querySelectorAll('.nav-item').forEach(item=>{
   item.addEventListener('click',()=>showPage(item.dataset.nav));
@@ -4814,6 +4761,144 @@ function _parseGLVendors(glReport, targetAccountNames){
   walkRows(glReport.Rows.Row);
   result['_accrued'] = accrued['_accrued'] || {};
   return result;
+}
+
+// ── A/R Aging — live fetch from QBO proxy ──────────────────────
+let _arCache = null;
+
+async function renderAR(){
+  const BUCKET_ORDER = ['91+','61-90','31-60','1-30','Current'];
+  const BUCKET_LABELS = {'91+':'91+ Days','61-90':'61-90 Days','31-60':'31-60 Days','1-30':'1-30 Days','Current':'Current (Not Due)'};
+  const BUCKET_SECTION = {
+    '91 or more days past due':'91+',
+    '61 - 90 days past due':'61-90',
+    '31 - 60 days past due':'31-60',
+    '1 - 30 days past due':'1-30',
+    'current':'Current',
+  };
+  const bColors = {'91+':'#C0392B','61-90':'#E67E22','31-60':'#F39C12','1-30':COL.a,'Current':COL.b};
+
+  const elTotals  = document.getElementById('arTotals');
+  const elInvTot  = document.getElementById('arInvTotals');
+  const elByClient= document.getElementById('tblAR');
+  const elByInv   = document.getElementById('tblARInv');
+  const elBadge   = document.getElementById('arSyncBadge');
+
+  if(elTotals)  elTotals.innerHTML  = '<div style="color:#7BA69E;padding:12px 0">Loading A/R data from QuickBooks…</div>';
+  if(elByClient)elByClient.innerHTML= '';
+  if(elByInv)   elByInv.innerHTML   = '';
+
+  try {
+    if(!_arCache) _arCache = await fetchQbo('/api/ar');
+    const { report, report_date, ts } = _arCache;
+
+    // ── Parse rows ───────────────────────────────────────────────
+    const invoices = [];    // {bucket, dt, tp, num, cl, due, amt, bal}
+    const clientMap = {};   // cl → {b91,b61,b31,b1,bcur,tot,inv}
+
+    (report.Rows?.Row||[]).forEach(section=>{
+      if(!section.Header||!section.Rows) return;
+      const sn = (section.Header.ColData?.[0]?.value||'').trim().toLowerCase();
+      const bk = BUCKET_SECTION[sn]||'Current';
+      (section.Rows.Row||[]).forEach(row=>{
+        if(!row.ColData) return;
+        const cd=row.ColData;
+        const cl=(cd[3]?.value||'').trim(); if(!cl) return;
+        const amt=parseFloat(cd[5]?.value||0)||0;
+        const bal=parseFloat(cd[6]?.value||0)||0;
+        invoices.push({bucket:bk, dt:cd[0]?.value||'', tp:cd[1]?.value||'', num:cd[2]?.value||'',
+                       cl, due:cd[4]?.value||'', amt, bal});
+        if(!clientMap[cl]) clientMap[cl]={cl,b91:0,b61:0,b31:0,b1:0,bcur:0,tot:0,inv:0};
+        const c=clientMap[cl];
+        c.tot+=bal; c.inv++;
+        if(bk==='91+')    c.b91+=bal;
+        else if(bk==='61-90') c.b61+=bal;
+        else if(bk==='31-60') c.b31+=bal;
+        else if(bk==='1-30')  c.b1+=bal;
+        else if(bk==='Current') c.bcur+=bal;
+      });
+    });
+
+    const clients = Object.values(clientMap).sort((a,b)=>Math.abs(b.tot)-Math.abs(a.tot));
+    const T = clients.reduce((acc,c)=>({
+      b91:acc.b91+c.b91, b61:acc.b61+c.b61, b31:acc.b31+c.b31,
+      b1:acc.b1+c.b1, bcur:acc.bcur+c.bcur, tot:acc.tot+c.tot
+    }),{b91:0,b61:0,b31:0,b1:0,bcur:0,tot:0});
+    const tpd = T.b91+T.b61+T.b31+T.b1;
+
+    if(elBadge) elBadge.textContent = `As of ${report_date} · synced ${new Date(ts).toLocaleString()}`;
+
+    // ── KPI cards ────────────────────────────────────────────────
+    const kpiCard = (label,val,bg,border,color,sub='')=>`
+      <div style="flex:1;min-width:120px;background:${bg};border:1px solid ${border};border-radius:10px;padding:14px 18px">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:${color};margin-bottom:4px">${label}</div>
+        <div style="font-size:${sub?'26':'20'}px;font-weight:${sub?'800':'700'};color:${color}">${$$(val)}</div>
+        ${sub?`<div style="font-size:12px;color:${color};opacity:.7;margin-top:2px">${sub}</div>`:''}
+      </div>`;
+    const kpiHtml =
+      kpiCard('Total Past Due',tpd,'#FDF2F2','#F5C6CB','#C0392B',`${clients.length} clients · ${invoices.length} invoices`)+
+      kpiCard('91+ Days',T.b91,'#FFF5F5','#FADBD8','#C0392B')+
+      kpiCard('61-90 Days',T.b61,'#FEF9F0','#FDEBD0','#E67E22')+
+      kpiCard('31-60 Days',T.b31,'#FFFBF0','#FAE5A0','#B7950B')+
+      kpiCard('1-30 Days',T.b1,'#F0F6F4','#D4E2DD',COL.a)+
+      kpiCard('Current (Not Due)',T.bcur,'#EEF6F4','#C8DED9',COL.b)+
+      kpiCard('Total Outstanding',T.tot,'#E8EFED','#A8C5BE','#1B4D4A');
+    const kpiWrap = `<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">${kpiHtml}</div>`;
+    if(elTotals)  elTotals.innerHTML  = kpiWrap;
+    if(elInvTot)  elInvTot.innerHTML  = `<div style="padding:12px 16px 4px;font-size:11px;color:#7BA69E">As of ${report_date} · synced ${new Date(ts).toLocaleString()}</div>`+kpiWrap;
+
+    // ── By Client table ──────────────────────────────────────────
+    if(elByClient){
+      let ar='<thead><tr><th style="text-align:left">Client</th><th>91+ Days</th><th>61-90 Days</th><th>31-60 Days</th><th>1-30 Days</th><th>Current (Not Due)</th><th style="font-weight:700">Total AR</th><th># Inv</th></tr></thead><tbody>';
+      clients.forEach(r=>{
+        ar+=`<tr>
+          <td style="text-align:left;color:${COL.a};font-weight:500">${r.cl}</td>
+          <td style="${r.b91>0?'color:#C0392B;font-weight:600':''}">${r.b91?$$(r.b91):'—'}</td>
+          <td style="${r.b61>0?'color:#E67E22;font-weight:600':''}">${r.b61?$$(r.b61):'—'}</td>
+          <td style="${r.b31>0?'color:#B7950B;font-weight:600':''}">${r.b31?$$(r.b31):'—'}</td>
+          <td style="${r.b1>0?'color:'+COL.a+';font-weight:600':''}">${r.b1?$$(r.b1):'—'}</td>
+          <td style="color:#7BA69E">${r.bcur?$$(r.bcur):'—'}</td>
+          <td style="font-weight:700">${$$(r.tot)}</td>
+          <td>${r.inv}</td></tr>`;
+      });
+      ar+=`<tr style="background:#F0F6F4;border-top:2px solid #1B4D4A;font-weight:700">
+        <td style="text-align:left">TOTAL (${clients.length} clients)</td>
+        <td style="${T.b91>0?'color:#C0392B':''}">${T.b91?$$(T.b91):'—'}</td>
+        <td style="${T.b61>0?'color:#E67E22':''}">${T.b61?$$(T.b61):'—'}</td>
+        <td style="${T.b31>0?'color:#B7950B':''}">${T.b31?$$(T.b31):'—'}</td>
+        <td>${T.b1?$$(T.b1):'—'}</td>
+        <td style="color:#7BA69E">${T.bcur?$$(T.bcur):'—'}</td>
+        <td>${$$(T.tot)}</td>
+        <td>${invoices.length}</td></tr>`;
+      ar+='</tbody>';
+      elByClient.innerHTML=ar;
+    }
+
+    // ── By Invoice table ─────────────────────────────────────────
+    if(elByInv){
+      let ai='<thead><tr><th style="text-align:left">Aging</th><th>Date</th><th>Type</th><th>#</th><th style="text-align:left">Client</th><th>Due Date</th><th>Amount</th><th>Open Balance</th></tr></thead><tbody>';
+      BUCKET_ORDER.forEach(bk=>{
+        const bInvs=invoices.filter(i=>i.bucket===bk);
+        if(!bInvs.length) return;
+        const bkTotal=bInvs.reduce((s,i)=>s+i.bal,0);
+        ai+=`<tr style="background:${bColors[bk]}18"><td colspan="8" style="text-align:left;font-weight:700;color:${bColors[bk]};padding:8px 12px">${BUCKET_LABELS[bk]}</td></tr>`;
+        bInvs.forEach(r=>{
+          ai+=`<tr><td></td><td>${r.dt}</td><td>${r.tp}</td><td>${r.num}</td>
+            <td style="text-align:left;color:${COL.a}">${r.cl}</td>
+            <td>${r.due}</td><td>${$$(r.amt)}</td>
+            <td style="font-weight:600">${$$(r.bal)}</td></tr>`;
+        });
+        ai+=`<tr style="background:#F0F6F4;font-weight:600"><td colspan="6" style="text-align:left;padding-left:20px">Subtotal — ${BUCKET_LABELS[bk]}</td><td></td><td>${$$(bkTotal)}</td></tr>`;
+      });
+      ai+=`<tr style="border-top:2px solid ${COL.a};font-weight:700;background:#E8EFED"><td colspan="6" style="text-align:left">GRAND TOTAL</td><td></td><td>${$$(T.tot)}</td></tr>`;
+      ai+='</tbody>';
+      elByInv.innerHTML=ai;
+    }
+
+  } catch(e){
+    console.error('renderAR error:',e);
+    if(elTotals) elTotals.innerHTML=`<div style="color:#C0392B;padding:16px">Failed to load A/R data: ${e.message}</div>`;
+  }
 }
 
 async function renderExpenses(){
