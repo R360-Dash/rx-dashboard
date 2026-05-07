@@ -4799,12 +4799,29 @@ async function renderExpenses(){
     const parsed = parseQboReport(plData.report);
     if(!parsed){ document.getElementById('expKpis').innerHTML='<div style="color:#C0392B;padding:16px">No data</div>'; return; }
     const bk = _buildPLBreakdown(parsed);
-    // Build the set of QBO account names that map to 'Marketing Costs'
-    const mktAcctNames = new Set(
-      Object.entries(QBO_MAPPING).filter(([,v])=>v==='Marketing Costs').map(([k])=>k)
-    );
+    // QBO account names for sections that show vendor detail
+    const mktAcctNames = new Set(Object.entries(QBO_MAPPING).filter(([,v])=>v==='Marketing Costs').map(([k])=>k));
+    const sgaAcctNames  = new Set(Object.entries(QBO_MAPPING).filter(([,v])=>v==='SG&A').map(([k])=>k));
+    const allVendorAccts = new Set([...mktAcctNames, ...sgaAcctNames]);
     // Vendor map from GL: { qboAccountName → { vendorName → { monthly, total } } }
-    const vendorMap = glData ? _parseGLVendors(glData.report, mktAcctNames) : {};
+    const vendorMap = glData ? _parseGLVendors(glData.report, allVendorAccts) : {};
+    // Get vendor data for a leaf — handles merged display lines (e.g. Payroll = Contractors + Management Fees)
+    function getLeafVendors(leafLabel, merges){
+      const merge = merges ? merges.find(m=>m.label===leafLabel) : null;
+      if(merge){
+        const combined = {};
+        merge.sources.forEach(src=>{
+          const sv = vendorMap[src]; if(!sv) return;
+          Object.entries(sv).forEach(([vn,vd])=>{
+            if(!combined[vn]) combined[vn]={monthly:Array(12).fill(0),total:0};
+            vd.monthly.forEach((v,i)=>combined[vn].monthly[i]+=v);
+            combined[vn].total+=vd.total;
+          });
+        });
+        return Object.keys(combined).length ? combined : null;
+      }
+      return vendorMap[leafLabel]||null;
+    }
     if(updEl) updEl.textContent = 'Last synced: ' + new Date(plData.ts).toLocaleString();
 
     // ── 4 sections config ────────────────────────────────────
@@ -4878,7 +4895,6 @@ async function renderExpenses(){
       let leafs = [...(d.leafs||[])].sort((a,b)=>Math.abs(b.total)-Math.abs(a.total));
       if(sec.key==='sga') leafs = _mergeLeafs(leafs, SGA_MERGES).sort((a,b)=>Math.abs(b.total)-Math.abs(a.total));
       const ds = `data-expsec="${sec.key}"`;
-      const isMarketing = sec.key==='mktCosts';
       const nCols = mLabels.length + 2;
 
       // ── Section header row (clickable nav item, overview only) ──
@@ -4899,10 +4915,12 @@ async function renderExpenses(){
       html += `<tr class="exp-sec-spacer" ${ds} style="height:6px"><td colspan="${nCols}"></td></tr>`;
 
       // ── Leaf rows (detail mode only) ──
+      const isVendorSec = sec.key==='mktCosts' || sec.key==='sga';
+      const secMerges = sec.key==='sga' ? SGA_MERGES : null;
       let leafIdx = 0;
       leafs.forEach(leaf=>{
         if(Math.abs(leaf.total)<1) return;
-        const vendors = isMarketing ? vendorMap[leaf.label] : null;
+        const vendors = isVendorSec ? getLeafVendors(leaf.label, secMerges) : null;
         const vList = vendors ? Object.entries(vendors).filter(([,vd])=>Math.abs(vd.total)>=1).sort((a,b)=>Math.abs(b[1].total)-Math.abs(a[1].total)) : [];
         const hasVendors = vList.length > 0;
         const vgId = `vg-${sec.key}-${leafIdx++}`;
