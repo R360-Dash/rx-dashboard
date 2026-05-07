@@ -4899,25 +4899,31 @@ async function renderExpenses(){
       html += `<tr class="exp-sec-spacer" ${ds} style="height:6px"><td colspan="${nCols}"></td></tr>`;
 
       // ── Leaf rows (detail mode only) ──
+      let leafIdx = 0;
       leafs.forEach(leaf=>{
         if(Math.abs(leaf.total)<1) return;
-        html += `<tr class="exp-sec-leaf" ${ds}><td style="${sticky('#fff')};padding:3px 10px 3px 24px;color:#0D2B29;font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:${LABEL_W}px">${leaf.label}</td>`;
+        const vendors = isMarketing ? vendorMap[leaf.label] : null;
+        const vList = vendors ? Object.entries(vendors).filter(([,vd])=>Math.abs(vd.total)>=1).sort((a,b)=>Math.abs(b[1].total)-Math.abs(a[1].total)) : [];
+        const hasVendors = vList.length > 0;
+        const vgId = `vg-${sec.key}-${leafIdx++}`;
+
+        // Label cell: show toggle arrow if leaf has vendor breakdown
+        const toggleBtn = hasVendors
+          ? `<span data-vgtoggle="${vgId}" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin-right:6px;cursor:pointer;color:#B8860B;font-size:10px;flex-shrink:0;border:1px solid #E8D98F;border-radius:3px;background:#FFFBEE" title="Show vendors">▶</span>`
+          : `<span style="display:inline-block;width:22px;flex-shrink:0"></span>`;
+        const labelCell = `<td style="${sticky('#fff')};padding:3px 10px 3px 14px;color:#0D2B29;font-size:11px;font-weight:600;white-space:nowrap;max-width:${LABEL_W}px"><div style="display:flex;align-items:center;overflow:hidden">${toggleBtn}<span style="overflow:hidden;text-overflow:ellipsis">${leaf.label}</span></div></td>`;
+
+        html += `<tr class="exp-sec-leaf" ${ds}>${labelCell}`;
         leaf.monthly.forEach(v=>html+=`<td style="${cs};font-weight:600">${fmt(v)}</td>`);
         html += `<td style="${cs};font-weight:700;color:#0D2B29">${fmt(leaf.total)}</td></tr>`;
 
-        // Marketing Costs: add vendor rows under each account leaf
-        if(isMarketing){
-          const vendors = vendorMap[leaf.label];
-          if(vendors){
-            const vList = Object.entries(vendors)
-              .sort((a,b)=>Math.abs(b[1].total)-Math.abs(a[1].total));
-            vList.forEach(([vName, vd])=>{
-              if(Math.abs(vd.total)<1) return;
-              html += `<tr class="exp-sec-vendor" ${ds}><td style="${sticky('#FDFAF4')};padding:2px 10px 2px 44px;color:#7B5E12;font-size:10.5px;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:#FDFAF4;max-width:${LABEL_W}px">↳ ${vName}</td>`;
-              vd.monthly.forEach(v=>html+=`<td style="${cs};font-size:10.5px;color:#7B5E12;background:#FDFAF4">${fmt(v)}</td>`);
-              html += `<td style="${cs};font-size:10.5px;font-weight:600;color:#7B5E12;background:#FDFAF4">${fmt(vd.total)}</td></tr>`;
-            });
-          }
+        // Vendor rows — collapsed by default
+        if(hasVendors){
+          vList.forEach(([vName, vd])=>{
+            html += `<tr class="exp-sec-vendor" ${ds} data-vendorgrp="${vgId}" style="display:none"><td style="${sticky('#FDFAF4')};padding:2px 10px 2px 48px;color:#7B5E12;font-size:10.5px;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:#FDFAF4;max-width:${LABEL_W}px">↳ ${vName}</td>`;
+            vd.monthly.forEach(v=>html+=`<td style="${cs};font-size:10.5px;color:#7B5E12;background:#FDFAF4">${fmt(v)}</td>`);
+            html += `<td style="${cs};font-size:10.5px;font-weight:600;color:#7B5E12;background:#FDFAF4">${fmt(vd.total)}</td></tr>`;
+          });
         }
       });
 
@@ -4937,6 +4943,18 @@ async function renderExpenses(){
     html += `<td style="${cs};font-weight:800;color:#1B4D4A">${fmt(totalExp)}</td></tr></tbody>`;
 
     document.getElementById('expTable').innerHTML = html;
+
+    // ── Vendor toggle (▶/▼ arrows on marketing leaf rows) ──────────
+    document.getElementById('expTable').addEventListener('click', e=>{
+      const btn = e.target.closest('[data-vgtoggle]');
+      if(!btn) return;
+      const vgId = btn.dataset.vgtoggle;
+      const rows = document.querySelectorAll(`[data-vendorgrp="${vgId}"]`);
+      const isOpen = btn.textContent.trim() === '▼';
+      rows.forEach(tr=> tr.style.display = isOpen ? 'none' : '');
+      btn.textContent = isOpen ? '▶' : '▼';
+      btn.title = isOpen ? 'Show vendors' : 'Hide vendors';
+    });
 
     // ── Drill-down navigation (sidebar-style two levels) ──────────
     window._expApplyFilter = function _expApplyFilter(key){
