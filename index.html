@@ -4744,31 +4744,49 @@ function _parseGLVendors(glReport, targetAccountNames){
     return targetAccountNames.has(t) ? t : targetAccountNames.has(leaf) ? leaf : null;
   }
 
-  function walkRows(rows, acctKey=null){
+  // Separate bucket for Accrued Expenses payments (negative entries = cash out to vendors)
+  const accrued = {};
+
+  function addEntry(bucket, key, vendorName, dateStr, rawAmt){
+    const mo = new Date(dateStr).getMonth();
+    if(isNaN(mo)||mo<0||mo>11) return;
+    const amt = Math.abs(rawAmt); if(amt===0) return;
+    if(!bucket[key]) bucket[key]={};
+    if(!bucket[key][vendorName]) bucket[key][vendorName]={monthly:Array(12).fill(0),total:0};
+    bucket[key][vendorName].monthly[mo]+=amt;
+    bucket[key][vendorName].total+=amt;
+  }
+
+  function walkRows(rows, acctKey=null, insideAccrued=false){
     (rows||[]).forEach(row=>{
       if(row.Header && row.Rows){
-        // Each section header names the account — check if it's one we care about
         const sectionName = (row.Header.ColData?.[0]?.value||'').trim();
         const matched = matchAcct(sectionName);
-        // If this section matches, use it as the key; otherwise inherit parent key
-        walkRows(row.Rows.Row, matched ?? acctKey);
+        const nextAccrued = sectionName === 'Accrued Expenses';
+        walkRows(row.Rows.Row, matched ?? acctKey, nextAccrued);
         return;
       }
-      if(!row.ColData || !acctKey) return;
+      if(!row.ColData) return;
       const cd = row.ColData;
       const vendorName = (cd[nIdx]?.value||'').trim(); if(!vendorName) return;
       const dateStr    = (cd[dIdx]?.value||'').trim(); if(!dateStr) return;
-      const mo = new Date(dateStr).getMonth();
-      if(isNaN(mo)||mo<0||mo>11) return;
-      const amt = Math.abs(parseFloat(cd[aIdx]?.value||0)||0); if(amt===0) return;
-      if(!result[acctKey]) result[acctKey]={};
-      if(!result[acctKey][vendorName]) result[acctKey][vendorName]={monthly:Array(12).fill(0),total:0};
-      result[acctKey][vendorName].monthly[mo]+=amt;
-      result[acctKey][vendorName].total+=amt;
+      const rawAmt = parseFloat(cd[aIdx]?.value||0)||0;
+
+      if(insideAccrued && !acctKey){
+        // Negative = cash actually flowing out to the vendor (payment/expense transaction)
+        // Positive = Journal Entry accruals which have no vendor name anyway
+        if(rawAmt >= 0) return;
+        addEntry(accrued, '_accrued', vendorName, dateStr, rawAmt);
+        return;
+      }
+      if(!acctKey) return;
+      if(rawAmt === 0) return;
+      addEntry(result, acctKey, vendorName, dateStr, rawAmt);
     });
   }
 
   walkRows(glReport.Rows.Row);
+  result['_accrued'] = accrued['_accrued'] || {};
   return result;
 }
 
@@ -4802,19 +4820,24 @@ async function renderExpenses(){
     // Get vendor data for a leaf — handles merged display lines (e.g. Payroll = Contractors + Management Fees)
     function getLeafVendors(leafLabel, merges){
       const merge = merges ? merges.find(m=>m.label===leafLabel) : null;
-      if(merge){
-        const combined = {};
-        merge.sources.forEach(src=>{
-          const sv = vendorMap[src]; if(!sv) return;
-          Object.entries(sv).forEach(([vn,vd])=>{
-            if(!combined[vn]) combined[vn]={monthly:Array(12).fill(0),total:0};
-            vd.monthly.forEach((v,i)=>combined[vn].monthly[i]+=v);
-            combined[vn].total+=vd.total;
-          });
+      const combined = {};
+      const sources = merge ? merge.sources : new Set([leafLabel]);
+      sources.forEach(src=>{
+        const sv = vendorMap[src]; if(!sv) return;
+        Object.entries(sv).forEach(([vn,vd])=>{
+          if(!combined[vn]) combined[vn]={monthly:Array(12).fill(0),total:0};
+          vd.monthly.forEach((v,i)=>combined[vn].monthly[i]+=v);
+          combined[vn].total+=vd.total;
         });
-        return Object.keys(combined).length ? combined : null;
-      }
-      return vendorMap[leafLabel]||null;
+      });
+      // Supplement with Accrued Expenses payments for vendors already in this section
+      const accruedMap = vendorMap['_accrued']||{};
+      Object.keys(combined).forEach(vn=>{
+        const av = accruedMap[vn]; if(!av) return;
+        av.monthly.forEach((v,i)=>combined[vn].monthly[i]+=v);
+        combined[vn].total+=av.total;
+      });
+      return Object.keys(combined).length ? combined : null;
     }
     if(updEl) updEl.textContent = 'Last synced: ' + new Date(plData.ts).toLocaleString();
 
