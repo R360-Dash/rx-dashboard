@@ -4720,40 +4720,55 @@ function groupByCategory(leafs){
 let _expYear = 2026;
 let _expActiveKey = null; // null = show all
 
-// Parse a QBO GeneralLedger report into a vendor map:
-// { accountLabel → { vendorName → { monthly:[12], total } } }
-function _parseGLVendors(glReport){
+// Parse a QBO GeneralLedger report into a vendor map keyed by expense account name.
+// GL is organized by bank/payment account; expense accounts appear in the Split column.
+// Returns: { expenseAccountName → { vendorName → { monthly:[12], total } } }
+function _parseGLVendors(glReport, targetAccountNames){
+  // targetAccountNames: Set of QBO account names to capture (e.g. Marketing Costs accounts)
   if(!glReport?.Rows) return {};
   const cols = glReport.Columns?.Column || [];
-  // Find Name column (payee/vendor)
-  const nameIdx = cols.findIndex(c=>
-    c.ColType==='Customer' || (c.ColTitle||'').toLowerCase()==='name'
-  );
-  // Amount is last Money column
-  const amtIdx  = cols.reduce((last,c,i)=>c.ColType==='Money'?i:last, -1);
-  if(nameIdx<0 || amtIdx<0) return {};
+
+  // Detect column indices by ColType
+  const dateIdx  = cols.findIndex(c=>c.ColType==='tx_date');
+  const nameIdx  = cols.findIndex(c=>c.ColType==='name');
+  const splitIdx = cols.findIndex(c=>c.ColType==='split_acc');
+  const amtIdx   = cols.findIndex(c=>c.ColType==='subt_nat_amount');
+
+  // Fallback to positional if ColType detection fails
+  const dIdx = dateIdx  >= 0 ? dateIdx  : 0;
+  const nIdx = nameIdx  >= 0 ? nameIdx  : 3;
+  const sIdx = splitIdx >= 0 ? splitIdx : 5;
+  const aIdx = amtIdx   >= 0 ? amtIdx   : 6;
 
   const result = {};
-  (glReport.Rows.Row||[]).forEach(section=>{
-    if(!section.Header||!section.Rows) return;
-    const acctLabel = (section.Header.ColData?.[0]?.value||'').trim();
-    const vendors = {};
-    (section.Rows.Row||[]).forEach(row=>{
-      if(!row.ColData) return;          // skip summary sub-rows
-      const cd  = row.ColData;
-      const dateStr    = (cd[0]?.value||'').trim();
-      const vendorName = (cd[nameIdx]?.value||'').trim();
-      const amt = parseFloat(cd[amtIdx]?.value||0)||0;
-      if(!dateStr||!vendorName||amt===0) return;
-      const d = new Date(dateStr);
-      if(isNaN(d.getTime())) return;
-      const mo = d.getMonth(); // 0-11
-      if(!vendors[vendorName]) vendors[vendorName]={monthly:Array(12).fill(0),total:0};
-      vendors[vendorName].monthly[mo]+=amt;
-      vendors[vendorName].total+=amt;
+
+  function walkRows(rows){
+    (rows||[]).forEach(row=>{
+      if(row.Header && row.Rows) { walkRows(row.Rows.Row); return; } // nested section
+      if(!row.ColData) return;
+      const cd = row.ColData;
+      const splitAcct = (cd[sIdx]?.value||'').trim();
+      if(!targetAccountNames.has(splitAcct)) return;  // not a target expense account
+
+      const vendorName = (cd[nIdx]?.value||'').trim();
+      if(!vendorName) return;
+
+      const dateStr = (cd[dIdx]?.value||'').trim();
+      if(!dateStr) return;
+      const mo = new Date(dateStr).getMonth();
+      if(isNaN(mo)||mo<0||mo>11) return;
+
+      const amt = Math.abs(parseFloat(cd[aIdx]?.value||0)||0);
+      if(amt===0) return;
+
+      if(!result[splitAcct]) result[splitAcct]={};
+      if(!result[splitAcct][vendorName]) result[splitAcct][vendorName]={monthly:Array(12).fill(0),total:0};
+      result[splitAcct][vendorName].monthly[mo]+=amt;
+      result[splitAcct][vendorName].total+=amt;
     });
-    if(Object.keys(vendors).length>0) result[acctLabel]=vendors;
-  });
+  }
+
+  walkRows(glReport.Rows.Row);
   return result;
 }
 
@@ -4778,8 +4793,12 @@ async function renderExpenses(){
     const parsed = parseQboReport(plData.report);
     if(!parsed){ document.getElementById('expKpis').innerHTML='<div style="color:#C0392B;padding:16px">No data</div>'; return; }
     const bk = _buildPLBreakdown(parsed);
-    // Vendor map from GL: { accountLabel → { vendorName → { monthly, total } } }
-    const vendorMap = glData ? _parseGLVendors(glData.report) : {};
+    // Build the set of QBO account names that map to 'Marketing Costs'
+    const mktAcctNames = new Set(
+      Object.entries(QBO_MAPPING).filter(([,v])=>v==='Marketing Costs').map(([k])=>k)
+    );
+    // Vendor map from GL: { qboAccountName → { vendorName → { monthly, total } } }
+    const vendorMap = glData ? _parseGLVendors(glData.report, mktAcctNames) : {};
     if(updEl) updEl.textContent = 'Last synced: ' + new Date(plData.ts).toLocaleString();
 
     // ── 4 sections config ────────────────────────────────────
