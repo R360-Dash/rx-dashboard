@@ -4857,16 +4857,31 @@ async function renderExpenses(){
       const d = sec.get(bk);
       if(!d) return;
       const leafs = [...(d.leafs||[])].sort((a,b)=>Math.abs(b.total)-Math.abs(a.total));
-      const rowAttr = `class="exp-sec-row" data-expsec="${sec.key}"`;
+      const ds = `data-expsec="${sec.key}"`;
       const isMarketing = sec.key==='mktCosts';
+      const nCols = mLabels.length + 2;
 
-      html += `<tr ${rowAttr} style="background:#F7F9F8">
-        <td colspan="${mLabels.length+2}" style="${sticky('#F7F9F8')};padding:6px 10px;font-weight:800;font-size:11px;font-style:italic;text-transform:uppercase;letter-spacing:0.04em;color:${sec.color}">${sec.label}</td>
+      // ── Section header row (clickable nav item, overview only) ──
+      html += `<tr class="exp-sec-header" ${ds} style="background:#F0F7F5;cursor:pointer"
+        onmouseover="this.style.background='#E4F2EE'" onmouseout="this.style.background='#F0F7F5'">
+        <td colspan="${nCols}" style="${sticky('#F0F7F5')};padding:9px 12px;font-weight:800;font-size:11px;font-style:italic;text-transform:uppercase;letter-spacing:0.06em;color:${sec.color}">
+          <span style="display:inline-flex;align-items:center;gap:8px">${sec.label}
+            <span style="font-size:10px;font-style:normal;font-weight:500;opacity:.7;letter-spacing:0;text-transform:none">View details →</span>
+          </span>
+        </td>
       </tr>`;
 
+      // ── Section subtotal row (overview only) ──
+      html += `<tr class="exp-sec-subtotal" ${ds} style="background:#F4F8F6">
+        <td style="${sticky('#F4F8F6')};padding:5px 12px;font-weight:700;font-size:11px;color:${sec.color}">Total ${sec.label}</td>`;
+      d.monthly.forEach(v=>html+=`<td style="${cs};font-weight:600;color:${sec.color}">${fmt(v)}</td>`);
+      html += `<td style="${cs};font-weight:700;color:${sec.color}">${fmt(d.total)}</td></tr>`;
+      html += `<tr class="exp-sec-spacer" ${ds} style="height:6px"><td colspan="${nCols}"></td></tr>`;
+
+      // ── Leaf rows (detail mode only) ──
       leafs.forEach(leaf=>{
         if(Math.abs(leaf.total)<1) return;
-        html += `<tr ${rowAttr}><td style="${sticky('#fff')};padding:3px 10px 3px 24px;color:#0D2B29;font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:${LABEL_W}px">${leaf.label}</td>`;
+        html += `<tr class="exp-sec-leaf" ${ds}><td style="${sticky('#fff')};padding:3px 10px 3px 24px;color:#0D2B29;font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:${LABEL_W}px">${leaf.label}</td>`;
         leaf.monthly.forEach(v=>html+=`<td style="${cs};font-weight:600">${fmt(v)}</td>`);
         html += `<td style="${cs};font-weight:700;color:#0D2B29">${fmt(leaf.total)}</td></tr>`;
 
@@ -4878,7 +4893,7 @@ async function renderExpenses(){
               .sort((a,b)=>Math.abs(b[1].total)-Math.abs(a[1].total));
             vList.forEach(([vName, vd])=>{
               if(Math.abs(vd.total)<1) return;
-              html += `<tr ${rowAttr}><td style="${sticky('#FDFAF4')};padding:2px 10px 2px 44px;color:#7B5E12;font-size:10.5px;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:#FDFAF4;max-width:${LABEL_W}px">↳ ${vName}</td>`;
+              html += `<tr class="exp-sec-vendor" ${ds}><td style="${sticky('#FDFAF4')};padding:2px 10px 2px 44px;color:#7B5E12;font-size:10.5px;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:#FDFAF4;max-width:${LABEL_W}px">↳ ${vName}</td>`;
               vd.monthly.forEach(v=>html+=`<td style="${cs};font-size:10.5px;color:#7B5E12;background:#FDFAF4">${fmt(v)}</td>`);
               html += `<td style="${cs};font-size:10.5px;font-weight:600;color:#7B5E12;background:#FDFAF4">${fmt(vd.total)}</td></tr>`;
             });
@@ -4886,14 +4901,14 @@ async function renderExpenses(){
         }
       });
 
-      html += `<tr ${rowAttr} style="background:#F4F8F6">
-        <td style="${sticky('#F4F8F6')};padding:4px 10px;font-weight:700;font-size:11px;color:${sec.color}">Total ${sec.label}</td>`;
+      // ── Section total row (detail mode only) ──
+      html += `<tr class="exp-sec-detail-total" ${ds} style="background:#F4F8F6">
+        <td style="${sticky('#F4F8F6')};padding:5px 12px;font-weight:700;font-size:11px;color:${sec.color}">Total ${sec.label}</td>`;
       d.monthly.forEach(v=>html+=`<td style="${cs};font-weight:600;color:${sec.color}">${fmt(v)}</td>`);
       html += `<td style="${cs};font-weight:700;color:${sec.color}">${fmt(d.total)}</td></tr>`;
-      html += `<tr ${rowAttr} style="height:6px"><td colspan="${mLabels.length+2}"></td></tr>`;
     });
 
-    // grand total row
+    // grand total row (overview only)
     const totMonthly = Array(mLabels.length).fill(0);
     SECTIONS.forEach(sec=>{ const d=sec.get(bk); if(d) d.monthly.forEach((v,i)=>totMonthly[i]+=v); });
     html += `<tr class="exp-total-row" style="background:#E8F0ED">
@@ -4903,49 +4918,74 @@ async function renderExpenses(){
 
     document.getElementById('expTable').innerHTML = html;
 
-    // ── Card filter interaction ────────────────────────────────
-    function _expApplyFilter(key){
+    // ── Drill-down navigation (sidebar-style two levels) ──────────
+    window._expApplyFilter = function _expApplyFilter(key){
       _expActiveKey = key;
       const isAll = !key || key==='all';
-      // Cards
+      const sec = SECTIONS.find(s=>s.key===key);
+
+      // ── KPI cards ──
       kpiEl.querySelectorAll('.exp-kpi-card').forEach(card=>{
         const ck = card.dataset.expkey;
         const active = isAll ? ck==='all' : ck===key;
         card.style.boxShadow = active ? `0 0 0 2px ${SECTIONS.find(s=>s.key===ck)?.color||'#1B4D4A'}` : '';
         card.style.opacity = isAll || active ? '1' : '0.35';
       });
-      // Table rows
-      document.querySelectorAll('#expTable .exp-sec-row').forEach(tr=>{
-        tr.style.display = isAll || tr.dataset.expsec===key ? '' : 'none';
+
+      // ── Table rows — overview vs detail ──
+      // Overview: section headers + subtotals + spacers + grand total
+      // Detail: only selected section's leaf/vendor/detail-total rows
+      document.querySelectorAll('#expTable .exp-sec-header').forEach(tr=>{
+        tr.style.display = isAll ? '' : 'none';
       });
-      // Grand total row: only visible when showing all
+      document.querySelectorAll('#expTable .exp-sec-subtotal').forEach(tr=>{
+        tr.style.display = isAll ? '' : 'none';
+      });
+      document.querySelectorAll('#expTable .exp-sec-spacer').forEach(tr=>{
+        tr.style.display = isAll ? '' : 'none';
+      });
+      document.querySelectorAll('#expTable .exp-sec-leaf').forEach(tr=>{
+        tr.style.display = !isAll && tr.dataset.expsec===key ? '' : 'none';
+      });
+      document.querySelectorAll('#expTable .exp-sec-vendor').forEach(tr=>{
+        tr.style.display = !isAll && tr.dataset.expsec===key ? '' : 'none';
+      });
+      document.querySelectorAll('#expTable .exp-sec-detail-total').forEach(tr=>{
+        tr.style.display = !isAll && tr.dataset.expsec===key ? '' : 'none';
+      });
       document.querySelector('#expTable .exp-total-row').style.display = isAll ? '' : 'none';
-      // Title
-      const sec = SECTIONS.find(s=>s.key===key);
+
+      // ── Title ──
       if(titleEl) titleEl.textContent = isAll
         ? `Expense Detail — ${_expYear}`
         : `${sec.label} — ${_expYear}`;
-      // Breadcrumb
+
+      // ── Breadcrumb ──
       const bc = document.getElementById('expBreadcrumb');
       if(bc){
         if(isAll){
           bc.innerHTML = `<span style="color:#1B4D4A;font-weight:600">Expense Breakdown</span>`;
         } else {
-          bc.innerHTML = `<span style="cursor:pointer;text-decoration:underline;color:#7BA69E" onclick="_expApplyFilter('all')">Expense Breakdown</span><span style="color:#7BA69E">›</span><span style="color:${sec.color};font-weight:600">${sec.label}</span>`;
+          bc.innerHTML = `<span style="cursor:pointer;text-decoration:underline;color:#7BA69E" onclick="window._expApplyFilter('all')">Expense Breakdown</span><span style="color:#7BA69E">›</span><span style="color:${sec.color};font-weight:600">${sec.label}</span>`;
         }
       }
-    }
+    };
 
+    // Section header rows are clickable (same as sidebar nav items)
+    document.querySelectorAll('#expTable .exp-sec-header').forEach(tr=>{
+      tr.addEventListener('click', ()=> window._expApplyFilter(tr.dataset.expsec));
+    });
+
+    // KPI cards
     kpiEl.addEventListener('click', e=>{
       const card = e.target.closest('.exp-kpi-card');
       if(!card) return;
       const key = card.dataset.expkey;
-      // Toggle: clicking the active card resets to all
-      _expApplyFilter(key===_expActiveKey || key==='all' ? 'all' : key);
+      window._expApplyFilter(key===_expActiveKey ? 'all' : key);
     });
 
     // Re-apply last active filter if user switched year
-    _expApplyFilter(_expActiveKey || 'all');
+    window._expApplyFilter(_expActiveKey || 'all');
 
   } catch(err){
     console.error('Expense render failed:', err);
