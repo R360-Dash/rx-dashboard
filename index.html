@@ -2770,8 +2770,34 @@ const SHOW_DATES={24:new Date(2024,2,15),25:new Date(2025,2,15),26:new Date(2026
 const MN=['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const _hsSp={};
 
-function hsCompanyName(n){return n.split(' - ')[0].trim()}
-function hsCompanyKey(n){return hsCompanyName(n).toLowerCase()}
+// Canonical company name aliases — normalises inconsistent deal naming across years
+// (primarily 2024 deals that used "Company Name Deal" instead of "Company - Type")
+const COMPANY_ALIASES = {
+  // Wilson: "Wilson Tennis Deal" (p24) vs "Wilson - Rebook" (p25/p26)
+  'wilson tennis': 'wilson',
+  // Adidas: "All Racquet Sports" (p24) vs "Adidas All Sports" (p25/p26)
+  'all racquet sports': 'adidas all sports',
+  // Portico: "Portico" (p24) / "PórticoSport" (p25) / "Portico Sport" (p26)
+  'pórticosport': 'portico',
+  'portico sport': 'portico',
+  // Mejor Set: "Mejor Set Deal" (p24) vs "MejorSet" (p25/p26)
+  'mejor set': 'mejorset',
+  // Ortega: "Ortega Supply Chain Company" (p24) vs "Ortega Supply Chain" (p25)
+  'ortega supply chain company': 'ortega supply chain',
+  // Padeltech: "Padeltech" (p25) vs "Padel Tech" (p26)
+  'padeltech': 'padel tech',
+};
+
+function hsCompanyName(n){
+  let name = n.split(' - ')[0].trim();
+  // Strip trailing " Deal" or " Rebook" appended directly to company name (2024-era naming)
+  name = name.replace(/\s+deal$/i,'').replace(/\s+rebook$/i,'').trim();
+  return name;
+}
+function hsCompanyKey(n){
+  const base = hsCompanyName(n).toLowerCase();
+  return COMPANY_ALIASES[base] || base;
+}
 
 function hsInferType(d){
   if(d.r==='Rebook')return 'rebook';
