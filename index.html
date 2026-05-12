@@ -354,6 +354,10 @@ tr:hover td{background:#E8F0ED}
       <button data-yr="2025">2025</button>
       <button class="active" data-yr="2026">2026</button>
     </div>
+    <div class="toggle" id="bvaViewToggle" style="display:none">
+      <button class="active" data-vm="full">Monthly Detail</button>
+      <button data-vm="annual">Annual Summary</button>
+    </div>
     <div class="toggle" id="bvaYearToggle1" style="display:none">
       <button data-yr="2024">2024</button>
       <button data-yr="2025">2025</button>
@@ -2294,7 +2298,7 @@ function showPage(id){
   });
   document.getElementById('tog').style.display=(id==='sec-mkt'||id==='sec-cumfirm'||id==='sec-cumsp'||id==='sec-settings'||id==='sec-hsoverview'||id==='sec-hsdeals'||id==='sec-grip'||id==='sec-hsmix'||id==='sec-hsnew'||id==='sec-hsrebooks'||id==='sec-hsmom'||id==='sec-hscumsp'||id==='sec-hscumfirm'||id==='sec-partners'||id==='sec-linkedin'||id==='sec-ga4'||id==='sec-pl'||id==='sec-bva'||id==='sec-cashflow'||id==='sec-revproj'||id==='sec-scenario'||id==='sec-expenses')?'none':'flex';
   // Show page-specific year toggle in header
-  ['expCycleToggle','expYearToggle','plCycleToggle','plYearToggle','cfYearToggle','bvaYearToggle1'].forEach(t=>{const el=document.getElementById(t);if(el)el.style.display='none';});
+  ['expCycleToggle','expYearToggle','plCycleToggle','plYearToggle','cfYearToggle','bvaYearToggle1','bvaViewToggle'].forEach(t=>{const el=document.getElementById(t);if(el)el.style.display='none';});
   if(id==='sec-expenses'){
     const ct=document.getElementById('expCycleToggle');if(ct)ct.style.display='flex';
     const yt=document.getElementById('expYearToggle');if(yt)yt.style.display='flex';
@@ -2304,7 +2308,10 @@ function showPage(id){
     const el=document.getElementById('plYearToggle');if(el)el.style.display='flex';
   }
   if(id==='sec-cashflow'){const el=document.getElementById('cfYearToggle');if(el)el.style.display='flex';}
-  if(id==='sec-bva'){const el=document.getElementById('bvaYearToggle1');if(el)el.style.display='flex';}
+  if(id==='sec-bva'){
+    const vt=document.getElementById('bvaViewToggle');if(vt)vt.style.display='flex';
+    const el=document.getElementById('bvaYearToggle1');if(el)el.style.display='flex';
+  }
   // Hide 2024 button on rebooks page
   const btn24=document.querySelector('.toggle button[data-s="2024"]');
   if(btn24) btn24.style.display=(id==='sec-rebooks')?'none':'';
@@ -6645,6 +6652,7 @@ let _bvaYear = 2026;
 let _bvaYear2 = 2026;
 let _bvaState = null;
 let _bvaMonthFilter = null;
+let _bvaViewMode = 'full'; // 'full' | 'annual'
 
 const _BVA_LINES = [
   {key:'showSponsors',       label:'Show Sponsors',                section:'rev'},
@@ -6752,7 +6760,7 @@ function _bvaRenderSnaps(y,isOwner){
   });
 }
 
-function _bvaBuildTable1(bk, budget, mns, nM, monthFilter){
+function _bvaBuildTable1(bk, budget, mns, nM, monthFilter, viewMode){
   const bArr=k=>budget[k]||Array(12).fill(0);
   const aArr=k=>_bvaActualMonthly(bk,k);
   const sum=arr=>arr.reduce((t,v)=>t+v,0);
@@ -6781,7 +6789,8 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter){
   }
 
   const mf=monthFilter;  // null = all months, 0-11 = single month
-  const mCols=mf!=null?4:nM*4;  // 4 sub-cols per month: BDG, ACT, VAR$, VAR%
+  const annOnly = viewMode === 'annual';
+  const mCols=annOnly?0:mf!=null?4:nM*4;  // 4 sub-cols per month: BDG, ACT, VAR$, VAR%
   const LABEL_W=130;
   const NUM_W=72;
 
@@ -6813,24 +6822,26 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter){
     // For cost rows, favourable = spending LESS than budget (varD <= 0)
     const good=(delta)=>o.isCost ? delta<=0 : delta>=0;
     let r=`<tr style="background:${o.bg}"><td style="${stk(o.bg)};${ind};color:${o.lc};font-size:11px;font-weight:${o.fw}">${label}</td>`;
-    for(let i=0;i<nM;i++){
-      if(mf!=null&&mf!==i) continue;
-      r+=`<td style="${mcs};color:${o.lc};font-weight:${o.fw}">${_bvaFmtN(bdg12[i])}</td>`;
-      if(i<=lastIdx){
-        const aVal=act12[i];
-        const ac=o.summary?(aVal>=0?'#1B7A3D':'#C0392B'):'#1B7A4B';
-        const varD=aVal-bdg12[i];
-        // Only show VAR% when budget is meaningful (≥$500); avoids +100000% noise
-        const varPct=Math.abs(bdg12[i])>=500?varD/Math.abs(bdg12[i])*100:null;
-        const vc=good(varD)?'#1B7A3D':'#C0392B';
-        const vBg=good(varD)?'#E8F5EE':'#FDEAEA';
-        r+=`<td style="${mcs};color:${ac};font-weight:${o.fw}">${_bvaFmtN(aVal)}</td>`;
-        r+=`<td style="${mcs};color:${vc};font-weight:600;background:${vBg}">${_bvaFmtN(varD)}</td>`;
-        r+=`<td style="${mcs};color:${vc};font-weight:600;background:${vBg}">${fmtPct(varPct)}</td>`;
-      } else {
-        r+=`<td style="${mcs};color:#C8DAD6;font-weight:400">—</td>`;
-        r+=`<td style="${mcs};color:#C8DAD6;font-weight:400">—</td>`;
-        r+=`<td style="${mcs};color:#C8DAD6;font-weight:400">—</td>`;
+    if(!annOnly){
+      for(let i=0;i<nM;i++){
+        if(mf!=null&&mf!==i) continue;
+        r+=`<td style="${mcs};color:${o.lc};font-weight:${o.fw}">${_bvaFmtN(bdg12[i])}</td>`;
+        if(i<=lastIdx){
+          const aVal=act12[i];
+          const ac=o.summary?(aVal>=0?'#1B7A3D':'#C0392B'):'#1B7A4B';
+          const varD=aVal-bdg12[i];
+          // Only show VAR% when budget is meaningful (≥$500); avoids +100000% noise
+          const varPct=Math.abs(bdg12[i])>=500?varD/Math.abs(bdg12[i])*100:null;
+          const vc=good(varD)?'#1B7A3D':'#C0392B';
+          const vBg=good(varD)?'#E8F5EE':'#FDEAEA';
+          r+=`<td style="${mcs};color:${ac};font-weight:${o.fw}">${_bvaFmtN(aVal)}</td>`;
+          r+=`<td style="${mcs};color:${vc};font-weight:600;background:${vBg}">${_bvaFmtN(varD)}</td>`;
+          r+=`<td style="${mcs};color:${vc};font-weight:600;background:${vBg}">${fmtPct(varPct)}</td>`;
+        } else {
+          r+=`<td style="${mcs};color:#C8DAD6;font-weight:400">—</td>`;
+          r+=`<td style="${mcs};color:#C8DAD6;font-weight:400">—</td>`;
+          r+=`<td style="${mcs};color:#C8DAD6;font-weight:400">—</td>`;
+        }
       }
     }
     const annGood=good(av.v);
@@ -6853,29 +6864,40 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter){
   html+=`</colgroup>`;
 
   // 2-row header: month names (colspan=4) + annual section headers (rowspan=2)
-  html+=`<thead><tr><th style="${stkHdr}" rowspan="2"></th>`;
-  for(let i=0;i<nM;i++){
-    if(mf!=null&&mf!==i) continue;
-    const cl=i<=lastIdx?';background:#EEF5F3':'';
-    html+=`<th colspan="4" style="${hcs}${cl}">${mns[i]}</th>`;
-  }
   const annTh=(label,color,border)=>`<th style="${hcs};color:${color};font-weight:700${border?';border-left:2px solid #1B4D4A':''}" rowspan="2">${label}</th>`;
-  html+=annTh('YTD<br>Actual','#1B4D4A',true);
-  html+=annTh('Remaining<br>BDG','#7BA69E',false);
-  html+=annTh('Full Year<br>Est.','#1B4D4A',false);
-  html+=annTh('Annual<br>BDG','#7BA69E',false);
-  html+=annTh('Variance','#1B4D4A',false);
-  html+=`</tr><tr>`;
-  for(let i=0;i<nM;i++){
-    if(mf!=null&&mf!==i) continue;
-    const closed=i<=lastIdx;
-    const cl=closed?';background:#EEF5F3':'';
-    html+=`<th style="${hcs};color:#B8D0C8${cl}">BDG</th>`;
-    html+=`<th style="${hcs};color:${closed?'#1B7A4B':'#C8DAD6'}${cl}">ACT</th>`;
-    html+=`<th style="${hcs};color:${closed?'#1B4D4A':'#C8DAD6'}${cl}">VAR $</th>`;
-    html+=`<th style="${hcs};color:${closed?'#1B4D4A':'#C8DAD6'}${cl}">VAR %</th>`;
+  if(annOnly){
+    // Annual-only: single header row, no month columns
+    html+=`<thead><tr><th style="${stkHdr}"></th>`;
+    html+=annTh('YTD<br>Actual','#1B4D4A',true);
+    html+=annTh('Remaining<br>BDG','#7BA69E',false);
+    html+=annTh('Full Year<br>Est.','#1B4D4A',false);
+    html+=annTh('Annual<br>BDG','#7BA69E',false);
+    html+=annTh('Variance','#1B4D4A',false);
+    html+=`</tr></thead><tbody>`;
+  } else {
+    html+=`<thead><tr><th style="${stkHdr}" rowspan="2"></th>`;
+    for(let i=0;i<nM;i++){
+      if(mf!=null&&mf!==i) continue;
+      const cl=i<=lastIdx?';background:#EEF5F3':'';
+      html+=`<th colspan="4" style="${hcs}${cl}">${mns[i]}</th>`;
+    }
+    html+=annTh('YTD<br>Actual','#1B4D4A',true);
+    html+=annTh('Remaining<br>BDG','#7BA69E',false);
+    html+=annTh('Full Year<br>Est.','#1B4D4A',false);
+    html+=annTh('Annual<br>BDG','#7BA69E',false);
+    html+=annTh('Variance','#1B4D4A',false);
+    html+=`</tr><tr>`;
+    for(let i=0;i<nM;i++){
+      if(mf!=null&&mf!==i) continue;
+      const closed=i<=lastIdx;
+      const cl=closed?';background:#EEF5F3':'';
+      html+=`<th style="${hcs};color:#B8D0C8${cl}">BDG</th>`;
+      html+=`<th style="${hcs};color:${closed?'#1B7A4B':'#C8DAD6'}${cl}">ACT</th>`;
+      html+=`<th style="${hcs};color:${closed?'#1B4D4A':'#C8DAD6'}${cl}">VAR $</th>`;
+      html+=`<th style="${hcs};color:${closed?'#1B4D4A':'#C8DAD6'}${cl}">VAR %</th>`;
+    }
+    html+=`</tr></thead><tbody>`;
   }
-  html+=`</tr></thead><tbody>`;
 
   html+=sHdr('Revenues','#1B4D4A');
   revL.forEach(l=>html+=row(l.label,bArr(l.key),aArr(l.key),{indent:true,lc:'#0D2B29'}));
@@ -6907,7 +6929,7 @@ function _bvaLiveUpdate(){
 
   // Re-render Table 1 using budget1 (T1 year actuals vs T1 year budget)
   const t1=document.getElementById('bvaTable1');
-  if(t1) t1.innerHTML=_bvaBuildTable1(bk,budget1,mns,nM,_bvaMonthFilter);
+  if(t1) t1.innerHTML=_bvaBuildTable1(bk,budget1,mns,nM,_bvaMonthFilter,_bvaViewMode);
 
   const bArr1=k=>budget1[k]||Array(12).fill(0);
   const bArr2=k=>budget2[k]||Array(12).fill(0);
@@ -7124,6 +7146,13 @@ window.renderBVA=renderBVA;
 
 _bindYearToggle('bvaYearToggle1', y=>{_bvaYear=y;_bvaMonthFilter=null;}, renderBVA);
 _bindYearToggle('bvaYearToggle2', y=>_bvaYear2=y, renderBVA);
+
+document.getElementById('bvaViewToggle')?.addEventListener('click', e=>{
+  const btn=e.target.closest('button[data-vm]'); if(!btn) return;
+  _bvaViewMode=btn.dataset.vm;
+  document.getElementById('bvaViewToggle')?.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===btn));
+  _bvaLiveUpdate();
+});
 _bindYearToggle('expYearToggle', y=>_expYear=y, renderExpenses);
 _bindYearToggle('plYearToggle', y=>_plYear=y, renderPL);
 _bindYearToggle('cfYearToggle', y=>_cfYear=y, renderCashFlow);
