@@ -323,10 +323,10 @@ tr:hover td{background:#E8F0ED}
   </div>
   <div class="header-right">
     <div class="toggle" id="tog">
-      <button data-s="2027">2027 Show</button>
-      <button class="active" data-s="2026">2026 Show</button>
-      <button data-s="2025">2025 Show</button>
-      <button data-s="2024">2024 Show</button>
+      <button data-s="2027">2027</button>
+      <button class="active" data-s="2026">2026</button>
+      <button data-s="2025">2025</button>
+      <button data-s="2024">2024</button>
     </div>
     <div class="toggle" id="expCycleToggle" style="display:none">
       <button class="active" data-cy="fiscal">Fiscal Year</button>
@@ -377,6 +377,14 @@ tr:hover td{background:#E8F0ED}
 
 <!-- ═══ OVERVIEW ═══ -->
 <div id="sec-kpis" class="page visible">
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+  <span style="font-size:12px;color:#7BA69E;font-weight:600;letter-spacing:.4px">Revenue:</span>
+  <div class="toggle" id="revFilterToggle">
+    <button class="active" data-rf="rx">RX</button>
+    <button data-rf="show">Show</button>
+    <button data-rf="cs">City Series</button>
+  </div>
+</div>
 <div class="kpi-grid" id="kG"></div>
 </div>
 
@@ -1320,6 +1328,8 @@ const P=v=>v==null||!isFinite(v)?'—':`${v>=0?'+':''}${(v*100).toFixed(1)}%`;
 const ml=m=>{const[y,mo]=m.split('-');return['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+mo]+"'"+y.slice(2)};
 const COL={a:'#1B4D4A',b:'#5BA08A',g:'#1B7A3D',r:'#C0392B',p:'#2D7A6F',t:'#3D9B8F',w:'#0D2B29',d:'#7BA69E',m:'#A8C5BE',gr:'#D4E2DD'};
 let AS='2026';
+let _revFilter='rx'; // 'rx' | 'show' | 'cs'
+function _isCsDeal(name){return name.toLowerCase().includes('city series');}
 
 function setupCanvas(id){const c=document.getElementById(id);if(!c)return null;const pr=c.parentElement.getBoundingClientRect();const W=pr.width-32;if(W<=0)return null;const vh=window.innerHeight;const H=Math.round(vh*0.65);const dp=window.devicePixelRatio||1;c.width=W*dp;c.height=H*dp;c.style.width=W+'px';c.style.height=H+'px';const x=c.getContext('2d');x.scale(dp,dp);return{c,x,W,H}}
 
@@ -1536,9 +1546,14 @@ function render(){
     // 2026/2027: live HubSpot data
     const wonStage=_wonStages[pipeYr];
     const allWon=window.HS.d.filter(d=>d.p===pipeYr&&d.s===wonStage);
-    const paidWon=allWon.filter(d=>d.a>0);
+    const paidWonAll=allWon.filter(d=>d.a>0);
     const qualifiedZero=allWon.filter(d=>d.a===0&&(['iappf','chinese'].includes(_catP(d.n))));
-    const countableWon=[...paidWon,...qualifiedZero];
+    // Apply revenue filter: 'rx'=all, 'show'=non-City-Series, 'cs'=City-Series only
+    const _rfPaid=_revFilter==='show'?paidWonAll.filter(d=>!_isCsDeal(d.n)):
+                  _revFilter==='cs'  ?paidWonAll.filter(d=>_isCsDeal(d.n)):paidWonAll;
+    const _rfZero=_revFilter==='cs'  ?[]:qualifiedZero;
+    const paidWon=_rfPaid;
+    const countableWon=[...paidWon,..._rfZero];
     tSp=paidWon.reduce((s,d)=>s+d.a,0);
     tF=new Set(countableWon.map(d=>_ck(d.n))).size;
     tSS=countableWon.length;
@@ -1551,16 +1566,22 @@ function render(){
     rbF=new Set(rbWonArr.map(d=>_ck(d.n))).size;
   } else {
     // 2024/2025: static D.K data (consistent with Excel)
-    tSp=K['tsp'+yr];
-    tF=K['tf'+yr];tSS=K['tss'+yr];
-    paidContracts=tSS;
-    nwCt=K['nw'+yr];rbCt=K['rb'+yr];
-    nwRv=K['nwr'+yr];rbRv=K['rbr'+yr];
-    nwF=K['nwf'+yr];rbF=K['rbf'+yr];
+    // City Series started in 2026 — for cs filter show zeroes, show filter = full total
+    if(_revFilter==='cs'){
+      tSp=0;tF=0;tSS=0;paidContracts=0;nwCt=0;rbCt=0;nwRv=0;rbRv=0;nwF=0;rbF=0;
+    } else {
+      tSp=K['tsp'+yr];
+      tF=K['tf'+yr];tSS=K['tss'+yr];
+      paidContracts=tSS;
+      nwCt=K['nw'+yr];rbCt=K['rb'+yr];
+      nwRv=K['nwr'+yr];rbRv=K['rbr'+yr];
+      nwF=K['nwf'+yr];rbF=K['rbf'+yr];
+    }
   }
 
   // ═══ TICKETS: Grip for 2026, D.K for 2025/2024 ═══
-  tTk=is26?(window.GRIP?window.GRIP.ticketSales:K['ttk26']):K['ttk'+yr]||0;
+  // City Series filter: tickets are show-only (no city series ticket tracking)
+  tTk=_revFilter==='cs'?0:is26?(window.GRIP?window.GRIP.ticketSales:K['ttk26']):K['ttk'+yr]||0;
   tR=tSp+tTk;
   tTS=is26?(window.GRIP?window.GRIP.tickets.reduce((s,t)=>s+t.count,0):K['tts26']):K['tts'+yr]||0;
   const rpf=tF>0?tR/tF:0;
@@ -1605,7 +1626,7 @@ function render(){
   const totTarget=spTarget+tkTarget;const totPct=totTarget>0?Math.min(Math.round(tR/totTarget*100),100):0;
   const tgtLbl=v=>v>=1e6?`$${(v/1e6).toFixed(1)}M`:`$${Math.round(v/1e3)}K`;
   document.getElementById('kG').innerHTML=[
-    {i:'💰',t:'Total Revenue',v:$(tR),s:`${AS} Show · ${tSS} contracts + ${tTS} tickets`,bar:totTarget>0?{pct:totPct,label:`${totPct}% of ${tgtLbl(totTarget)} target`}:null},
+    {i:'💰',t:'Total Revenue',v:$(tR),s:`${AS}${_revFilter==='cs'?' City Series':_revFilter==='show'?' Show':''} · ${tSS} contracts + ${tTS} tickets`,bar:totTarget>0&&_revFilter!=='cs'?{pct:totPct,label:`${totPct}% of ${tgtLbl(totTarget)} target`}:null},
     {i:'🤝',t:'Sponsorship Revenue',v:$(tSp),s:`${tSS} contracts · ${tF} firms`,bar:spTarget>0?{pct:spPct,label:`${spPct}% of ${tgtLbl(spTarget)} target`}:null},
     {i:'🎫',t:'Ticket Revenue',v:$(tTk),s:`${tTS} tickets sold${is26?' (Grip)':''}`,bar:tkTarget>0?{pct:tkPct,label:`${tkPct}% of ${tgtLbl(tkTarget)} target`}:null},
     {i:'📈',t:'MoM Revenue %',v:mom!=null?P(mom):'—',tr:mom,tl:'vs prior month'},
@@ -2218,6 +2239,7 @@ function render(){
 }
 
 document.getElementById('tog').addEventListener('click',e=>{if(e.target.tagName==='BUTTON'){AS=e.target.dataset.s;document.querySelectorAll('#tog button').forEach(b=>b.classList.toggle('active',b.dataset.s===AS));render()}});
+document.getElementById('revFilterToggle').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;_revFilter=b.dataset.rf;document.querySelectorAll('#revFilterToggle button').forEach(x=>x.classList.toggle('active',x.dataset.rf===_revFilter));render();});
 render();
 let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(render,150)});
 
