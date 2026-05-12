@@ -6808,11 +6808,13 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter, viewMode){
     const rem=sum(bdg12.slice(Math.max(0,lastIdx+1)));
     const full=ytd+rem;
     const annBdg=sum(bdg12);
-    return {ytd,rem,full,annBdg,v:full-annBdg};
+    const v=full-annBdg;
+    const vPct=Math.abs(annBdg)>=500?v/Math.abs(annBdg)*100:null;
+    return {ytd,rem,full,annBdg,v,vPct};
   }
 
   function sHdr(lbl,col){
-    return `<tr><td style="${stk()};padding:7px 10px 3px;font-weight:800;color:${col||'#1B4D4A'};font-size:11px;font-style:italic;text-transform:uppercase;letter-spacing:0.04em">${lbl}</td><td colspan="${mCols+5}" style="padding:0"></td></tr>`;
+    return `<tr><td style="${stk()};padding:7px 10px 3px;font-weight:800;color:${col||'#1B4D4A'};font-size:11px;font-style:italic;text-transform:uppercase;letter-spacing:0.04em">${lbl}</td><td colspan="${mCols+6}" style="padding:0"></td></tr>`;
   }
 
   function row(label,bdg12,act12,opts){
@@ -6851,14 +6853,15 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter, viewMode){
     r+=`<td style="${acs};color:${o.lc};font-weight:700">${_bvaFmtN(av.full)}</td>`;
     r+=`<td style="${acs};color:${o.lc};font-weight:${o.fw};opacity:0.6">${_bvaFmtN(av.annBdg)}</td>`;
     r+=`<td style="${acs};color:${vc};font-weight:700;background:${annGood?'#E8F5EE':'#FDEAEA'}">${_bvaFmtN(av.v)}</td>`;
+    r+=`<td style="${acs};color:${vc};font-weight:700;background:${annGood?'#E8F5EE':'#FDEAEA'}">${av.vPct===null?'—':(av.vPct>=0?'+':'')+av.vPct.toFixed(1)+'%'}</td>`;
     r+=`</tr>`;
     return r;
   }
 
-  const sp=()=>`<tr><td colspan="${mCols+6}" style="padding:2px 0;background:#F9FBFA"></td></tr>`;
+  const sp=()=>`<tr><td colspan="${mCols+7}" style="padding:2px 0;background:#F9FBFA"></td></tr>`;
 
   // colgroup: fixed label width + fixed number column widths
-  const numCols=mCols+5;
+  const numCols=mCols+6;
   let html=`<colgroup><col style="width:${LABEL_W}px">`;
   for(let c=0;c<numCols;c++) html+=`<col style="width:${NUM_W}px">`;
   html+=`</colgroup>`;
@@ -6873,6 +6876,7 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter, viewMode){
     html+=annTh('Full Year<br>Est.','#1B4D4A',false);
     html+=annTh('Annual<br>BDG','#7BA69E',false);
     html+=annTh('Variance','#1B4D4A',false);
+    html+=annTh('Var %','#1B4D4A',false);
     html+=`</tr></thead><tbody>`;
   } else {
     html+=`<thead><tr><th style="${stkHdr}" rowspan="2"></th>`;
@@ -6886,6 +6890,7 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter, viewMode){
     html+=annTh('Full Year<br>Est.','#1B4D4A',false);
     html+=annTh('Annual<br>BDG','#7BA69E',false);
     html+=annTh('Variance','#1B4D4A',false);
+    html+=annTh('Var %','#1B4D4A',false);
     html+=`</tr><tr>`;
     for(let i=0;i<nM;i++){
       if(mf!=null&&mf!==i) continue;
