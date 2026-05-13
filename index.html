@@ -387,6 +387,7 @@ tr:hover td{background:#E8F0ED}
 </div>
 <div class="kpi-grid" id="kG"></div>
 <div id="csCities" style="display:none;margin-top:24px"></div>
+<div id="quotaSection" style="display:none;margin-top:24px"></div>
 </div>
 
 <div id="sec-trend" class="page"><div class="section"><div class="section-header"><div class="section-bar"></div><div class="section-title">Total Revenue Trend — Last 12 Months (All Shows)</div></div><div class="card"><canvas id="cTrend" height="420"></canvas></div></div></div>
@@ -1346,6 +1347,27 @@ function _parseCityFromLI(name){
   const m=name.match(/city series.*?[-–]\s*(.+)/i);
   return m?m[1].trim():name;
 }
+// ── 2027 Show Cycle Quotas ─────────────────────────────────────────────────
+// Index 0=Apr'26, 1=May'26 … 8=Dec'26, 9=Jan'27, 10=Feb'27, 11=Mar'27
+const Q27_SHOW=[0,350000,80000,80000,75000,120000,160000,180000,250000,180000,190000,35000];
+const Q27_CS  =[0,70500, 30000,30000,19500,0,     0,     0,     0,     0,     0,     0    ];
+const Q27_LBL =["Apr'26","May'26","Jun'26","Jul'26","Aug'26","Sep'26","Oct'26","Nov'26","Dec'26","Jan'27","Feb'27","Mar'27"];
+// Map a close-date string (YYYY-MM-DD) → show-cycle index for 2027
+function _sc27Idx(cd){
+  if(!cd||cd.length<7)return -1;
+  const yr=+cd.slice(0,4),mo=+cd.slice(5,7);
+  if(yr===2026&&mo>=4)return mo-4;  // Apr→0 … Dec→8
+  if(yr===2027&&mo<=3)return mo+8;  // Jan→9, Feb→10, Mar→11
+  return -1;
+}
+// Current show-cycle index (clamped to 0–11)
+function _sc27CurIdx(){
+  const now=new Date(),yr=now.getFullYear(),mo=now.getMonth()+1;
+  if(yr<2026||(yr===2026&&mo<4))return 0;
+  if(yr===2026&&mo>=4)return mo-4;
+  if(yr===2027&&mo<=3)return mo+8;
+  return 11;
+}
 
 function setupCanvas(id){const c=document.getElementById(id);if(!c)return null;const pr=c.parentElement.getBoundingClientRect();const W=pr.width-32;if(W<=0)return null;const vh=window.innerHeight;const H=Math.round(vh*0.65);const dp=window.devicePixelRatio||1;c.width=W*dp;c.height=H*dp;c.style.width=W+'px';c.style.height=H+'px';const x=c.getContext('2d');x.scale(dp,dp);return{c,x,W,H}}
 
@@ -1450,6 +1472,81 @@ function drawGroupedBars(id,data,series){
       }})});
   tip(c,(mx2)=>{const i=data.findIndex((_,i)=>{const gx=p.l+gap+(gap+grpW)*i;return mx2>=gx&&mx2<=gx+grpW});
     if(i>=0){const d=data[i];let h=`<div class="tip-t">${d.lb}</div>`;series.forEach(z=>{const v=d[z.k]||0;h+=`<div class="tip-r"><span style="color:${z.cl}">${z.nm}</span><b>${v>100?$$(v):v}</b></div>`});return h}});
+}
+
+function drawQuotaChart(id,labels,showAct,csAct,showQ,csQ,curIdx){
+  const r=setupCanvas(id);if(!r)return;
+  const{c,x,W,H}=r;
+  const pad={t:30,r:20,b:52,l:70};
+  const cw=W-pad.l-pad.r,ch=H-pad.t-pad.b;
+  const n=labels.length;
+  const fD=v=>v>=1e6?`$${(v/1e6).toFixed(1)}M`:v>=1e3?`$${Math.round(v/1e3)}K`:`$${Math.round(v)}`;
+  const qTot=showQ.map((s,i)=>s+(csQ[i]||0));
+  const actTot=showAct.map((s,i)=>s+(csAct[i]||0));
+  const mx=Math.max(...qTot,...actTot)*1.18||1;
+  // Grid lines
+  grid(x,W,H,pad,mx);
+  // X labels
+  const slot=cw/n;const bW=slot*0.52;
+  x.fillStyle=COL.d;x.font='10px Source Sans 3,system-ui';x.textAlign='center';
+  labels.forEach((lb,i)=>x.fillText(lb,pad.l+slot*i+slot/2,H-pad.b+14));
+  // Current-month highlight band
+  if(curIdx>=0&&curIdx<n){
+    x.fillStyle='rgba(27,77,74,0.07)';
+    x.fillRect(pad.l+slot*curIdx,pad.t,slot,ch);
+  }
+  // Stacked bars: Show (dark teal) bottom, CS (lighter) on top
+  showAct.forEach((sv,i)=>{
+    const cv=csAct[i]||0;
+    if(sv+cv===0)return;
+    const bx=pad.l+slot*i+(slot-bW)/2;
+    const sh=sv/mx*ch;const ch2=cv/mx*ch;
+    if(sv>0){x.fillStyle='#1B4D4A';x.fillRect(bx,pad.t+ch-sh,bW,sh);}
+    if(cv>0){x.fillStyle='#3D9B8F';x.fillRect(bx,pad.t+ch-sh-ch2,bW,ch2);}
+    // Value label above bar
+    const tot=sv+cv;
+    x.fillStyle=COL.a;x.font='bold 9px Source Sans 3,system-ui';x.textAlign='center';
+    x.fillText(fD(tot),bx+bW/2,pad.t+ch-tot/mx*ch-5);
+  });
+  // Quota line (dashed red-orange)
+  x.beginPath();x.strokeStyle='#C0392B';x.lineWidth=2.5;x.setLineDash([7,4]);
+  qTot.forEach((v,i)=>{
+    const px=pad.l+slot*i+slot/2,py=pad.t+ch-v/mx*ch;
+    i===0?x.moveTo(px,py):x.lineTo(px,py);
+  });
+  x.stroke();x.setLineDash([]);
+  // Dots on quota line
+  qTot.forEach((v,i)=>{
+    if(v===0)return;
+    x.beginPath();x.arc(pad.l+slot*i+slot/2,pad.t+ch-v/mx*ch,3.5,0,Math.PI*2);
+    x.fillStyle='#C0392B';x.fill();
+  });
+  // Legend
+  const leg2=[{cl:'#1B4D4A',nm:'Show Actual',sq:true},{cl:'#3D9B8F',nm:'CS Actual',sq:true},{cl:'#C0392B',nm:'Monthly Quota',sq:false}];
+  x.font='11px Source Sans 3,system-ui';
+  let lx=pad.l;const ly=H-8;
+  leg2.forEach(li=>{
+    if(li.sq){x.fillStyle=li.cl;x.fillRect(lx,ly-10,14,10);}
+    else{x.strokeStyle=li.cl;x.lineWidth=2;x.setLineDash([5,3]);x.beginPath();x.moveTo(lx,ly-5);x.lineTo(lx+14,ly-5);x.stroke();x.setLineDash([]);}
+    lx+=18;
+    x.fillStyle=COL.d;x.textAlign='left';x.fillText(li.nm,lx,ly);
+    lx+=x.measureText(li.nm).width+18;
+  });
+  // Tooltip
+  tip(c,mx2=>{
+    const i=Math.floor((mx2-pad.l)/slot);
+    if(i>=0&&i<n){
+      const q=qTot[i],sa=showAct[i]||0,ca=csAct[i]||0,tot=sa+ca;
+      let h=`<div class="tip-t">${labels[i]}${i===curIdx?' ← now':''}</div>`;
+      if(sa>0)h+=`<div class="tip-r"><span style="color:#1B4D4A">Show actual</span><b>${fD(sa)}</b></div>`;
+      if(ca>0)h+=`<div class="tip-r"><span style="color:#3D9B8F">CS actual</span><b>${fD(ca)}</b></div>`;
+      if(q>0){
+        h+=`<div class="tip-r"><span>Quota</span><b>${fD(q)}</b></div>`;
+        if(tot>0||i<=curIdx){const v=tot-q;h+=`<div class="tip-r"><span>${v>=0?'▲ Over':'▼ Behind'}</span><b style="color:${v>=0?'#1B7A3D':'#C0392B'}">${fD(Math.abs(v))}</b></div>`;}
+      }
+      return h;
+    }
+  });
 }
 
 function drawHBars(id,data,valKey,fmt,barColor){
@@ -1727,6 +1824,56 @@ function render(){
           el.innerHTML=h;
           el.style.display='';
         }
+      }
+    }
+  }
+
+  // === 2027 QUOTA TRACKER (only on 2027 tab) ===
+  {
+    const qEl=document.getElementById('quotaSection');
+    if(qEl){
+      if(!is27){qEl.style.display='none';}
+      else{
+        // Build monthly actuals from ALL closedwon 2027 deals (unaffected by _revFilter)
+        const won27=_hsAvail?window.HS.d.filter(d=>d.p===27&&d.s==='closedwon'&&d.a>0&&d.cd):[];
+        const showAct=Array(12).fill(0),csAct=Array(12).fill(0);
+        won27.forEach(d=>{
+          const idx=_sc27Idx(d.cd);if(idx<0||idx>11)return;
+          const{showAmt,csAmt}=_splitDealAmts(d,27);
+          showAct[idx]+=showAmt;csAct[idx]+=csAmt;
+        });
+        const curIdx=_sc27CurIdx();
+        const sl=(arr,to)=>arr.slice(0,to+1).reduce((s,v)=>s+v,0);
+        const ytdSA=sl(showAct,curIdx),ytdCA=sl(csAct,curIdx);
+        const ytdSQ=sl(Q27_SHOW,curIdx),ytdCQ=sl(Q27_CS,curIdx);
+        const annSQ=Q27_SHOW.reduce((s,v)=>s+v,0),annCQ=Q27_CS.reduce((s,v)=>s+v,0);
+        const totSA=showAct.reduce((s,v)=>s+v,0),totCA=csAct.reduce((s,v)=>s+v,0);
+        const fD=v=>v>=1e6?`$${(v/1e6).toFixed(2)}M`:v>=1e3?`$${Math.round(v/1e3)}K`:`$${Math.round(v)}`;
+        const pBar=(act,quota)=>{
+          const p=quota>0?Math.min(Math.round(act/quota*100),150):0;
+          const cl=p>=100?'#1B7A3D':p>=75?'#1B4D4A':p>=50?'#B8860B':'#C0392B';
+          return `<div style="margin-top:7px"><div style="background:#E8EFED;border-radius:4px;height:6px;overflow:hidden"><div style="width:${Math.min(p,100)}%;height:100%;background:${cl};border-radius:4px"></div></div><div style="font-size:10px;color:${cl};font-weight:600;margin-top:3px">${p}% of quota</div></div>`;
+        };
+        const vBadge=(a,q)=>{const v=a-q;return q>0?`<div style="font-size:11px;color:${v>=0?'#1B7A3D':'#C0392B'};font-weight:600;margin-top:2px">${v>=0?'▲':'▼'} ${fD(Math.abs(v))} ${v>=0?'over':'behind'}</div>`:''};
+        const kpi=(icon,lbl,act,quota,ytd)=>`<div class="kpi">
+<div class="kpi-label">${icon} ${lbl}</div>
+<div class="kpi-value">${fD(act)}</div>
+<div class="kpi-sub">${ytd?'YTD quota:':'Annual quota:'} ${fD(quota)}</div>
+${vBadge(act,quota)}${pBar(act,quota)}</div>`;
+        let h=`<div class="section" style="margin-top:0">
+<div class="section-header"><div class="section-bar"></div><div class="section-title">2027 Sales Quota Tracker</div></div>
+<div style="font-size:12px;color:#7BA69E;margin-bottom:14px">Show Cycle: Apr '26 – Mar '27 &nbsp;·&nbsp; Current month: ${Q27_LBL[curIdx]}</div>
+<div class="kpi-grid" style="grid-template-columns:repeat(auto-fill,minmax(185px,1fr));margin-bottom:20px">
+${kpi('🎯','Show — YTD',ytdSA,ytdSQ,true)}
+${kpi('🎯','City Series — YTD',ytdCA,ytdCQ,true)}
+${kpi('📊','Show — Full Year',totSA,annSQ,false)}
+${kpi('📊','City Series — Full Year',totCA,annCQ,false)}
+</div>
+<div class="card" style="padding:20px 16px 12px">
+<div style="font-size:11px;color:#7BA69E;margin-bottom:10px">Monthly actual vs quota · Dashed line = monthly target</div>
+<canvas id="quotaChart" height="240"></canvas></div></div>`;
+        qEl.innerHTML=h;qEl.style.display='';
+        setTimeout(()=>drawQuotaChart('quotaChart',Q27_LBL,showAct,csAct,Q27_SHOW,Q27_CS,curIdx),0);
       }
     }
   }
