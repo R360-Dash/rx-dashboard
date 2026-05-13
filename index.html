@@ -386,6 +386,7 @@ tr:hover td{background:#E8F0ED}
   </div>
 </div>
 <div class="kpi-grid" id="kG"></div>
+<div id="csCities" style="display:none;margin-top:24px"></div>
 </div>
 
 <div id="sec-trend" class="page"><div class="section"><div class="section-header"><div class="section-bar"></div><div class="section-title">Total Revenue Trend — Last 12 Months (All Shows)</div></div><div class="card"><canvas id="cTrend" height="420"></canvas></div></div></div>
@@ -1330,6 +1331,21 @@ const COL={a:'#1B4D4A',b:'#5BA08A',g:'#1B7A3D',r:'#C0392B',p:'#2D7A6F',t:'#3D9B8
 let AS='2026';
 let _revFilter='rx'; // 'rx' | 'show' | 'cs'
 function _isCsDeal(name){return name.toLowerCase().includes('city series');}
+// For 2027 deals with line items, split CS vs Show by line item name.
+// Fallback: use deal name for 2026 or li-less deals.
+function _splitDealAmts(deal,yr){
+  if(yr===27&&deal.li&&deal.li.length){
+    const csAmt=deal.li.filter(l=>_isCsDeal(l.n)).reduce((s,l)=>s+l.a,0);
+    const showAmt=deal.li.filter(l=>!_isCsDeal(l.n)).reduce((s,l)=>s+l.a,0);
+    return{csAmt,showAmt};
+  }
+  return _isCsDeal(deal.n)?{csAmt:deal.a,showAmt:0}:{csAmt:0,showAmt:deal.a};
+}
+// Parse city name from line item name: "City Series 2027 - San Diego" → "San Diego"
+function _parseCityFromLI(name){
+  const m=name.match(/city series.*?[-–]\s*(.+)/i);
+  return m?m[1].trim():name;
+}
 
 function setupCanvas(id){const c=document.getElementById(id);if(!c)return null;const pr=c.parentElement.getBoundingClientRect();const W=pr.width-32;if(W<=0)return null;const vh=window.innerHeight;const H=Math.round(vh*0.65);const dp=window.devicePixelRatio||1;c.width=W*dp;c.height=H*dp;c.style.width=W+'px';c.style.height=H+'px';const x=c.getContext('2d');x.scale(dp,dp);return{c,x,W,H}}
 
@@ -1541,17 +1557,30 @@ function render(){
   };
 
   let tSp,tTk,tR,tF,tSS,tTS,nwCt,rbCt,nwRv,rbRv,nwF,rbF,paidContracts;
+  let _allPaidWon=[]; // hoisted for city-series breakdown (needs outer scope)
 
   if(_hsAvail&&(is26||is27)){
     // 2026/2027: live HubSpot data
     const wonStage=_wonStages[pipeYr];
     const allWon=window.HS.d.filter(d=>d.p===pipeYr&&d.s===wonStage);
     const paidWonAll=allWon.filter(d=>d.a>0);
+    _allPaidWon=paidWonAll; // hoist to outer scope for city-series breakdown
     const qualifiedZero=allWon.filter(d=>d.a===0&&(['iappf','chinese'].includes(_catP(d.n))));
-    // Apply revenue filter: 'rx'=all, 'show'=non-City-Series, 'cs'=City-Series only
-    const _rfPaid=_revFilter==='show'?paidWonAll.filter(d=>!_isCsDeal(d.n)):
-                  _revFilter==='cs'  ?paidWonAll.filter(d=>_isCsDeal(d.n)):paidWonAll;
-    const _rfZero=_revFilter==='cs'  ?[]:qualifiedZero;
+    // Apply revenue filter with line-item-aware splits for 2027
+    let _rfPaid,_rfZero;
+    if(_revFilter==='rx'){
+      _rfPaid=paidWonAll; _rfZero=qualifiedZero;
+    } else if(_revFilter==='show'){
+      _rfZero=qualifiedZero; // IAPPF/Chinese zero-value deals are always Show
+      _rfPaid=is27
+        ?paidWonAll.map(d=>{const{showAmt}=_splitDealAmts(d,27);return showAmt>0?{...d,a:showAmt}:null}).filter(Boolean)
+        :paidWonAll.filter(d=>!_isCsDeal(d.n));
+    } else { // 'cs'
+      _rfZero=[];
+      _rfPaid=is27
+        ?paidWonAll.map(d=>{const{csAmt}=_splitDealAmts(d,27);return csAmt>0?{...d,a:csAmt}:null}).filter(Boolean)
+        :paidWonAll.filter(d=>_isCsDeal(d.n));
+    }
     const paidWon=_rfPaid;
     const countableWon=[...paidWon,..._rfZero];
     tSp=paidWon.reduce((s,d)=>s+d.a,0);
@@ -1637,6 +1666,70 @@ function render(){
     {i:'📋',t:'Avg Contract Value',v:$(acv),s:`This month: ${$(acvCur)}`,tr:acvMom,tl:'MoM',tr2:acvYoyPct,tl2:`vs ${+AS-1} Show`},
     {i:'🎟️',t:'Avg Ticket Value',v:$(atv),s:`This month: ${$(atvCur)}`,tr:atvMom,tl:'MoM',tr2:atvYoyPct,tl2:`vs ${+AS-1} Show`},
   ].map(k=>`<div class="kpi"><div class="kpi-label">${k.i} ${k.t}</div><div class="kpi-value">${k.v}</div>${k.s?`<div class="kpi-sub">${k.s}</div>`:''}${k.bar?`<div style="margin-top:8px"><div style="background:#E8EFED;border-radius:4px;height:6px;overflow:hidden"><div style="width:${k.bar.pct}%;height:100%;background:linear-gradient(90deg,#1B4D4A,#3D9B8F);border-radius:4px"></div></div><div style="font-size:10px;color:${k.bar.pct>=75?'#1B7A3D':k.bar.pct>=50?'#1B4D4A':'#B8860B'};font-weight:600;margin-top:3px">${k.bar.label}</div></div>`:''}${k.tr!=null?`<div class="kpi-trend ${k.tr>=0?'up':'down'}">${k.tr>=0?'▲':'▼'} ${P(k.tr)} <span>${k.tl||''}</span></div>`:''}${k.tr2!=null?`<div class="kpi-trend ${k.tr2>=0?'up':'down'}">${k.tr2>=0?'▲':'▼'} ${P(k.tr2)} <span>${k.tl2||''}</span></div>`:''}</div>`).join('');
+
+  // === CITY SERIES BREAKDOWN (shown only when _revFilter==='cs') ===
+  {
+    const el=document.getElementById('csCities');
+    if(el){
+      if(_revFilter!=='cs'||!(is26||is27)){el.style.display='none';}
+      else{
+        // Build city → {total, sponsors} from original unfiltered paidWonAll
+        const cities={};
+        const ckFn=_ck; // company key function from render() scope
+        for(const d of _allPaidWon){
+          if(is27&&d.li&&d.li.length){
+            for(const li of d.li){
+              if(!_isCsDeal(li.n))continue;
+              const city=_parseCityFromLI(li.n);
+              if(!cities[city])cities[city]={total:0,sponsors:new Set()};
+              cities[city].total+=li.a;
+              cities[city].sponsors.add(ckFn(d.n));
+            }
+          } else if(_isCsDeal(d.n)){
+            // 2026: parse city from deal name, e.g. "Sponsor - Austin City Series"
+            const city=_parseCityFromLI(d.n)||'City Series';
+            if(!cities[city])cities[city]={total:0,sponsors:new Set()};
+            cities[city].total+=d.a;
+            cities[city].sponsors.add(ckFn(d.n));
+          }
+        }
+        const sorted=Object.entries(cities).sort((a,b)=>b[1].total-a[1].total);
+        if(!sorted.length){el.style.display='none';}
+        else{
+          const totCS=sorted.reduce((s,[,v])=>s+v.total,0);
+          const allSponsors=new Set(sorted.flatMap(([,v])=>[...v.sponsors]));
+          let h=`<div class="section" style="margin-top:0">
+<div class="section-header"><div class="section-bar"></div><div class="section-title">City Series Breakdown — ${AS}</div></div>
+<div class="card" style="padding:0"><table style="width:100%;border-collapse:collapse;font-size:13px">
+<thead><tr>
+<th style="text-align:left;padding:10px 16px;color:#7BA69E;font-weight:600;border-bottom:2px solid #D4E2DD">City</th>
+<th style="text-align:right;padding:10px 16px;color:#7BA69E;font-weight:600;border-bottom:2px solid #D4E2DD">Revenue</th>
+<th style="text-align:right;padding:10px 16px;color:#7BA69E;font-weight:600;border-bottom:2px solid #D4E2DD">Sponsors</th>
+<th style="text-align:right;padding:10px 16px;color:#7BA69E;font-weight:600;border-bottom:2px solid #D4E2DD">% of CS</th>
+</tr></thead><tbody>`;
+          sorted.forEach(([city,v])=>{
+            const pct=totCS>0?(v.total/totCS*100).toFixed(1):'0.0';
+            const barW=totCS>0?Math.round(v.total/totCS*100):0;
+            h+=`<tr><td style="padding:10px 16px;border-bottom:1px solid #F0F6F4">
+<div style="font-weight:600;color:#1B4D4A;margin-bottom:4px">${city}</div>
+<div style="background:#E8EFED;border-radius:3px;height:4px;width:100%;overflow:hidden"><div style="width:${barW}%;height:100%;background:linear-gradient(90deg,#1B4D4A,#3D9B8F);border-radius:3px"></div></div>
+</td>
+<td style="padding:10px 16px;border-bottom:1px solid #F0F6F4;text-align:right;font-weight:700;color:#1B4D4A">${$(v.total)}</td>
+<td style="padding:10px 16px;border-bottom:1px solid #F0F6F4;text-align:right;color:#5BA08A">${v.sponsors.size}</td>
+<td style="padding:10px 16px;border-bottom:1px solid #F0F6F4;text-align:right;color:#7BA69E">${pct}%</td></tr>`;
+          });
+          h+=`</tbody><tfoot><tr>
+<td style="padding:10px 16px;font-weight:700;color:#1B4D4A;border-top:2px solid #D4E2DD">Total</td>
+<td style="padding:10px 16px;text-align:right;font-weight:700;color:#1B4D4A;border-top:2px solid #D4E2DD">${$(totCS)}</td>
+<td style="padding:10px 16px;text-align:right;color:#5BA08A;border-top:2px solid #D4E2DD">${allSponsors.size}</td>
+<td style="padding:10px 16px;text-align:right;color:#7BA69E;border-top:2px solid #D4E2DD">100%</td>
+</tr></tfoot></table></div></div>`;
+          el.innerHTML=h;
+          el.style.display='';
+        }
+      }
+    }
+  }
 
   document.getElementById('tCum').textContent=`Client Cohorts`;
 
