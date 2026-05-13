@@ -1482,11 +1482,16 @@ function drawQuotaChart(id,labels,showAct,csAct,showQ,csQ,curIdx,mode){
   const n=labels.length;
   const fD=v=>v>=1e6?`$${(v/1e6).toFixed(1)}M`:v>=1e3?`$${Math.round(v/1e3)}K`:`$${Math.round(v)}`;
   const qTot=showQ.map((s,i)=>s+(csQ[i]||0));
-  const mx=Math.max(...qTot,...showAct.map((s,i)=>s+(csAct[i]||0)))*1.18||1;
+  const actTot=showAct.map((s,i)=>s+(csAct[i]||0));
+  const mx=Math.max(...qTot,...actTot)*1.18||1;
   // Grid lines
   grid(x,W,H,pad,mx);
+  // Layout: 2 bars per slot (quota left, actual right)
+  const slot=cw/n;
+  const grpW=slot*0.74;          // total width for the pair
+  const gap=2;                   // gap between quota bar and actual bar
+  const bW=(grpW-gap)/2;         // width of each individual bar
   // X labels
-  const slot=cw/n;const bW=slot*0.52;
   x.fillStyle=COL.d;x.font='10px Source Sans 3,system-ui';x.textAlign='center';
   labels.forEach((lb,i)=>x.fillText(lb,pad.l+slot*i+slot/2,H-pad.b+14));
   // Current-month highlight band
@@ -1494,43 +1499,38 @@ function drawQuotaChart(id,labels,showAct,csAct,showQ,csQ,curIdx,mode){
     x.fillStyle='rgba(27,77,74,0.07)';
     x.fillRect(pad.l+slot*curIdx,pad.t,slot,ch);
   }
-  // Stacked bars: Show (dark teal) bottom, CS (lighter) on top
-  showAct.forEach((sv,i)=>{
-    const cv=csAct[i]||0;
-    if(sv+cv===0)return;
-    const bx=pad.l+slot*i+(slot-bW)/2;
-    const sh=sv/mx*ch;const ch2=cv/mx*ch;
-    if(sv>0){x.fillStyle='#1B4D4A';x.fillRect(bx,pad.t+ch-sh,bW,sh);}
-    if(cv>0){x.fillStyle='#3D9B8F';x.fillRect(bx,pad.t+ch-sh-ch2,bW,ch2);}
-    // Value label above bar
-    const tot=sv+cv;
-    x.fillStyle=COL.a;x.font='bold 9px Source Sans 3,system-ui';x.textAlign='center';
-    x.fillText(fD(tot),bx+bW/2,pad.t+ch-tot/mx*ch-5);
+  // Actual bar fill — adapts to active filter
+  const actCl=mode==='cs'?'#3D9B8F':'#1B4D4A';
+  // Draw grouped bars: left = quota, right = actual
+  labels.forEach((_,i)=>{
+    const q=qTot[i],a=actTot[i];
+    const gx=pad.l+slot*i+(slot-grpW)/2;  // left edge of the group
+    // Quota bar (left) — light sage
+    if(q>0){
+      const qh=q/mx*ch;
+      x.fillStyle='#C8DDD9';
+      x.fillRect(gx,pad.t+ch-qh,bW,qh);
+      x.strokeStyle='#9EC4BC';x.lineWidth=0.5;
+      x.strokeRect(gx,pad.t+ch-qh,bW,qh);
+    }
+    // Actual bar (right) — theme color
+    if(a>0){
+      const ah=a/mx*ch;
+      x.fillStyle=actCl;
+      x.fillRect(gx+bW+gap,pad.t+ch-ah,bW,ah);
+      // Value label above actual bar
+      x.fillStyle=COL.a;x.font='bold 9px Source Sans 3,system-ui';x.textAlign='center';
+      x.fillText(fD(a),gx+bW+gap+bW/2,pad.t+ch-ah-5);
+    }
   });
-  // Quota line (dashed red-orange)
-  x.beginPath();x.strokeStyle='#C0392B';x.lineWidth=2.5;x.setLineDash([7,4]);
-  qTot.forEach((v,i)=>{
-    const px=pad.l+slot*i+slot/2,py=pad.t+ch-v/mx*ch;
-    i===0?x.moveTo(px,py):x.lineTo(px,py);
-  });
-  x.stroke();x.setLineDash([]);
-  // Dots on quota line (only where quota > 0)
-  qTot.forEach((v,i)=>{
-    if(v===0)return;
-    x.beginPath();x.arc(pad.l+slot*i+slot/2,pad.t+ch-v/mx*ch,3.5,0,Math.PI*2);
-    x.fillStyle='#C0392B';x.fill();
-  });
-  // Legend — adapts to active filter
-  const leg2=mode==='show'
-    ?[{cl:'#1B4D4A',nm:'Show Actual',sq:true},{cl:'#C0392B',nm:'Monthly Quota',sq:false}]
-    :mode==='cs'
-    ?[{cl:'#3D9B8F',nm:'City Series Actual',sq:true},{cl:'#C0392B',nm:'Monthly Quota',sq:false}]
-    :[{cl:'#1B4D4A',nm:'Show Actual',sq:true},{cl:'#3D9B8F',nm:'CS Actual',sq:true},{cl:'#C0392B',nm:'Monthly Quota',sq:false}];
+  // Legend
+  const actNm=mode==='cs'?'City Series Actual':mode==='show'?'Show Actual':'Actual';
+  const leg2=[{cl:'#C8DDD9',nm:'Quota',stroke:'#9EC4BC'},{cl:actCl,nm:actNm}];
   x.font='11px Source Sans 3,system-ui';
   let lx=pad.l;const ly=H-8;
   leg2.forEach(li=>{
-    if(li.sq){x.fillStyle=li.cl;x.fillRect(lx,ly-10,14,10);}
-    else{x.strokeStyle=li.cl;x.lineWidth=2;x.setLineDash([5,3]);x.beginPath();x.moveTo(lx,ly-5);x.lineTo(lx+14,ly-5);x.stroke();x.setLineDash([]);}
+    x.fillStyle=li.cl;x.fillRect(lx,ly-10,14,10);
+    if(li.stroke){x.strokeStyle=li.stroke;x.lineWidth=0.5;x.strokeRect(lx,ly-10,14,10);}
     lx+=18;
     x.fillStyle=COL.d;x.textAlign='left';x.fillText(li.nm,lx,ly);
     lx+=x.measureText(li.nm).width+18;
@@ -1541,12 +1541,16 @@ function drawQuotaChart(id,labels,showAct,csAct,showQ,csQ,curIdx,mode){
     if(i>=0&&i<n){
       const q=qTot[i],sa=showAct[i]||0,ca=csAct[i]||0,tot=sa+ca;
       let h=`<div class="tip-t">${labels[i]}${i===curIdx?' ← now':''}</div>`;
-      if(sa>0)h+=`<div class="tip-r"><span style="color:#1B4D4A">Show actual</span><b>${fD(sa)}</b></div>`;
-      if(ca>0)h+=`<div class="tip-r"><span style="color:#3D9B8F">CS actual</span><b>${fD(ca)}</b></div>`;
-      if(q>0){
-        h+=`<div class="tip-r"><span>Quota</span><b>${fD(q)}</b></div>`;
-        if(tot>0||i<=curIdx){const v=tot-q;h+=`<div class="tip-r"><span>${v>=0?'▲ Over':'▼ Behind'}</span><b style="color:${v>=0?'#1B7A3D':'#C0392B'}">${fD(Math.abs(v))}</b></div>`;}
+      if(q>0)h+=`<div class="tip-r"><span>Quota</span><b>${fD(q)}</b></div>`;
+      if(mode==='rx'){
+        if(sa>0)h+=`<div class="tip-r"><span style="color:#1B4D4A">Show</span><b>${fD(sa)}</b></div>`;
+        if(ca>0)h+=`<div class="tip-r"><span style="color:#3D9B8F">City Series</span><b>${fD(ca)}</b></div>`;
+        if(sa+ca>0&&(sa>0||ca>0))h+=`<div class="tip-r"><span>Total actual</span><b>${fD(tot)}</b></div>`;
+      } else {
+        const a=mode==='cs'?ca:sa;
+        if(a>0)h+=`<div class="tip-r"><span style="color:${actCl}">${actNm}</span><b>${fD(a)}</b></div>`;
       }
+      if(q>0&&(tot>0||i<=curIdx)){const v=tot-q;h+=`<div class="tip-r"><span>${v>=0?'▲ Over':'▼ Behind'}</span><b style="color:${v>=0?'#1B7A3D':'#C0392B'}">${fD(Math.abs(v))}</b></div>`;}
       return h;
     }
   });
