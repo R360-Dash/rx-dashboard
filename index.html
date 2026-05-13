@@ -1474,7 +1474,7 @@ function drawGroupedBars(id,data,series){
     if(i>=0){const d=data[i];let h=`<div class="tip-t">${d.lb}</div>`;series.forEach(z=>{const v=d[z.k]||0;h+=`<div class="tip-r"><span style="color:${z.cl}">${z.nm}</span><b>${v>100?$$(v):v}</b></div>`});return h}});
 }
 
-function drawQuotaChart(id,labels,showAct,csAct,showQ,csQ,curIdx){
+function drawQuotaChart(id,labels,showAct,csAct,showQ,csQ,curIdx,mode){
   const r=setupCanvas(id);if(!r)return;
   const{c,x,W,H}=r;
   const pad={t:30,r:20,b:52,l:70};
@@ -1482,8 +1482,7 @@ function drawQuotaChart(id,labels,showAct,csAct,showQ,csQ,curIdx){
   const n=labels.length;
   const fD=v=>v>=1e6?`$${(v/1e6).toFixed(1)}M`:v>=1e3?`$${Math.round(v/1e3)}K`:`$${Math.round(v)}`;
   const qTot=showQ.map((s,i)=>s+(csQ[i]||0));
-  const actTot=showAct.map((s,i)=>s+(csAct[i]||0));
-  const mx=Math.max(...qTot,...actTot)*1.18||1;
+  const mx=Math.max(...qTot,...showAct.map((s,i)=>s+(csAct[i]||0)))*1.18||1;
   // Grid lines
   grid(x,W,H,pad,mx);
   // X labels
@@ -1515,14 +1514,18 @@ function drawQuotaChart(id,labels,showAct,csAct,showQ,csQ,curIdx){
     i===0?x.moveTo(px,py):x.lineTo(px,py);
   });
   x.stroke();x.setLineDash([]);
-  // Dots on quota line
+  // Dots on quota line (only where quota > 0)
   qTot.forEach((v,i)=>{
     if(v===0)return;
     x.beginPath();x.arc(pad.l+slot*i+slot/2,pad.t+ch-v/mx*ch,3.5,0,Math.PI*2);
     x.fillStyle='#C0392B';x.fill();
   });
-  // Legend
-  const leg2=[{cl:'#1B4D4A',nm:'Show Actual',sq:true},{cl:'#3D9B8F',nm:'CS Actual',sq:true},{cl:'#C0392B',nm:'Monthly Quota',sq:false}];
+  // Legend — adapts to active filter
+  const leg2=mode==='show'
+    ?[{cl:'#1B4D4A',nm:'Show Actual',sq:true},{cl:'#C0392B',nm:'Monthly Quota',sq:false}]
+    :mode==='cs'
+    ?[{cl:'#3D9B8F',nm:'City Series Actual',sq:true},{cl:'#C0392B',nm:'Monthly Quota',sq:false}]
+    :[{cl:'#1B4D4A',nm:'Show Actual',sq:true},{cl:'#3D9B8F',nm:'CS Actual',sq:true},{cl:'#C0392B',nm:'Monthly Quota',sq:false}];
   x.font='11px Source Sans 3,system-ui';
   let lx=pad.l;const ly=H-8;
   leg2.forEach(li=>{
@@ -1855,11 +1858,45 @@ function render(){
           return `<div style="margin-top:7px"><div style="background:#E8EFED;border-radius:4px;height:6px;overflow:hidden"><div style="width:${Math.min(p,100)}%;height:100%;background:${cl};border-radius:4px"></div></div><div style="font-size:10px;color:${cl};font-weight:600;margin-top:3px">${p}% of quota</div></div>`;
         };
         const vBadge=(a,q)=>{const v=a-q;return q>0?`<div style="font-size:11px;color:${v>=0?'#1B7A3D':'#C0392B'};font-weight:600;margin-top:2px">${v>=0?'▲':'▼'} ${fD(Math.abs(v))} ${v>=0?'over':'behind'}</div>`:''};
-        const kpi=(icon,lbl,act,quota,ytd)=>`<div class="kpi">
-<div class="kpi-label">${icon} ${lbl}</div>
+        const kpi=(icon,lbl,act,quota,ytd)=>`<div class="kpi"><div class="kpi-label">${icon} ${lbl}</div>
 <div class="kpi-value">${fD(act)}</div>
 <div class="kpi-sub">${ytd?'YTD quota:':'Annual quota:'} ${fD(quota)}</div>
 ${vBadge(act,quota)}${pBar(act,quota)}</div>`;
+
+        // ── Chart & table filter: follow the revenue toggle ──
+        const z12=Array(12).fill(0);
+        const isShowF=_revFilter==='show',isCSF=_revFilter==='cs';
+        const chartSA=isCSF?z12:showAct;
+        const chartCA=isShowF?z12:csAct;
+        const chartSQ=isCSF?z12:Q27_SHOW;
+        const chartCQ=isShowF?z12:Q27_CS;
+
+        // ── Build quota vs actual table rows ──
+        const tblQ=isShowF?Q27_SHOW:isCSF?Q27_CS:Q27_SHOW.map((s,i)=>s+Q27_CS[i]);
+        const tblA=isShowF?showAct:isCSF?csAct:showAct.map((s,i)=>s+csAct[i]);
+        let tblTotQ=0,tblTotA=0,tblRows='';
+        Q27_LBL.forEach((lbl,i)=>{
+          const q=tblQ[i],a=tblA[i];
+          if(q===0&&a===0)return;
+          tblTotQ+=q;tblTotA+=a;
+          const v=a-q,vCl=v>=0?'#1B7A3D':'#C0392B';
+          const isCur=i===curIdx,isFut=i>curIdx;
+          const rowBg=isCur?'background:#F0FAF6;':'';
+          tblRows+=`<tr style="border-bottom:1px solid #F0F6F4;${rowBg}">
+<td style="padding:7px 12px;color:#2D3B3A;font-weight:${isCur?700:400};white-space:nowrap">${lbl}${isCur?'<span style="color:#3D9B8F;font-size:10px;margin-left:5px">▶</span>':''}</td>
+<td style="padding:7px 12px;text-align:right;color:#1B4D4A;font-weight:600">${q>0?fD(q):'—'}</td>
+<td style="padding:7px 12px;text-align:right;color:#0D2B29;font-weight:700">${a>0?fD(a):(isFut?'<span style="color:#C8D8D4">–</span>':'—')}</td>
+<td style="padding:7px 12px;text-align:right;font-weight:600;color:${q>0?vCl:'#C8D8D4'}">${q>0?(v>=0?'▲&nbsp;':'▼&nbsp;')+fD(Math.abs(v)):'—'}</td>
+</tr>`;
+        });
+        const totV=tblTotA-tblTotQ;
+        tblRows+=`<tr style="border-top:2px solid #D4E2DD;background:#EBF4F1">
+<td style="padding:9px 12px;font-weight:700;color:#0D2B29">Total</td>
+<td style="padding:9px 12px;text-align:right;color:#1B4D4A;font-weight:700">${fD(tblTotQ)}</td>
+<td style="padding:9px 12px;text-align:right;color:#0D2B29;font-weight:700">${fD(tblTotA)}</td>
+<td style="padding:9px 12px;text-align:right;font-weight:700;color:${totV>=0?'#1B7A3D':'#C0392B'}">${(totV>=0?'▲&nbsp;':'▼&nbsp;')+fD(Math.abs(totV))}</td>
+</tr>`;
+        const filterLbl=isShowF?'Show':isCSF?'City Series':'Show + City Series';
         let h=`<div class="section" style="margin-top:0">
 <div class="section-header"><div class="section-bar"></div><div class="section-title">2027 Sales Quota Tracker</div></div>
 <div style="font-size:12px;color:#7BA69E;margin-bottom:14px">Show Cycle: Apr '26 – Mar '27 &nbsp;·&nbsp; Current month: ${Q27_LBL[curIdx]}</div>
@@ -1869,11 +1906,25 @@ ${kpi('🎯','City Series — YTD',ytdCA,ytdCQ,true)}
 ${kpi('📊','Show — Full Year',totSA,annSQ,false)}
 ${kpi('📊','City Series — Full Year',totCA,annCQ,false)}
 </div>
-<div class="card" style="padding:20px 16px 12px">
-<div style="font-size:11px;color:#7BA69E;margin-bottom:10px">Monthly actual vs quota · Dashed line = monthly target</div>
-<canvas id="quotaChart" height="240"></canvas></div></div>`;
+<div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
+<div class="card" style="padding:20px 16px 14px;flex:1;min-width:300px">
+<div style="font-size:11px;color:#7BA69E;margin-bottom:10px">${filterLbl} · monthly actual vs quota · dashed line = target</div>
+<canvas id="quotaChart" height="220"></canvas>
+</div>
+<div class="card" style="padding:0;flex:0 0 auto;min-width:270px;overflow:hidden">
+<table style="width:100%;border-collapse:collapse;font-size:13px">
+<thead><tr style="border-bottom:2px solid #D4E2DD;background:#F7FBFA">
+<th style="padding:9px 12px;text-align:left;color:#7BA69E;font-weight:600;white-space:nowrap">Month</th>
+<th style="padding:9px 12px;text-align:right;color:#7BA69E;font-weight:600">Quota</th>
+<th style="padding:9px 12px;text-align:right;color:#7BA69E;font-weight:600">Actual</th>
+<th style="padding:9px 12px;text-align:right;color:#7BA69E;font-weight:600">Variance</th>
+</tr></thead>
+<tbody>${tblRows}</tbody>
+</table>
+</div>
+</div></div>`;
         qEl.innerHTML=h;qEl.style.display='';
-        setTimeout(()=>drawQuotaChart('quotaChart',Q27_LBL,showAct,csAct,Q27_SHOW,Q27_CS,curIdx),0);
+        setTimeout(()=>drawQuotaChart('quotaChart',Q27_LBL,chartSA,chartCA,chartSQ,chartCQ,curIdx,_revFilter),0);
       }
     }
   }
