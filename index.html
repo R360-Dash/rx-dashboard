@@ -511,7 +511,7 @@ tr:hover td{background:#E8F0ED}
     <div class="section-header" style="justify-content:space-between">
       <div style="display:flex;align-items:center;gap:8px"><div class="section-bar"></div><div class="section-title">Budget Assumptions</div></div>
       <div style="display:flex;align-items:center;gap:10px">
-        <button id="bvaSaveBtn" style="display:none;padding:5px 12px;border:1px solid #1B4D4A;border-radius:6px;font-size:11px;color:#1B4D4A;background:#fff;cursor:pointer;font-weight:600">💾 Save</button>
+        <button id="bvaSaveBtn" style="display:none;padding:5px 12px;border:1px solid #1B4D4A;border-radius:6px;font-size:11px;color:#1B4D4A;background:#fff;cursor:pointer;font-weight:600">💾 Save Version</button>
         <button id="bvaResetBtn" style="display:none;padding:5px 12px;border:1px solid #D4E2DD;border-radius:6px;font-size:11px;color:#7BA69E;background:#fff;cursor:pointer;font-weight:600">↺ Reset</button>
         <div class="hs-pipeline-toggle" id="bvaYearToggle2" style="margin-bottom:0">
           <button data-yr="2024">2024</button><button data-yr="2025">2025</button><button class="active" data-yr="2026">2026</button><button data-yr="2027">2027</button>
@@ -7054,17 +7054,63 @@ function _bvaSave(y,d){
 const _bvaFmtN=v=>v===0?'<span style="color:#D4E2DD">—</span>':(v<0?`<span style="color:#C0392B">(${_$Knd(Math.abs(v))})</span>`:_$Knd(v));
 
 // ── Snapshot helpers ────────────────────────────────────────────
-const _bvaSnapKey=y=>`rx_bva_snaps_${y}`;
+// ── BVA Version History (snapshot) helpers ──────────────────────────────
+const _bvaSnapKey      = y => `rx_bva_snaps_${y}`;
+const _bvaSnapsProxy   = y => `https://racquetx-qbo-proxy.racquetx.workers.dev/api/bva/snaps?year=${y}`;
+let   _bvaSnapsCache   = {};  // in-memory per year, loaded on renderBVA
 
-function _bvaLoadSnaps(y){
-  try{return JSON.parse(localStorage.getItem(_bvaSnapKey(y)))||[];}catch(e){return [];}
+// Load snaps from proxy → localStorage fallback; populate cache
+async function _bvaLoadSnapsAsync(y){
+  try{
+    const res=await fetch(_bvaSnapsProxy(y));
+    if(res.ok){
+      const data=await res.json();
+      if(Array.isArray(data.snaps)){
+        _bvaSnapsCache[y]=data.snaps;
+        try{localStorage.setItem(_bvaSnapKey(y),JSON.stringify(data.snaps));}catch(e){}
+        return data.snaps;
+      }
+    }
+  }catch(e){console.warn('BVA snaps proxy load failed:',e.message);}
+  try{
+    const raw=localStorage.getItem(_bvaSnapKey(y));
+    const arr=raw?JSON.parse(raw):[];
+    _bvaSnapsCache[y]=arr; return arr;
+  }catch(e){_bvaSnapsCache[y]=[]; return [];}
+}
+
+// Sync read from in-memory cache (safe after renderBVA has run)
+function _bvaLoadSnaps(y){ return _bvaSnapsCache[y]||[]; }
+
+// Persist snaps to cache + localStorage + proxy
+function _bvaSaveSnaps(y,snaps){
+  _bvaSnapsCache[y]=snaps;
+  try{localStorage.setItem(_bvaSnapKey(y),JSON.stringify(snaps));}catch(e){}
+  fetch(_bvaSnapsProxy(y),{
+    method:'PUT',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(snaps),
+  }).catch(e=>console.warn('BVA snaps proxy save failed:',e.message));
 }
 
 function _bvaPushSnap(y,data){
   const snaps=_bvaLoadSnaps(y);
   const label=new Date().toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
-  snaps.unshift({label,ts:Date.now(),data:JSON.parse(JSON.stringify(data))});
-  localStorage.setItem(_bvaSnapKey(y),JSON.stringify(snaps.slice(0,30)));
+  const num=(snaps[0]?.num||0)+1;
+  snaps.unshift({num,label,ts:Date.now(),data:JSON.parse(JSON.stringify(data))});
+  _bvaSaveSnaps(y,snaps.slice(0,30));
+}
+
+// Compute per-snapshot summary stats for display
+function _bvaSnapSummary(data){
+  const sum=arr=>(_bvaPad(arr||[])).reduce((t,v)=>t+v,0);
+  const rev=['showSponsors','showTickets','citySeriesSponsors','citySeriesTickets','merch'].reduce((t,k)=>t+sum(data[k]),0);
+  const costs=['showCosts','citySeriesCosts','marketingCosts','sga','cea'].reduce((t,k)=>t+sum(data[k]),0);
+  const net=rev-costs;
+  const fmt=v=>v>=1e6?`$${(v/1e6).toFixed(1)}M`:v>=1e3?`$${Math.round(v/1e3)}K`:`$${Math.round(v)}`;
+  const netColor=net>=0?'#1B4D4A':'#C0392B';
+  const netStr=net>=0?fmt(net):`(${fmt(-net)})`;
+  return {rev,costs,net,revFmt:fmt(rev),costsFmt:fmt(costs),netFmt:netStr,netColor};
 }
 
 function _bvaRenderSnaps(y,isOwner){
@@ -7072,16 +7118,39 @@ function _bvaRenderSnaps(y,isOwner){
   if(!el) return;
   const snaps=_bvaLoadSnaps(y);
   if(!snaps.length){el.innerHTML='';return;}
-  const btnStyle=`padding:3px 8px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600`;
-  el.innerHTML=`<div style="margin-top:16px;border-top:1px solid #EDF2F0;padding-top:12px">
-    <div style="font-size:10px;font-weight:700;color:#7BA69E;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Saved Snapshots</div>
-    ${snaps.map((s,i)=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:#F7F9F8;border-radius:6px;margin-bottom:4px">
-      <span style="font-size:12px;color:#0D2B29;flex:1;font-weight:500">${s.label}</span>
-      ${isOwner?`<button data-snap-restore="${i}" style="${btnStyle};border:1px solid #1B4D4A;color:#1B4D4A;background:#fff">Restore</button>`:''}
-      <button data-snap-delete="${i}" style="${btnStyle};border:1px solid #EDF2F0;color:#B0C4BE;background:#fff">✕</button>
-    </div>`).join('')}
+
+  const pillBtn=`padding:4px 11px;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600;transition:all .15s`;
+
+  el.innerHTML=`
+  <div style="margin-top:22px;border-top:1px solid #EDF2F0;padding-top:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:#1B4D4A;text-transform:uppercase;letter-spacing:0.07em">
+        📋 Version History
+      </div>
+      <div style="font-size:11px;color:#B0C4BE">${snaps.length} version${snaps.length!==1?'s':''} saved</div>
+    </div>
+    ${snaps.map((s,i)=>{
+      const vn=s.num||(snaps.length-i);
+      const sm=_bvaSnapSummary(s.data);
+      return `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#F7F9F8;border:1px solid #EDF2F0;border-radius:8px;margin-bottom:6px">
+        <div style="width:32px;height:32px;border-radius:50%;background:#1B4D4A;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:800;flex-shrink:0">v${vn}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600;color:#0D2B29;margin-bottom:3px">${s.label}</div>
+          <div style="font-size:11px;color:#7BA69E;display:flex;gap:10px;flex-wrap:wrap">
+            <span>Rev: <b style="color:#1B4D4A">${sm.revFmt}</b></span>
+            <span>Costs: <b style="color:#8B6914">${sm.costsFmt}</b></span>
+            <span>Net: <b style="color:${sm.netColor}">${sm.netFmt}</b></span>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          ${isOwner?`<button data-snap-restore="${i}" style="${pillBtn};border:1px solid #1B4D4A;color:#1B4D4A;background:#fff">↩ Restore</button>`:''}
+          <button data-snap-delete="${i}" style="${pillBtn};border:1px solid #E2EAE7;color:#B0C4BE;background:#fff">✕</button>
+        </div>
+      </div>`;
+    }).join('')}
   </div>`;
+
   el.querySelectorAll('[data-snap-restore]').forEach(btn=>{
     btn.addEventListener('click',()=>{
       const idx=parseInt(btn.dataset.snapRestore,10);
@@ -7092,14 +7161,19 @@ function _bvaRenderSnaps(y,isOwner){
         inp.value=Math.round(_bvaState.budget2[inp.dataset.bva]?.[parseInt(inp.dataset.mo,10)]||0);
       });
       _bvaLiveUpdate();
+      // Visual feedback on button
+      btn.textContent='✓ Restored'; btn.style.background='#1B4D4A'; btn.style.color='#fff';
+      setTimeout(()=>{btn.textContent='↩ Restore';btn.style.background='#fff';btn.style.color='#1B4D4A';},1800);
     });
   });
+
   el.querySelectorAll('[data-snap-delete]').forEach(btn=>{
     btn.addEventListener('click',()=>{
+      if(!confirm('Delete this version? This cannot be undone.')) return;
       const idx=parseInt(btn.dataset.snapDelete,10);
       const snaps=_bvaLoadSnaps(y);
       snaps.splice(idx,1);
-      localStorage.setItem(_bvaSnapKey(y),JSON.stringify(snaps));
+      _bvaSaveSnaps(y,snaps);
       _bvaRenderSnaps(y,isOwner);
     });
   });
@@ -7349,6 +7423,8 @@ async function renderBVA(){
     const budget1=await _bvaLoad(_bvaYear);
     const budget2=(_bvaYear===_bvaYear2)?budget1:await _bvaLoad(_bvaYear2);
     const isOwner=!!(window.currentUser?.role==='Owner');
+    // Pre-load version history into cache so _bvaLoadSnaps() is sync
+    await _bvaLoadSnapsAsync(_bvaYear2);
     const mns=parsed.monthLabels.map(l=>l.split(' ')[0]);
     const nM=mns.length;
     _bvaState={bk,budget1,budget2,mns,nM,isOwner};
@@ -7460,7 +7536,10 @@ async function renderBVA(){
       if(sb) sb.onclick=()=>{
         _bvaPushSnap(_bvaYear2,budget2);
         _bvaRenderSnaps(_bvaYear2,true);
-        if(sb){sb.textContent='✓ Saved';setTimeout(()=>{sb.textContent='💾 Save';},1500);}
+        // Scroll version history into view
+        const snEl=document.getElementById('bvaSnaps');
+        if(snEl) setTimeout(()=>snEl.scrollIntoView({behavior:'smooth',block:'nearest'}),100);
+        if(sb){sb.textContent='✓ Version saved';setTimeout(()=>{sb.textContent='💾 Save Version';},2000);}
       };
       if(rb) rb.onclick=()=>{
         localStorage.removeItem(_bvaStorageKey(_bvaYear2));
