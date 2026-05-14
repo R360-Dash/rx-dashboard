@@ -7059,19 +7059,33 @@ const _bvaSnapKey      = y => `rx_bva_snaps_${y}`;
 const _bvaSnapsProxy   = y => `https://racquetx-qbo-proxy.racquetx.workers.dev/api/bva/snaps?year=${y}`;
 let   _bvaSnapsCache   = {};  // in-memory per year, loaded on renderBVA
 
-// Load snaps from proxy → localStorage fallback; populate cache
+// Load snaps from proxy → localStorage fallback; populate cache.
+// If proxy is empty but localStorage has data, auto-migrate to proxy.
 async function _bvaLoadSnapsAsync(y){
   try{
     const res=await fetch(_bvaSnapsProxy(y));
     if(res.ok){
       const data=await res.json();
-      if(Array.isArray(data.snaps)){
+      if(Array.isArray(data.snaps) && data.snaps.length){
         _bvaSnapsCache[y]=data.snaps;
         try{localStorage.setItem(_bvaSnapKey(y),JSON.stringify(data.snaps));}catch(e){}
         return data.snaps;
       }
+      // Proxy has no versions — check if localStorage has legacy snapshots to migrate
+      try{
+        const raw=localStorage.getItem(_bvaSnapKey(y));
+        const legacy=raw?JSON.parse(raw):[];
+        if(legacy.length){
+          // Assign version numbers if missing (old format had none)
+          legacy.forEach((s,i)=>{ if(!s.num) s.num=legacy.length-i; });
+          _bvaSaveSnaps(y,legacy); // pushes to proxy + localStorage
+          _bvaSnapsCache[y]=legacy;
+          return legacy;
+        }
+      }catch(e){}
     }
   }catch(e){console.warn('BVA snaps proxy load failed:',e.message);}
+  // Full fallback: localStorage only
   try{
     const raw=localStorage.getItem(_bvaSnapKey(y));
     const arr=raw?JSON.parse(raw):[];
@@ -7117,9 +7131,14 @@ function _bvaRenderSnaps(y,isOwner){
   const el=document.getElementById('bvaSnaps');
   if(!el) return;
   const snaps=_bvaLoadSnaps(y);
-  if(!snaps.length){el.innerHTML='';return;}
 
   const pillBtn=`padding:4px 11px;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600;transition:all .15s`;
+
+  // Always render the section — show empty state if no versions yet
+  const emptyState = snaps.length ? '' : `
+    <div style="padding:20px 16px;text-align:center;color:#B0C4BE;font-size:12px;background:#FAFCFB;border-radius:8px;border:1px dashed #D4E2DD">
+      No versions saved yet.${isOwner?' Click <b style="color:#1B4D4A">💾 Save Version</b> above to capture a snapshot of your current budget.':''}
+    </div>`;
 
   el.innerHTML=`
   <div style="margin-top:22px;border-top:1px solid #EDF2F0;padding-top:16px">
@@ -7127,8 +7146,9 @@ function _bvaRenderSnaps(y,isOwner){
       <div style="font-size:11px;font-weight:700;color:#1B4D4A;text-transform:uppercase;letter-spacing:0.07em">
         📋 Version History
       </div>
-      <div style="font-size:11px;color:#B0C4BE">${snaps.length} version${snaps.length!==1?'s':''} saved</div>
+      <div style="font-size:11px;color:#B0C4BE">${snaps.length ? `${snaps.length} version${snaps.length!==1?'s':''} saved` : ''}</div>
     </div>
+    ${emptyState}
     ${snaps.map((s,i)=>{
       const vn=s.num||(snaps.length-i);
       const sm=_bvaSnapSummary(s.data);
