@@ -7004,24 +7004,52 @@ function _bvaActualMonthly(bk, key){
   }
 }
 
-function _bvaLoad(y){
-  try{
-    const r=localStorage.getItem('rx_bva_'+y);
-    if(r){
-      const d=JSON.parse(r);
-      _BVA_LINES.forEach(l=>{
-        if(!Array.isArray(d[l.key])){
-          const annual=typeof d[l.key]==='number'?d[l.key]:0;
-          d[l.key]=Array(12).fill(Math.round(annual/12));
-        }
-        if(d[l.key].length<12) d[l.key]=[...d[l.key],...Array(12-d[l.key].length).fill(0)];
-      });
-      return d;
+const _bvaProxyUrl = y => `https://racquetx-qbo-proxy.racquetx.workers.dev/api/bva?year=${y}`;
+const _bvaStorageKey = y => `rx_bva_${y}`;
+
+function _bvaNormalize(d){
+  _BVA_LINES.forEach(l=>{
+    if(!Array.isArray(d[l.key])){
+      const annual=typeof d[l.key]==='number'?d[l.key]:0;
+      d[l.key]=Array(12).fill(Math.round(annual/12));
     }
+    if(d[l.key].length<12) d[l.key]=[...d[l.key],...Array(12-d[l.key].length).fill(0)];
+  });
+  return d;
+}
+
+async function _bvaLoad(y){
+  // 1. Try proxy first (shared across all browsers/devices)
+  try{
+    const res=await fetch(_bvaProxyUrl(y));
+    if(res.ok){
+      const data=await res.json();
+      if(data.budget){
+        const d=_bvaNormalize(data.budget);
+        // Keep localStorage warm as a cache
+        try{localStorage.setItem(_bvaStorageKey(y),JSON.stringify(d));}catch(e){}
+        return d;
+      }
+    }
+  }catch(e){ console.warn('BVA proxy load failed, falling back to localStorage:',e.message); }
+  // 2. Fallback: localStorage
+  try{
+    const r=localStorage.getItem(_bvaStorageKey(y));
+    if(r) return _bvaNormalize(JSON.parse(r));
   }catch(e){}
   return Object.fromEntries(_BVA_LINES.map(l=>[l.key,Array(12).fill(0)]));
 }
-function _bvaSave(y,d){ try{localStorage.setItem('rx_bva_'+y,JSON.stringify(d));}catch(e){} }
+
+function _bvaSave(y,d){
+  // localStorage immediately (no flicker)
+  try{localStorage.setItem(_bvaStorageKey(y),JSON.stringify(d));}catch(e){}
+  // Proxy fire-and-forget (shared persistence)
+  fetch(_bvaProxyUrl(y),{
+    method:'PUT',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(d),
+  }).catch(e=>console.warn('BVA proxy save failed:',e.message));
+}
 
 const _bvaFmtN=v=>v===0?'<span style="color:#D4E2DD">—</span>':(v<0?`<span style="color:#C0392B">(${_$Knd(Math.abs(v))})</span>`:_$Knd(v));
 
@@ -7318,8 +7346,8 @@ async function renderBVA(){
     const bk=_buildPLBreakdown(parsed);
     if(updEl) updEl.textContent='Last synced: '+new Date(plData.ts).toLocaleString();
 
-    const budget1=_bvaLoad(_bvaYear);
-    const budget2=(_bvaYear===_bvaYear2)?budget1:_bvaLoad(_bvaYear2);
+    const budget1=await _bvaLoad(_bvaYear);
+    const budget2=(_bvaYear===_bvaYear2)?budget1:await _bvaLoad(_bvaYear2);
     const isOwner=!!(window.currentUser?.role==='Owner');
     const mns=parsed.monthLabels.map(l=>l.split(' ')[0]);
     const nM=mns.length;
@@ -7435,7 +7463,8 @@ async function renderBVA(){
         if(sb){sb.textContent='✓ Saved';setTimeout(()=>{sb.textContent='💾 Save';},1500);}
       };
       if(rb) rb.onclick=()=>{
-        localStorage.removeItem('rx_bva_'+_bvaYear2);
+        localStorage.removeItem(_bvaStorageKey(_bvaYear2));
+        fetch(_bvaProxyUrl(_bvaYear2),{method:'DELETE'}).catch(()=>{});
         _BVA_LINES.forEach(l=>budget2[l.key]=Array(12).fill(0));
         document.getElementById('bvaTable2').querySelectorAll('input[data-bva]').forEach(inp=>inp.value=0);
         _bvaLiveUpdate();
