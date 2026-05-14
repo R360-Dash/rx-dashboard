@@ -354,6 +354,10 @@ tr:hover td{background:#E8F0ED}
       <button data-yr="2025">2025</button>
       <button class="active" data-yr="2026">2026</button>
     </div>
+    <div class="toggle" id="bvaCycleToggle" style="display:none">
+      <button class="active" data-cy="fiscal">Fiscal Year</button>
+      <button data-cy="show">Show Cycle</button>
+    </div>
     <div class="toggle" id="bvaViewToggle" style="display:none">
       <button class="active" data-vm="full">Monthly Detail</button>
       <button data-vm="annual">Annual Summary</button>
@@ -2615,7 +2619,7 @@ function showPage(id){
   });
   document.getElementById('tog').style.display=(id==='sec-mkt'||id==='sec-cumfirm'||id==='sec-cumsp'||id==='sec-settings'||id==='sec-hsoverview'||id==='sec-hsdeals'||id==='sec-grip'||id==='sec-hsmix'||id==='sec-hsnew'||id==='sec-hsrebooks'||id==='sec-hsmom'||id==='sec-hscumsp'||id==='sec-hscumfirm'||id==='sec-partners'||id==='sec-linkedin'||id==='sec-ga4'||id==='sec-pl'||id==='sec-bva'||id==='sec-cashflow'||id==='sec-revproj'||id==='sec-scenario'||id==='sec-expenses')?'none':'flex';
   // Show page-specific year toggle in header
-  ['expCycleToggle','expYearToggle','plCycleToggle','plYearToggle','cfYearToggle','bvaYearToggle1','bvaViewToggle'].forEach(t=>{const el=document.getElementById(t);if(el)el.style.display='none';});
+  ['expCycleToggle','expYearToggle','plCycleToggle','plYearToggle','cfYearToggle','bvaYearToggle1','bvaViewToggle','bvaCycleToggle'].forEach(t=>{const el=document.getElementById(t);if(el)el.style.display='none';});
   if(id==='sec-expenses'){
     const ct=document.getElementById('expCycleToggle');if(ct)ct.style.display='flex';
     const yt=document.getElementById('expYearToggle');if(yt)yt.style.display='flex';
@@ -2626,6 +2630,7 @@ function showPage(id){
   }
   if(id==='sec-cashflow'){const el=document.getElementById('cfYearToggle');if(el)el.style.display='flex';}
   if(id==='sec-bva'){
+    const cy=document.getElementById('bvaCycleToggle');if(cy)cy.style.display='flex';
     const vt=document.getElementById('bvaViewToggle');if(vt)vt.style.display='flex';
     const el=document.getElementById('bvaYearToggle1');if(el)el.style.display='flex';
   }
@@ -6970,6 +6975,8 @@ let _bvaYear2 = 2026;
 let _bvaState = null;
 let _bvaMonthFilter = null;
 let _bvaViewMode = 'full'; // 'full' | 'annual'
+let _bvaCycleMode = 'fiscal'; // 'fiscal' | 'show'
+const BVA_SC_YEARS = [2024, 2025, 2026];
 
 const _BVA_LINES = [
   {key:'showSponsors',       label:'Show Sponsors',                section:'rev'},
@@ -7358,10 +7365,8 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter, viewMode){
   html+=sp();
   html+=row('EBITDA',eB,eAct12,{lc:'#1B4D4A',bg:'#E8F0ED',fw:'800',summary:true});
   html+=sp();
-  if(bk.ceaTot.total!==0||sum(bArr('cea'))!==0){
-    html+=row(ceaLine.label,bArr('cea'),aArr('cea'),{indent:true,lc:'#6C3483',isCost:true});
-    html+=sp();
-  }
+  html+=row(ceaLine.label,bArr('cea'),aArr('cea'),{indent:true,lc:'#6C3483',isCost:true});
+  html+=sp();
   html+=row('Net Income',nB,nAct12,{lc:'#1B4D4A',bg:'#E8F0ED',fw:'800',summary:true});
   html+='</tbody>';
   return html;
@@ -7428,6 +7433,16 @@ function _bvaLiveUpdate(){
 async function renderBVA(){
   const updEl=document.getElementById('bvaUpdated');
   if(updEl) updEl.innerHTML='<span style="color:#3D9B8F">Loading…</span>';
+
+  // Show Cycle mode: clamp year to supported set, hide/show 2027 button
+  const isShowCycle = _bvaCycleMode === 'show';
+  if(isShowCycle && !BVA_SC_YEARS.includes(_bvaYear)){
+    _bvaYear = BVA_SC_YEARS[BVA_SC_YEARS.length-1];
+    document.querySelectorAll('#bvaYearToggle1 button').forEach(b=>b.classList.toggle('active',parseInt(b.dataset.yr)===_bvaYear));
+  }
+  const btn27=document.querySelector('#bvaYearToggle1 button[data-yr="2027"]');
+  if(btn27) btn27.style.display=isShowCycle?'none':'';
+
   try {
     const plData=_qboCache.pl[_bvaYear]
       ?_qboCache.pl[_bvaYear]
@@ -7437,20 +7452,53 @@ async function renderBVA(){
       document.getElementById('bvaTable1').innerHTML='<tr><td style="padding:24px;color:#C0392B">No data for '+_bvaYear+'</td></tr>';
       return;
     }
-    const bk=_buildPLBreakdown(parsed);
     if(updEl) updEl.textContent='Last synced: '+new Date(plData.ts).toLocaleString();
+
+    // Build breakdown (fiscal or show cycle)
+    let bk, mns, nM;
+    if(isShowCycle){
+      const plDataPrev=_qboCache.pl[_bvaYear-1]
+        ?_qboCache.pl[_bvaYear-1]
+        :await fetchQbo('/api/pl?year='+(_bvaYear-1)).then(d=>{_qboCache.pl[_bvaYear-1]=d;return d;});
+      const parsedPrev=plDataPrev?parseQboReport(plDataPrev.report):null;
+      const allBDs={};
+      if(parsedPrev) allBDs[_bvaYear-1]=_buildPLBreakdown(parsedPrev);
+      allBDs[_bvaYear]=_buildPLBreakdown(parsed);
+      bk=_buildShowCycleBreakdown(allBDs,_bvaYear)||_buildPLBreakdown(parsed);
+      mns=['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
+      nM=12;
+    } else {
+      bk=_buildPLBreakdown(parsed);
+      mns=parsed.monthLabels.map(l=>l.split(' ')[0]);
+      nM=mns.length;
+    }
 
     const budget1=await _bvaLoad(_bvaYear);
     const budget2=(_bvaYear===_bvaYear2)?budget1:await _bvaLoad(_bvaYear2);
     const isOwner=!!(window.currentUser?.role==='Owner');
     // Pre-load version history into cache so _bvaLoadSnaps() is sync
     await _bvaLoadSnapsAsync(_bvaYear2);
-    const mns=parsed.monthLabels.map(l=>l.split(' ')[0]);
-    const nM=mns.length;
-    _bvaState={bk,budget1,budget2,mns,nM,isOwner};
+
+    // Build Table 1 budget: in SC mode merge Apr-Dec(Y-1) + Jan-Mar(Y)
+    let t1Budget;
+    if(isShowCycle){
+      const budgetPrev=await _bvaLoad(_bvaYear-1);
+      t1Budget={};
+      for(const line of _BVA_LINES){
+        const bp=budgetPrev[line.key]||Array(12).fill(0);
+        const bc=budget1[line.key]||Array(12).fill(0);
+        t1Budget[line.key]=[...bp.slice(3,12),...bc.slice(0,3)];
+      }
+    } else {
+      t1Budget=budget1;
+    }
+
+    _bvaState={bk,budget1:t1Budget,budget2,mns,nM,isOwner};
 
     const titleEl=document.getElementById('bvaTitle');
-    if(titleEl) titleEl.textContent='Actuals vs Budget — '+_bvaYear;
+    if(titleEl) titleEl.textContent=isShowCycle
+      ?`Actuals vs Budget — Show Cycle ${_bvaYear} (Apr ${_bvaYear-1}–Mar ${_bvaYear})`
+      :'Actuals vs Budget — '+_bvaYear;
     const helpEl=document.getElementById('bvaHelp');
     if(helpEl) helpEl.innerHTML=isOwner
       ?'Enter monthly budget figures below. Actuals are pulled from QuickBooks and update automatically.'
@@ -7470,6 +7518,10 @@ async function renderBVA(){
       ?`width:70px;padding:2px 4px;border:1px solid #D4E2DD;border-radius:3px;font-family:inherit;font-size:11px;color:#0D2B29;background:#fff;text-align:right`
       :`width:70px;padding:2px 4px;border:1px solid #EDF2F0;border-radius:3px;font-family:inherit;font-size:11px;color:#7BA69E;background:#F7F9F8;text-align:right;cursor:not-allowed`;
 
+    // Table 2 always shows fiscal month labels regardless of cycle mode
+    const mns2=isShowCycle
+      ?['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+      :mns;
     const bArr2=k=>budget2[k]||Array(12).fill(0);
     const sum=arr=>arr.reduce((t,v)=>t+v,0);
     const revL=_BVA_LINES.filter(l=>l.section==='rev');
@@ -7504,7 +7556,7 @@ async function renderBVA(){
     const sp2=()=>`<tr><td colspan="${nM+2}" style="padding:3px 0"></td></tr>`;
 
     let html2=`<thead><tr><th style="${stkHdr}">Category</th>`;
-    mns.forEach(m=>html2+=`<th style="${hcs}">${m}</th>`);
+    mns2.forEach(m=>html2+=`<th style="${hcs}">${m}</th>`);
     html2+=`<th style="${hcs};border-left:2px solid #C8DAD6;color:#1B4D4A">Total</th></tr></thead><tbody>`;
     html2+=sHdr2('Revenues','#1B4D4A');
     revL.forEach(l=>html2+=inpRow(l));
@@ -7521,7 +7573,8 @@ async function renderBVA(){
     html2+=sp2();
     html2+=compRow2('ebitda','EBITDA',eB,'#E8F0ED',true);
     html2+=sp2();
-    if(bk.ceaTot.total!==0||sum(bArr2('cea'))!==0){html2+=inpRow(ceaLine);html2+=sp2();}
+    html2+=inpRow(ceaLine);
+    html2+=sp2();
     html2+=compRow2('net','Net Income',nB,'#E8F0ED',true);
     html2+='</tbody>';
     document.getElementById('bvaTable2').innerHTML=html2;
@@ -7602,6 +7655,22 @@ document.getElementById('bvaViewToggle')?.addEventListener('click', e=>{
   _bvaViewMode=btn.dataset.vm;
   document.getElementById('bvaViewToggle')?.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===btn));
   _bvaLiveUpdate();
+});
+
+document.getElementById('bvaCycleToggle')?.addEventListener('click', e=>{
+  const btn=e.target.closest('button[data-cy]'); if(!btn) return;
+  _bvaCycleMode=btn.dataset.cy;
+  document.getElementById('bvaCycleToggle')?.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===btn));
+  // Hide/show 2027 year button based on cycle mode
+  const b27=document.querySelector('#bvaYearToggle1 button[data-yr="2027"]');
+  if(b27) b27.style.display=(_bvaCycleMode==='show')?'none':'';
+  // Clamp year if 2027 is selected and switching to show cycle
+  if(_bvaCycleMode==='show' && !BVA_SC_YEARS.includes(_bvaYear)){
+    _bvaYear=BVA_SC_YEARS[BVA_SC_YEARS.length-1];
+    document.querySelectorAll('#bvaYearToggle1 button').forEach(b=>b.classList.toggle('active',parseInt(b.dataset.yr)===_bvaYear));
+  }
+  _bvaMonthFilter=null;
+  renderBVA();
 });
 _bindYearToggle('expYearToggle', y=>_expYear=y, renderExpenses);
 _bindYearToggle('plYearToggle', y=>_plYear=y, renderPL);
