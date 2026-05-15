@@ -358,10 +358,6 @@ tr:hover td{background:#E8F0ED}
       <button class="active" data-cy="fiscal">Fiscal Year</button>
       <button data-cy="show">Show Cycle</button>
     </div>
-    <div class="toggle" id="bvaViewToggle" style="display:none">
-      <button class="active" data-vm="full">Monthly Detail</button>
-      <button data-vm="annual">Annual Summary</button>
-    </div>
     <div class="toggle" id="bvaYearToggle1" style="display:none">
       <button data-yr="2024">2024</button>
       <button data-yr="2025">2025</button>
@@ -504,8 +500,12 @@ tr:hover td{background:#E8F0ED}
   </div>
   <div class="kpi-grid" id="bvaKpis"></div>
   <div id="bvaSec1" class="section">
-    <div class="section-header">
-      <div class="section-bar"></div><div class="section-title" id="bvaTitle">Actuals vs Budget — 2026</div>
+    <div class="section-header" style="justify-content:space-between;align-items:center">
+      <div style="display:flex;align-items:center;gap:8px"><div class="section-bar"></div><div class="section-title" id="bvaTitle">Actuals vs Budget — 2026</div></div>
+      <div class="hs-pipeline-toggle" id="bvaViewToggle" style="margin-bottom:0">
+        <button class="active" data-vm="full">Monthly Detail</button>
+        <button data-vm="annual">Annual Summary</button>
+      </div>
     </div>
     <div id="bvaHelp" style="font-size:12px;color:#7BA69E;padding:0 4px 8px"></div>
     <div id="bvaMonthFilterBar" style="padding:0 4px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"></div>
@@ -2619,7 +2619,7 @@ function showPage(id){
   });
   document.getElementById('tog').style.display=(id==='sec-mkt'||id==='sec-cumfirm'||id==='sec-cumsp'||id==='sec-settings'||id==='sec-hsoverview'||id==='sec-hsdeals'||id==='sec-grip'||id==='sec-hsmix'||id==='sec-hsnew'||id==='sec-hsrebooks'||id==='sec-hsmom'||id==='sec-hscumsp'||id==='sec-hscumfirm'||id==='sec-partners'||id==='sec-linkedin'||id==='sec-ga4'||id==='sec-pl'||id==='sec-bva'||id==='sec-cashflow'||id==='sec-revproj'||id==='sec-scenario'||id==='sec-expenses')?'none':'flex';
   // Show page-specific year toggle in header
-  ['expCycleToggle','expYearToggle','plCycleToggle','plYearToggle','cfYearToggle','bvaYearToggle1','bvaViewToggle','bvaCycleToggle'].forEach(t=>{const el=document.getElementById(t);if(el)el.style.display='none';});
+  ['expCycleToggle','expYearToggle','plCycleToggle','plYearToggle','cfYearToggle','bvaYearToggle1','bvaCycleToggle'].forEach(t=>{const el=document.getElementById(t);if(el)el.style.display='none';});
   if(id==='sec-expenses'){
     const ct=document.getElementById('expCycleToggle');if(ct)ct.style.display='flex';
     const yt=document.getElementById('expYearToggle');if(yt)yt.style.display='flex';
@@ -2631,7 +2631,6 @@ function showPage(id){
   if(id==='sec-cashflow'){const el=document.getElementById('cfYearToggle');if(el)el.style.display='flex';}
   if(id==='sec-bva'){
     const cy=document.getElementById('bvaCycleToggle');if(cy)cy.style.display='flex';
-    const vt=document.getElementById('bvaViewToggle');if(vt)vt.style.display='flex';
     const el=document.getElementById('bvaYearToggle1');if(el)el.style.display='flex';
   }
   // Hide 2024 button on rebooks page
