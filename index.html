@@ -1343,7 +1343,9 @@ function _isCsDeal(name){return name.toLowerCase().includes('city series');}
 function _splitDealAmts(deal,yr){
   if(yr===27&&deal.li&&deal.li.length){
     const csAmt=deal.li.filter(l=>_isCsDeal(l.n)).reduce((s,l)=>s+l.a,0);
-    const showAmt=deal.li.filter(l=>!_isCsDeal(l.n)).reduce((s,l)=>s+l.a,0);
+    const liTotal=deal.li.reduce((s,l)=>s+l.a,0);
+    const unattributed=Math.max(0,deal.a-liTotal);
+    const showAmt=deal.li.filter(l=>!_isCsDeal(l.n)).reduce((s,l)=>s+l.a,0)+unattributed;
     return{csAmt,showAmt};
   }
   return _isCsDeal(deal.n)?{csAmt:deal.a,showAmt:0}:{csAmt:0,showAmt:deal.a};
