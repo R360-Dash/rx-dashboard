@@ -547,7 +547,7 @@ tr:hover td{background:#E8F0ED}
     <div class="section-header"><div class="section-bar"></div><div class="section-title">Forecast Burn Rate (Editable)</div></div>
     <div class="card" style="padding:0">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding:14px 16px;border-bottom:1px solid #EDF2F0">
-        <div style="font-size:12px;color:#7BA69E">Edit values (in dollars) for each future month. Costs are entered as positives; the table subtracts them from Revenue Collections to compute Total Burn. Changes save automatically.</div>
+        <div style="font-size:12px;color:#7BA69E">Edit values (in dollars) for each future month. Revenue lines (Show Collections, City Series Revenues) add to Total Burn; cost lines subtract from it. Changes save automatically.</div>
         <button id="cfResetForecast" style="font-size:11px;padding:6px 12px;background:#fff;border:1px solid #D4E2DD;color:#1B4D4A;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600">↻ Reset to Suggestions</button>
       </div>
       <div class="ar-wrap" style="overflow-x:auto"><table id="cfForecastTable" style="width:100%"></table></div>
@@ -6341,18 +6341,20 @@ let _cfYear = 2026;
 // Latest known state — populated by renderCashFlow, used by forecast input handlers
 let _cfState = null;
 
-// Forecast lines (5 categories that compose the monthly burn)
-// Net Burn = revColl - showCosts - cityCosts - marketing - sga
+// Forecast lines (7 categories that compose the monthly burn)
+// Net Burn = showColl + csColl - showCosts - cityCosts - marketing - sga - salesComm
 const _CF_LINES = [
-  { key: 'revColl',   label: 'Revenue Collections', sign: +1, color: '#1B7A3D' },
+  { key: 'showColl',  label: 'Show Collections',    sign: +1, color: '#1B7A3D' },
+  { key: 'csColl',    label: 'City Series Revenues',sign: +1, color: '#1683A4' },
   { key: 'showCosts', label: 'Show Costs',          sign: -1, color: '#C0392B' },
   { key: 'cityCosts', label: 'City Series Costs',   sign: -1, color: '#E67E22' },
   { key: 'marketing', label: 'Marketing Costs',     sign: -1, color: '#8E44AD' },
-  { key: 'sga',       label: 'SG&A',                sign: -1, color: '#B8860B' }
+  { key: 'sga',       label: 'SG&A',                sign: -1, color: '#B8860B' },
+  { key: 'salesComm', label: 'Sales Commissions',   sign: -1, color: '#6B7280' }
 ];
 
-// LocalStorage keys (v2 schema = object of line arrays, not flat array)
-const _cfStorageKey = (year) => `rx_cf_forecast_${year}_v2`;
+// LocalStorage keys (v3 schema = 7-line object: showColl, csColl, showCosts, cityCosts, marketing, sga, salesComm)
+const _cfStorageKey = (year) => `rx_cf_forecast_${year}_v3`;
 const _cfProxyUrl   = (year) => `https://racquetx-qbo-proxy.racquetx.workers.dev/api/forecast?year=${year}`;
 
 function _cfValidateForecast(obj){
@@ -6448,15 +6450,17 @@ function _cfBuildLineActuals(plBreakdown){
     return _CF_LINES.reduce((acc, l) => { acc[l.key] = empty.slice(); return acc; }, {});
   }
   return {
-    revColl:   plBreakdown.revTot.monthly.slice(),
+    showColl:  empty.slice(), // Show revenue — user-entered; no reliable monthly split from QBO P&L
+    csColl:    empty.slice(), // City Series revenue — user-entered
     showCosts: (plBreakdown.dcByCat['Show Costs']?.monthly || empty).slice(),
     cityCosts: (plBreakdown.dcByCat['City Series Costs']?.monthly || empty).slice(),
     marketing: (plBreakdown.dcByCat['Marketing Costs']?.monthly || empty).slice(),
-    sga:       plBreakdown.sgaTot.monthly.slice()
+    sga:       plBreakdown.sgaTot.monthly.slice(),
+    salesComm: empty.slice()  // Sales commissions — user-entered
   };
 }
 
-// Compute net burn per month from line values: revColl - showCosts - cityCosts - marketing - sga
+// Compute net burn per month from line values: showColl + csColl - showCosts - cityCosts - marketing - sga - salesComm
 function _cfComputeNetBurn(lineMap){
   return Array.from({length: 12}, (_, i) => {
     let net = 0;
@@ -6729,7 +6733,7 @@ function _cfDrawBarChart(canvasId, data, opts){
 // Render editable forecast inputs (one per future month)
 // Compute per-line totals (across visible columns) and column totals (across lines)
 function _cfComputeForecastTotals(state, monthIndices){
-  // Returns: { lineTotals: {revColl: ..., showCosts: ..., ...}, monthTotals: [m0, m1, ...], grandTotal }
+  // Returns: { lineTotals: {showColl: ..., csColl: ..., showCosts: ..., ...}, monthTotals: [m0, m1, ...], grandTotal }
   const lineTotals = {};
   _CF_LINES.forEach(l => { lineTotals[l.key] = 0; });
   const monthTotals = monthIndices.map(idx => {
@@ -6770,7 +6774,7 @@ function _cfRenderForecastInputs(){
   const helpEl = section.querySelector('div[style*="color:#7BA69E"]');
   if(helpEl){
     helpEl.innerHTML = isOwner
-      ? 'Edit values (in dollars) for each future month. Costs are entered as positives; the table subtracts them from Revenue Collections to compute Total Burn. Changes save automatically.'
+      ? 'Edit values (in dollars) for each future month. Revenue lines (Show Collections, City Series Revenues) add to Total Burn; cost lines subtract from it. Changes save automatically.'
       : '<span style="color:#B8860B">🔒 Read-only — only the Owner can edit forecast assumptions.</span>';
   }
 
