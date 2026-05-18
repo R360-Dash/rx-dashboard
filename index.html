@@ -387,6 +387,7 @@ tr:hover td{background:#E8F0ED}
 </div>
 <div class="kpi-grid" id="kG"></div>
 <div id="csCities" style="display:none;margin-top:24px"></div>
+<div id="cs27Clients" style="display:none;margin-top:24px"></div>
 <div id="quotaSection" style="display:none;margin-top:24px"></div>
 </div>
 
@@ -1838,6 +1839,73 @@ function render(){
 </tr></tfoot></table></div></div>`;
           el.innerHTML=h;
           el.style.display='';
+        }
+      }
+    }
+  }
+
+  // === 2027 CITY SERIES CLIENT TABLE (cs filter + 2027 only) ===
+  {
+    const el27=document.getElementById('cs27Clients');
+    if(el27){
+      if(_revFilter!=='cs'||!is27){el27.style.display='none';}
+      else{
+        // Build client → {total, cities, date} from 2027 CS deals/line-items
+        const clients={};
+        for(const d of _allPaidWon){
+          let csAmt=0;
+          const citiesSet=new Set();
+          if(d.li&&d.li.length){
+            for(const li of d.li){
+              if(!_isCsDeal(li.n))continue;
+              csAmt+=li.a;
+              const c=_parseCityFromLI(li.n);
+              if(c)citiesSet.add(c);
+            }
+          } else if(_isCsDeal(d.n)){
+            csAmt=d.a;
+            const c=_parseCityFromLI(d.n);
+            if(c)citiesSet.add(c);
+          }
+          if(csAmt<=0)continue;
+          const nm=d.n.split(' - ')[0].trim();
+          if(!clients[nm])clients[nm]={total:0,cities:new Set(),date:d.cd};
+          clients[nm].total+=csAmt;
+          citiesSet.forEach(c=>clients[nm].cities.add(c));
+        }
+        const sorted=Object.entries(clients).sort((a,b)=>b[1].total-a[1].total);
+        if(!sorted.length){el27.style.display='none';}
+        else{
+          const totCS=sorted.reduce((s,[,v])=>s+v.total,0);
+          let h=`<div class="section" style="margin-top:0">
+<div class="section-header"><div class="section-bar"></div><div class="section-title">City Series Clients — 2027</div></div>
+<div class="card" style="padding:0"><table style="width:100%;border-collapse:collapse;font-size:13px">
+<thead><tr>
+<th style="text-align:left;padding:10px 16px;color:#7BA69E;font-weight:600;border-bottom:2px solid #D4E2DD">Client</th>
+<th style="text-align:left;padding:10px 16px;color:#7BA69E;font-weight:600;border-bottom:2px solid #D4E2DD">City</th>
+<th style="text-align:right;padding:10px 16px;color:#7BA69E;font-weight:600;border-bottom:2px solid #D4E2DD">Amount</th>
+<th style="text-align:right;padding:10px 16px;color:#7BA69E;font-weight:600;border-bottom:2px solid #D4E2DD">% of CS</th>
+</tr></thead><tbody>`;
+          sorted.forEach(([name,v])=>{
+            const pct=totCS>0?(v.total/totCS*100).toFixed(1):'0.0';
+            const barW=totCS>0?Math.round(v.total/totCS*100):0;
+            const cityList=[...v.cities].join(', ')||'—';
+            h+=`<tr><td style="padding:10px 16px;border-bottom:1px solid #F0F6F4">
+<div style="font-weight:600;color:#1B4D4A;margin-bottom:4px">${name}</div>
+<div style="background:#E8EFED;border-radius:3px;height:4px;width:100%;overflow:hidden"><div style="width:${barW}%;height:100%;background:linear-gradient(90deg,#1B4D4A,#3D9B8F);border-radius:3px"></div></div>
+</td>
+<td style="padding:10px 16px;border-bottom:1px solid #F0F6F4;color:#5BA08A">${cityList}</td>
+<td style="padding:10px 16px;border-bottom:1px solid #F0F6F4;text-align:right;font-weight:700;color:#1B4D4A">${$(v.total)}</td>
+<td style="padding:10px 16px;border-bottom:1px solid #F0F6F4;text-align:right;color:#7BA69E">${pct}%</td></tr>`;
+          });
+          h+=`</tbody><tfoot><tr>
+<td style="padding:10px 16px;font-weight:700;color:#1B4D4A;border-top:2px solid #D4E2DD">Total</td>
+<td style="padding:10px 16px;border-top:2px solid #D4E2DD;color:#5BA08A">${sorted.length} client${sorted.length!==1?'s':''}</td>
+<td style="padding:10px 16px;text-align:right;font-weight:700;color:#1B4D4A;border-top:2px solid #D4E2DD">${$(totCS)}</td>
+<td style="padding:10px 16px;text-align:right;color:#7BA69E;border-top:2px solid #D4E2DD">100%</td>
+</tr></tfoot></table></div></div>`;
+          el27.innerHTML=h;
+          el27.style.display='';
         }
       }
     }
