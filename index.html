@@ -5816,6 +5816,67 @@ function _plApplyProductFilter(bk, product){
   return {...bk,revByCat,revTot,dcByCat,dcTot,gpTot,ebitda,netInc};
 }
 
+// Build a full-year estimate breakdown from BVA budget data:
+//   closed months (0 .. curMo-1) = actuals from bk2026
+//   current + future months (curMo .. 11) = budget values
+// Returns a breakdown object compatible with _plBuildLines / _plApplyProductFilter.
+function _buildBVAEstBreakdown(bk2026, budget) {
+  const curMo = new Date().getMonth(); // 0-based: 0=Jan … 11=Dec
+  const N = 12;
+  const pad = arr => { const r=Array(N).fill(0); (arr||[]).forEach((v,i)=>{if(i<N)r[i]=v;}); return r; };
+
+  // Blend actuals (closed months) with budget (open + future months)
+  function estArr(key) {
+    const act = _bvaActualMonthly(bk2026, key);
+    const bdg = pad(budget[key]);
+    return Array.from({length:N}, (_,i) => i < curMo ? act[i] : bdg[i]);
+  }
+  function entry(name, monthly) {
+    const total = monthly.reduce((a,b)=>a+b,0);
+    return { category:name, total, monthly, leafs:[] };
+  }
+  function sumMap(map) {
+    const monthly=Array(N).fill(0); let total=0;
+    Object.values(map).forEach(c=>{total+=c.total;c.monthly.forEach((v,i)=>monthly[i]+=v);});
+    return {total,monthly};
+  }
+
+  // Revenue
+  const revByCat = {};
+  [{key:'showSponsors',name:'Show Sponsors'},{key:'showTickets',name:'Show Tickets'},
+   {key:'citySeriesSponsors',name:'City Series Sponsors'},{key:'citySeriesTickets',name:'City Series Tickets'},
+   {key:'merch',name:'Merch'}].forEach(({key,name}) => {
+    const m=estArr(key); if(m.some(v=>v!==0)) revByCat[name]=entry(name,m);
+  });
+
+  // Direct costs
+  const dcByCat = {};
+  [{key:'showCosts',name:'Show Costs'},{key:'citySeriesCosts',name:'City Series Costs'},
+   {key:'marketingCosts',name:'Marketing Costs'}].forEach(({key,name}) => {
+    const m=estArr(key); if(m.some(v=>v!==0)) dcByCat[name]=entry(name,m);
+  });
+
+  const revTot = sumMap(revByCat);
+  const dcTot  = sumMap(dcByCat);
+
+  const sgaM = estArr('sga');
+  const sgaTot = { total:sgaM.reduce((a,b)=>a+b,0), monthly:sgaM };
+  const sgaByCat = { 'SG&A': entry('SG&A', sgaM) };
+
+  const ceaM = estArr('cea');
+  const ceaTot = { total:ceaM.reduce((a,b)=>a+b,0), monthly:ceaM };
+  const ceaByCat = { 'Corporate Expense Allocation': entry('Corporate Expense Allocation', ceaM) };
+
+  const uncatByCat = {};
+  const uncatTot   = { total:0, monthly:Array(N).fill(0) };
+
+  const gpTot  = { total:revTot.total-dcTot.total,  monthly:revTot.monthly.map((v,i)=>v-dcTot.monthly[i]) };
+  const ebitda = { total:gpTot.total-sgaTot.total,  monthly:gpTot.monthly.map((v,i)=>v-sgaTot.monthly[i]) };
+  const netInc = { total:ebitda.total-ceaTot.total, monthly:ebitda.monthly.map((v,i)=>v-ceaTot.monthly[i]) };
+
+  return { revByCat, revTot, dcByCat, dcTot, sgaByCat, sgaTot, ceaByCat, ceaTot, uncatByCat, uncatTot, gpTot, ebitda, netInc };
+}
+
 async function renderPL(){
   const updEl = document.getElementById('plUpdated');
   if(updEl) updEl.innerHTML = '<span style="color:#3D9B8F">Loading&hellip;</span>';
@@ -5853,6 +5914,15 @@ async function renderPL(){
     Object.entries(activeBreakdowns).forEach(([y,bk])=>{
       displayBreakdowns[y] = _plApplyProductFilter(bk, _plProduct);
     });
+
+    // Build 2026 Full Year Estimate (actuals + budget) for fiscal mode
+    if(_plCycleMode === 'fiscal' && allBreakdowns[2026]) {
+      try {
+        const budget2026 = await _bvaLoad(2026);
+        const estBk = _buildBVAEstBreakdown(allBreakdowns[2026], budget2026);
+        displayBreakdowns['2026est'] = _plApplyProductFilter(estBk, _plProduct);
+      } catch(e) { console.warn('BVA 2026 estimate failed:', e); }
+    }
 
     const cur = displayBreakdowns[_plYear];
     if(!cur){
@@ -5895,7 +5965,7 @@ async function renderPL(){
 
     // Render all three tables — only one is visible at a time
     renderPLYoYTable('plYoyTable', cur, prior, _plYear, priorYear);
-    renderPLYearlyTable('plYearlyTable', displayBreakdowns, activeYears);
+    renderPLYearlyTable('plYearlyTable', displayBreakdowns, [...activeYears, '2026est']);
     renderCondensedPL('plTable', cur, prior, priorYear);
 
     // Sync product toggle active state
@@ -6153,7 +6223,9 @@ function renderPLYearlyTable(tableId, allBreakdowns, yearsOverride){
   const years = (yearsOverride || PL_YEARS).filter(y => allBreakdowns[y]);
   if(years.length === 0){ table.innerHTML = ''; return; }
 
-  const refYear = years[years.length - 1];
+  // Use the last numeric year as reference for line definitions and drill-down sorting
+  const numericYears = years.filter(y => typeof y === 'number');
+  const refYear = numericYears.length > 0 ? numericYears[numericYears.length-1] : years[years.length-1];
   const lines = _plBuildLines(allBreakdowns[refYear]);
 
   const cs = 'text-align:right;padding:5px 10px;font-size:12px;font-family:\'Source Sans 3\',monospace';
@@ -6164,7 +6236,10 @@ function renderPLYearlyTable(tableId, allBreakdowns, yearsOverride){
 
   let html = `<thead><tr><th style="${stickyHdr}">Line</th>`;
   years.forEach(y => {
-    html += `<th style="${hdrCs}">${y} ($)</th><th style="${hdrCs}">% sales</th>`;
+    const isEst = y === '2026est';
+    const hdrExtra = isEst ? ';color:#6B3FA0;font-style:italic' : '';
+    const hdrLabel = isEst ? '2026 Est ($)' : `${y} ($)`;
+    html += `<th style="${hdrCs}${hdrExtra}">${hdrLabel}</th><th style="${hdrCs}${hdrExtra}">% sales</th>`;
   });
   html += `</tr></thead><tbody>`;
 
@@ -6202,9 +6277,11 @@ function renderPLYearlyTable(tableId, allBreakdowns, yearsOverride){
       const b = allBreakdowns[y];
       const val = line.get(b);
       const yrRev = b.revTot.total;
-      const valColor = line.kind === 'summary' ? ((val||0) >= 0 ? '#1B7A3D' : '#C0392B') : (line.kind === 'category' ? '#0D2B29' : 'inherit');
+      const isEst = y === '2026est';
+      const valColor = line.kind === 'summary' ? ((val||0) >= 0 ? '#1B7A3D' : '#C0392B') : (isEst ? '#4A3070' : (line.kind === 'category' ? '#0D2B29' : 'inherit'));
       const pct = (val != null && yrRev > 0) ? (val/yrRev*100).toFixed(1)+'%' : '—';
-      html += `<td style="${sty.cs};color:${valColor}">${_plFmt$(val)}</td><td style="${sty.cs};color:#A8C5BE;font-size:10px">${pct}</td>`;
+      const estBg = isEst ? ';background:#FAF7FF' : '';
+      html += `<td style="${sty.cs};color:${valColor}${estBg}">${_plFmt$(val)}</td><td style="${sty.cs};color:#A8C5BE;font-size:10px${estBg}">${pct}</td>`;
     });
     html += `</tr>`;
 
@@ -6229,7 +6306,8 @@ function renderPLYearlyTable(tableId, allBreakdowns, yearsOverride){
           const val = byYear[y] ?? null;
           const yrRev = b?.revTot.total ?? 0;
           const pct = (val != null && yrRev > 0) ? (val/yrRev*100).toFixed(1)+'%' : '—';
-          html += `<td style="${lcs}">${_plFmt$(val)}</td><td style="${lcs}">${pct}</td>`;
+          const estBg = y === '2026est' ? ';background:#FAF7FF' : '';
+          html += `<td style="${lcs}${estBg}">${_plFmt$(val)}</td><td style="${lcs}${estBg}">${pct}</td>`;
         });
         html += `</tr>`;
       });
@@ -7384,8 +7462,11 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter, viewMode){
   const fmtPct=p=>p===null?'—':(p>=0?'+':'')+p.toFixed(0)+'%';
 
   function annV(bdg12,act12){
-    const ytd=lastIdx>=0?sum(act12.slice(0,lastIdx+1)):0;
-    const rem=sum(bdg12.slice(Math.max(0,lastIdx+1)));
+    // Treat the current (open) calendar month as budget, not actuals.
+    // YTD = closed-month actuals + current month budget; Remaining = future months budget.
+    const curMo=new Date().getMonth(); // 0-based (0=Jan … 11=Dec)
+    const ytd=sum(act12.slice(0,curMo))+(bdg12[curMo]||0);
+    const rem=sum(bdg12.slice(curMo+1));
     const full=ytd+rem;
     const annBdg=sum(bdg12);
     const v=full-annBdg;
@@ -7451,7 +7532,7 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter, viewMode){
   if(annOnly){
     // Annual-only: single header row, no month columns
     html+=`<thead><tr><th style="${stkHdr}"></th>`;
-    html+=annTh('YTD<br>Actual','#1B4D4A',true);
+    html+=annTh('YTD<br>Act+Bdg','#1B4D4A',true);
     html+=annTh('Remaining<br>BDG','#7BA69E',false);
     html+=annTh('Full Year<br>Est.','#1B4D4A',false);
     html+=annTh('Annual<br>BDG','#7BA69E',false);
@@ -7465,7 +7546,7 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter, viewMode){
       const cl=i<=lastIdx?';background:#EEF5F3':'';
       html+=`<th colspan="4" style="${hcs}${cl}">${mns[i]}</th>`;
     }
-    html+=annTh('YTD<br>Actual','#1B4D4A',true);
+    html+=annTh('YTD<br>Act+Bdg','#1B4D4A',true);
     html+=annTh('Remaining<br>BDG','#7BA69E',false);
     html+=annTh('Full Year<br>Est.','#1B4D4A',false);
     html+=annTh('Annual<br>BDG','#7BA69E',false);
