@@ -5872,14 +5872,20 @@ async function renderPL(){
       return `· ${arrow} ${pct >= 0 ? '+' : ''}${pct.toFixed(1)}% vs ${priorYear}`;
     };
 
-    const kpis = [
-      {i:'💰',t:'Total Revenue',v:_$Knd(cur.revTot.total),s:`${Object.keys(cur.revByCat).length} categories ${yoyText(cur.revTot.total, prior?.revTot.total)}`,cl:'#1B7A3D'},
-      {i:'📉',t:'Direct Costs',v:_$Knd(cur.dcTot.total),s:`${cur.revTot.total>0?((cur.dcTot.total/cur.revTot.total)*100).toFixed(1)+'% of rev':''} ${yoyText(cur.dcTot.total, prior?.dcTot.total)}`,cl:'#B8860B'},
-      {i:'💵',t:'Gross Profit',v:_$Knd(cur.gpTot.total),s:`${(gpMargin*100).toFixed(1)}% margin ${yoyText(cur.gpTot.total, prior?.gpTot.total)}`,cl:cur.gpTot.total>=0?'#2D7A6F':'#C0392B'},
-      {i:'🏷️',t:'SG&A',v:_$Knd(cur.sgaTot.total),s:`${cur.revTot.total>0?((cur.sgaTot.total/cur.revTot.total)*100).toFixed(1)+'% of rev':''} ${yoyText(cur.sgaTot.total, prior?.sgaTot.total)}`,cl:'#8E44AD'},
-      {i:'📊',t:'EBITDA',v:_$Knd(cur.ebitda.total),s:`${(ebitdaMargin*100).toFixed(1)}% margin ${yoyText(cur.ebitda.total, prior?.ebitda.total)}`,cl:cur.ebitda.total>=0?'#1B7A3D':'#C0392B'},
-      {i:'🎯',t:'Net Income',v:_$Knd(cur.netInc.total),s:`${(netMargin*100).toFixed(1)}% margin ${yoyText(cur.netInc.total, prior?.netInc.total)}`,cl:cur.netInc.total>=0?'#1B7A3D':'#C0392B'}
-    ];
+    const kpis = _plProduct === 'cs'
+      ? [
+          {i:'💰',t:'Total Revenue',v:_$Knd(cur.revTot.total),s:`${Object.keys(cur.revByCat).length} categories ${yoyText(cur.revTot.total, prior?.revTot.total)}`,cl:'#1B7A3D'},
+          {i:'📉',t:'Direct Costs',v:_$Knd(cur.dcTot.total),s:`${cur.revTot.total>0?((cur.dcTot.total/cur.revTot.total)*100).toFixed(1)+'% of rev':''} ${yoyText(cur.dcTot.total, prior?.dcTot.total)}`,cl:'#B8860B'},
+          {i:'💵',t:'Gross Profit',v:_$Knd(cur.gpTot.total),s:`${(gpMargin*100).toFixed(1)}% margin ${yoyText(cur.gpTot.total, prior?.gpTot.total)}`,cl:cur.gpTot.total>=0?'#2D7A6F':'#C0392B'}
+        ]
+      : [
+          {i:'💰',t:'Total Revenue',v:_$Knd(cur.revTot.total),s:`${Object.keys(cur.revByCat).length} categories ${yoyText(cur.revTot.total, prior?.revTot.total)}`,cl:'#1B7A3D'},
+          {i:'📉',t:'Direct Costs',v:_$Knd(cur.dcTot.total),s:`${cur.revTot.total>0?((cur.dcTot.total/cur.revTot.total)*100).toFixed(1)+'% of rev':''} ${yoyText(cur.dcTot.total, prior?.dcTot.total)}`,cl:'#B8860B'},
+          {i:'💵',t:'Gross Profit',v:_$Knd(cur.gpTot.total),s:`${(gpMargin*100).toFixed(1)}% margin ${yoyText(cur.gpTot.total, prior?.gpTot.total)}`,cl:cur.gpTot.total>=0?'#2D7A6F':'#C0392B'},
+          {i:'🏷️',t:'SG&A',v:_$Knd(cur.sgaTot.total),s:`${cur.revTot.total>0?((cur.sgaTot.total/cur.revTot.total)*100).toFixed(1)+'% of rev':''} ${yoyText(cur.sgaTot.total, prior?.sgaTot.total)}`,cl:'#8E44AD'},
+          {i:'📊',t:'EBITDA',v:_$Knd(cur.ebitda.total),s:`${(ebitdaMargin*100).toFixed(1)}% margin ${yoyText(cur.ebitda.total, prior?.ebitda.total)}`,cl:cur.ebitda.total>=0?'#1B7A3D':'#C0392B'},
+          {i:'🎯',t:'Net Income',v:_$Knd(cur.netInc.total),s:`${(netMargin*100).toFixed(1)}% margin ${yoyText(cur.netInc.total, prior?.netInc.total)}`,cl:cur.netInc.total>=0?'#1B7A3D':'#C0392B'}
+        ];
     document.getElementById('plKpis').innerHTML = kpis.map(k=>`<div class="kpi" style="border-left-color:${k.cl}"><div class="kpi-label">${k.i} ${k.t}</div><div class="kpi-value" style="color:${k.cl}">${k.v}</div><div class="kpi-sub">${k.s}</div></div>`).join('');
 
     // Render all three tables — only one is visible at a time
@@ -6008,30 +6014,18 @@ function _plBuildLines(b){
   // Gross Profit
   lines.push({ kind: 'summary', label: 'Gross Profit', get:(bk)=>bk?.gpTot.total ?? null });
 
-  // SG&A
-  lines.push({ kind: 'category', label: 'SG&A', indent:false,
-    get:(bk)=>bk?.sgaTot.total ?? null,
-    getLeafs:(bk)=>Object.values(bk?.sgaByCat||{}).flatMap(c=>c.leafs||[]) });
-
-  // EBITDA
-  lines.push({ kind: 'summary', label: 'EBITDA', get:(bk)=>bk?.ebitda.total ?? null });
-
-  // CEA (only if non-zero anywhere)
-  if(b.ceaTot.total !== 0){
-    lines.push({ kind: 'category', label: 'Corporate Expense Allocation', indent:false,
-      get:(bk)=>bk?.ceaTot.total ?? null,
-      getLeafs:(bk)=>Object.values(bk?.ceaByCat||{}).flatMap(c=>c.leafs||[]) });
-  }
-
-  // Net Income
-  lines.push({ kind: 'summary', label: 'Net Income', get:(bk)=>bk?.netInc.total ?? null });
-
-  // Unmapped if any
-  if(b.uncatTot.total !== 0){
-    lines.push({ kind: 'section', label: '⚠️ Unmapped Accounts', accent:'#C0392B' });
-    lines.push({ kind: 'category', label: 'Uncategorized',
-      get:(bk)=>bk?.uncatTot.total ?? null,
-      getLeafs:(bk)=>Object.values(bk?.uncatByCat||{}).flatMap(c=>c.leafs||[]) });
+  // SG&A, EBITDA, CEA, Net Income — not applicable to City Series product view
+  if(_plProduct !== 'cs'){
+    lines.push({ kind: 'category', label: 'SG&A', indent:false,
+      get:(bk)=>bk?.sgaTot.total ?? null,
+      getLeafs:(bk)=>Object.values(bk?.sgaByCat||{}).flatMap(c=>c.leafs||[]) });
+    lines.push({ kind: 'summary', label: 'EBITDA', get:(bk)=>bk?.ebitda.total ?? null });
+    if(b.ceaTot.total !== 0){
+      lines.push({ kind: 'category', label: 'Corporate Expense Allocation', indent:false,
+        get:(bk)=>bk?.ceaTot.total ?? null,
+        getLeafs:(bk)=>Object.values(bk?.ceaByCat||{}).flatMap(c=>c.leafs||[]) });
+    }
+    lines.push({ kind: 'summary', label: 'Net Income', get:(bk)=>bk?.netInc.total ?? null });
   }
   return lines;
 }
