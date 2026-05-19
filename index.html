@@ -500,6 +500,11 @@ tr:hover td{background:#E8F0ED}
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px">
     <div style="font-size:13px;color:#7BA69E">Source: QuickBooks Online · <span id="bvaUpdated"></span></div>
     <div style="display:flex;align-items:center;gap:10px">
+      <div class="hs-pipeline-toggle" id="bvaProductToggle" style="margin-bottom:0">
+        <button class="active" data-bp="all">RX</button>
+        <button data-bp="show">Show</button>
+        <button data-bp="cs">City Series</button>
+      </div>
       <div class="hs-pipeline-toggle" id="bvaCycleToggle" style="margin-bottom:0">
         <button class="active" data-cy="fiscal">Fiscal Year</button>
         <button data-cy="show">Show Cycle</button>
@@ -7098,6 +7103,7 @@ let _bvaState = null;
 let _bvaMonthFilter = null;
 let _bvaViewMode = 'full'; // 'full' | 'annual'
 let _bvaCycleMode = 'fiscal'; // 'fiscal' | 'show'
+let _bvaProduct   = 'all';   // 'all' | 'show' | 'cs'
 const BVA_SC_YEARS = [2024, 2025, 2026];
 
 const _BVA_LINES = [
@@ -7336,19 +7342,25 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter, viewMode){
   const dcL=_BVA_LINES.filter(l=>l.section==='dc');
   const sgaLine=_BVA_LINES.find(l=>l.section==='sga');
   const ceaLine=_BVA_LINES.find(l=>l.section==='cea');
+  // Product filter
+  const _csRevK=new Set(['citySeriesSponsors','citySeriesTickets']);
+  const _csDcK =new Set(['citySeriesCosts']);
+  const fRevL=_bvaProduct==='show'?revL.filter(l=>!_csRevK.has(l.key)):_bvaProduct==='cs'?revL.filter(l=>_csRevK.has(l.key)):revL;
+  const fDcL =_bvaProduct==='show'?dcL.filter(l=>!_csDcK.has(l.key)) :_bvaProduct==='cs'?dcL.filter(l=>_csDcK.has(l.key)) :dcL;
+  const showOH=_bvaProduct!=='cs'; // Show SG&A/EBITDA/CEA/Net Income only for Show and RX
   const add12=(a,b)=>a.map((v,i)=>v+b[i]);
   const sub12=(a,b)=>a.map((v,i)=>v-b[i]);
-  const tRB=revL.map(l=>bArr(l.key)).reduce(add12,Array(12).fill(0));
-  const tDB=dcL.map(l=>bArr(l.key)).reduce(add12,Array(12).fill(0));
+  const tRB=fRevL.map(l=>bArr(l.key)).reduce(add12,Array(12).fill(0));
+  const tDB=fDcL.map(l=>bArr(l.key)).reduce(add12,Array(12).fill(0));
   const gpB=sub12(tRB,tDB);
-  const eB=sub12(gpB,bArr('sga'));
-  const nB=sub12(eB,bArr('cea'));
-  const tRAct12=revL.map(l=>aArr(l.key)).reduce(add12,Array(12).fill(0));
-  const tDAct12=dcL.map(l=>aArr(l.key)).reduce(add12,Array(12).fill(0));
-  const gpAct12=_bvaPad(bk.gpTot?.monthly);
-  const eAct12=_bvaPad(bk.ebitda?.monthly);
-  const nAct12=_bvaPad(bk.netInc?.monthly);
-  const sgaAct12=aArr('sga');
+  const eB=showOH?sub12(gpB,bArr('sga')):Array(12).fill(0);
+  const nB=showOH?sub12(eB,bArr('cea')):Array(12).fill(0);
+  const tRAct12=fRevL.map(l=>aArr(l.key)).reduce(add12,Array(12).fill(0));
+  const tDAct12=fDcL.map(l=>aArr(l.key)).reduce(add12,Array(12).fill(0));
+  const gpAct12=tRAct12.map((v,i)=>v-tDAct12[i]);
+  const sgaAct12=showOH?aArr('sga'):Array(12).fill(0);
+  const eAct12=showOH?gpAct12.map((v,i)=>v-sgaAct12[i]):Array(12).fill(0);
+  const nAct12=showOH?eAct12.map((v,i)=>v-aArr('cea')[i]):Array(12).fill(0);
 
   // Last month index that has actual data
   let lastIdx=-1;
@@ -7473,23 +7485,25 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter, viewMode){
   }
 
   html+=sHdr('Revenues','#1B4D4A');
-  revL.forEach(l=>html+=row(l.label,bArr(l.key),aArr(l.key),{indent:true,lc:'#0D2B29'}));
+  fRevL.forEach(l=>html+=row(l.label,bArr(l.key),aArr(l.key),{indent:true,lc:'#0D2B29'}));
   html+=row('Total Revenues',tRB,tRAct12,{lc:'#1B4D4A',bg:'#F4F8F6',fw:'700'});
   html+=sp();
   html+=sHdr('Direct Costs','#B8860B');
-  dcL.forEach(l=>html+=row(l.label,bArr(l.key),aArr(l.key),{indent:true,lc:'#8B6914',isCost:true}));
+  fDcL.forEach(l=>html+=row(l.label,bArr(l.key),aArr(l.key),{indent:true,lc:'#8B6914',isCost:true}));
   html+=row('Total Direct Costs',tDB,tDAct12,{lc:'#B8860B',bg:'#F4F8F6',fw:'700',isCost:true});
   html+=sp();
   html+=row('Gross Profit',gpB,gpAct12,{lc:'#1B4D4A',bg:'#E8F0ED',fw:'800',summary:true});
-  html+=sp();
-  html+=sHdr('Operating Expenses','#8E44AD');
-  html+=row(sgaLine.label,bArr('sga'),sgaAct12,{indent:true,lc:'#6C3483',isCost:true});
-  html+=sp();
-  html+=row('EBITDA',eB,eAct12,{lc:'#1B4D4A',bg:'#E8F0ED',fw:'800',summary:true});
-  html+=sp();
-  html+=row(ceaLine.label,bArr('cea'),aArr('cea'),{indent:true,lc:'#6C3483',isCost:true});
-  html+=sp();
-  html+=row('Net Income',nB,nAct12,{lc:'#1B4D4A',bg:'#E8F0ED',fw:'800',summary:true});
+  if(showOH){
+    html+=sp();
+    html+=sHdr('Operating Expenses','#8E44AD');
+    html+=row(sgaLine.label,bArr('sga'),sgaAct12,{indent:true,lc:'#6C3483',isCost:true});
+    html+=sp();
+    html+=row('EBITDA',eB,eAct12,{lc:'#1B4D4A',bg:'#E8F0ED',fw:'800',summary:true});
+    html+=sp();
+    html+=row(ceaLine.label,bArr('cea'),aArr('cea'),{indent:true,lc:'#6C3483',isCost:true});
+    html+=sp();
+    html+=row('Net Income',nB,nAct12,{lc:'#1B4D4A',bg:'#E8F0ED',fw:'800',summary:true});
+  }
   html+='</tbody>';
   return html;
 }
@@ -7504,45 +7518,62 @@ function _bvaLiveUpdate(){
 
   const bArr1=k=>budget1[k]||Array(12).fill(0);
   const bArr2=k=>budget2[k]||Array(12).fill(0);
+  const aArr=k=>_bvaActualMonthly(bk,k);
   const sum=arr=>arr.reduce((t,v)=>t+v,0);
   const $s=(id,html)=>{const el=document.getElementById(id);if(el)el.innerHTML=html;};
   const revL=_BVA_LINES.filter(l=>l.section==='rev');
   const dcL=_BVA_LINES.filter(l=>l.section==='dc');
+  // Product filter
+  const luCsRevK=new Set(['citySeriesSponsors','citySeriesTickets']);
+  const luCsDcK =new Set(['citySeriesCosts']);
+  const luRevL=_bvaProduct==='show'?revL.filter(l=>!luCsRevK.has(l.key)):_bvaProduct==='cs'?revL.filter(l=>luCsRevK.has(l.key)):revL;
+  const luDcL =_bvaProduct==='show'?dcL.filter(l=>!luCsDcK.has(l.key)) :_bvaProduct==='cs'?dcL.filter(l=>luCsDcK.has(l.key)) :dcL;
+  const luShowOH=_bvaProduct!=='cs';
   const add12=(a,b)=>a.map((v,i)=>v+b[i]);
   const sub12=(a,b)=>a.map((v,i)=>v-b[i]);
 
-  // Update Table 2 total column spans (budget2)
-  [...revL,...dcL,..._BVA_LINES.filter(l=>l.section==='sga'||l.section==='cea')].forEach(l=>{
+  // Update Table 2 total column spans (budget2) — only visible lines
+  [...luRevL,...luDcL,...(luShowOH?_BVA_LINES.filter(l=>l.section==='sga'||l.section==='cea'):[])].forEach(l=>{
     $s('bva_t2tot_'+l.key, _bvaFmtN(sum(bArr2(l.key))));
   });
 
   // Recompute Table 2 computed rows (budget2)
-  const tRB2=revL.map(l=>bArr2(l.key)).reduce(add12,Array(12).fill(0));
-  const tDB2=dcL.map(l=>bArr2(l.key)).reduce(add12,Array(12).fill(0));
+  const tRB2=luRevL.map(l=>bArr2(l.key)).reduce(add12,Array(12).fill(0));
+  const tDB2=luDcL.map(l=>bArr2(l.key)).reduce(add12,Array(12).fill(0));
   const gpB2=sub12(tRB2,tDB2);
-  const eB2=sub12(gpB2,bArr2('sga'));
-  const nB2=sub12(eB2,bArr2('cea'));
+  const eB2=luShowOH?sub12(gpB2,bArr2('sga')):Array(12).fill(0);
+  const nB2=luShowOH?sub12(eB2,bArr2('cea')):Array(12).fill(0);
   const setRow=(key,arr)=>{
     arr.forEach((v,i)=>$s(`bva_bmo_${key}_${i}`,_bvaFmtN(v)));
     $s('bva_btot_'+key,_bvaFmtN(sum(arr)));
   };
-  setRow('totalRev',tRB2); setRow('totalDC',tDB2);
-  setRow('gp',gpB2); setRow('ebitda',eB2); setRow('net',nB2);
+  setRow('totalRev',tRB2); setRow('totalDC',tDB2); setRow('gp',gpB2);
+  if(luShowOH){ setRow('ebitda',eB2); setRow('net',nB2); }
 
   // KPI cards — compare T1 year actuals vs T1 year budget (budget1)
-  const tRB1=revL.map(l=>bArr1(l.key)).reduce(add12,Array(12).fill(0));
-  const tDB1=dcL.map(l=>bArr1(l.key)).reduce(add12,Array(12).fill(0));
+  const tRB1=luRevL.map(l=>bArr1(l.key)).reduce(add12,Array(12).fill(0));
+  const tDB1=luDcL.map(l=>bArr1(l.key)).reduce(add12,Array(12).fill(0));
   const gpB1=sub12(tRB1,tDB1);
-  const eB1=sub12(gpB1,bArr1('sga'));
-  const nB1=sub12(eB1,bArr1('cea'));
-  const tRBgt=sum(tRB1), tDBgt=sum(tDB1), eBgt=sum(eB1), nBgt=sum(nB1);
-  const tRAct=bk.revTot.total, tDAct=Math.abs(bk.dcTot.total), eAct=bk.ebitda.total, nAct=bk.netInc.total;
-  const kpis=[
-    {i:'💰',t:'Revenue',     v:tRAct-tRBgt, bgt:tRBgt, act:tRAct},
-    {i:'📉',t:'Direct Costs',v:tDBgt-tDAct, bgt:tDBgt, act:tDAct},
-    {i:'📊',t:'EBITDA',      v:eAct-eBgt,   bgt:eBgt,  act:eAct},
-    {i:'🎯',t:'Net Income',  v:nAct-nBgt,   bgt:nBgt,  act:nAct},
-  ];
+  const eB1=luShowOH?sub12(gpB1,bArr1('sga')):Array(12).fill(0);
+  const nB1=luShowOH?sub12(eB1,bArr1('cea')):Array(12).fill(0);
+  const tRAct12=luRevL.map(l=>aArr(l.key)).reduce(add12,Array(12).fill(0));
+  const tDAct12=luDcL.map(l=>aArr(l.key)).reduce(add12,Array(12).fill(0));
+  const gpAct12=tRAct12.map((v,i)=>v-tDAct12[i]);
+  const tRBgt=sum(tRB1), tDBgt=sum(tDB1), gpBgt=sum(gpB1), eBgt=sum(eB1), nBgt=sum(nB1);
+  const tRAct=sum(tRAct12), tDAct=sum(tDAct12), gpAct=sum(gpAct12);
+  const eAct=luShowOH?bk.ebitda.total:0, nAct=luShowOH?bk.netInc.total:0;
+  const kpis=luShowOH
+    ?[
+      {i:'💰',t:'Revenue',     v:tRAct-tRBgt, bgt:tRBgt, act:tRAct},
+      {i:'📉',t:'Direct Costs',v:tDBgt-tDAct, bgt:tDBgt, act:tDAct},
+      {i:'📊',t:'EBITDA',      v:eAct-eBgt,   bgt:eBgt,  act:eAct},
+      {i:'🎯',t:'Net Income',  v:nAct-nBgt,   bgt:nBgt,  act:nAct},
+     ]
+    :[
+      {i:'💰',t:'Revenue',     v:tRAct-tRBgt, bgt:tRBgt, act:tRAct},
+      {i:'📉',t:'Direct Costs',v:tDBgt-tDAct, bgt:tDBgt, act:tDAct},
+      {i:'💵',t:'Gross Profit',v:gpAct-gpBgt, bgt:gpBgt, act:gpAct},
+     ];
   const ke=document.getElementById('bvaKpis');
   if(ke) ke.innerHTML=kpis.map(k=>{
     const c=k.v>=0?'#1B7A3D':'#C0392B',si=k.v>=0?'+':'−';
@@ -7556,17 +7587,19 @@ async function renderBVA(){
   const updEl=document.getElementById('bvaUpdated');
   if(updEl) updEl.innerHTML='<span style="color:#3D9B8F">Loading…</span>';
 
-  // If 2027 selected in Show Cycle mode, auto-revert to Fiscal Year
+  // Show Cycle doesn't support 2027 (would need 2028 data) — switch year to 2026 instead
   if(_bvaCycleMode==='show' && _bvaYear===2027){
-    _bvaCycleMode='fiscal';
-    document.getElementById('bvaCycleToggle')?.querySelectorAll('button[data-cy]').forEach(b=>b.classList.toggle('active',b.dataset.cy==='fiscal'));
+    _bvaYear=2026;
+    document.getElementById('bvaYearToggle1')?.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.yr==='2026'));
   }
   const isShowCycle = _bvaCycleMode === 'show';
+  // Sync product toggle active state
+  document.getElementById('bvaProductToggle')?.querySelectorAll('button[data-bp]').forEach(b=>b.classList.toggle('active',b.dataset.bp===_bvaProduct));
   // Sync cycle toggle button state
   document.getElementById('bvaCycleToggle')?.querySelectorAll('button[data-cy]').forEach(b=>b.classList.toggle('active',b.dataset.cy===_bvaCycleMode));
-  // 2027 always visible; dim it in SC mode (2027 Show Cycle would need 2028 data)
+  // Hide 2027 button in SC mode (not available); restore in fiscal mode
   const btn27=document.querySelector('#bvaYearToggle1 button[data-yr="2027"]');
-  if(btn27){ btn27.style.opacity=isShowCycle?'0.35':''; btn27.title=isShowCycle?'2027 not available in Show Cycle mode':''; }
+  if(btn27){ btn27.style.display=isShowCycle?'none':''; }
 
   try {
     const plData=_qboCache.pl[_bvaYear]
@@ -7653,13 +7686,19 @@ async function renderBVA(){
     const dcL=_BVA_LINES.filter(l=>l.section==='dc');
     const sgaLine=_BVA_LINES.find(l=>l.section==='sga');
     const ceaLine=_BVA_LINES.find(l=>l.section==='cea');
+    // Product filter for Table 2
+    const t2csRevK=new Set(['citySeriesSponsors','citySeriesTickets']);
+    const t2csDcK =new Set(['citySeriesCosts']);
+    const t2RevL=_bvaProduct==='show'?revL.filter(l=>!t2csRevK.has(l.key)):_bvaProduct==='cs'?revL.filter(l=>t2csRevK.has(l.key)):revL;
+    const t2DcL =_bvaProduct==='show'?dcL.filter(l=>!t2csDcK.has(l.key)) :_bvaProduct==='cs'?dcL.filter(l=>t2csDcK.has(l.key)) :dcL;
+    const t2ShowOH=_bvaProduct!=='cs';
     const add12=(a,b)=>a.map((v,i)=>v+b[i]);
     const sub12=(a,b)=>a.map((v,i)=>v-b[i]);
-    const tRB=revL.map(l=>bArr2(l.key)).reduce(add12,Array(12).fill(0));
-    const tDB=dcL.map(l=>bArr2(l.key)).reduce(add12,Array(12).fill(0));
+    const tRB=t2RevL.map(l=>bArr2(l.key)).reduce(add12,Array(12).fill(0));
+    const tDB=t2DcL.map(l=>bArr2(l.key)).reduce(add12,Array(12).fill(0));
     const gpB=sub12(tRB,tDB);
-    const eB=sub12(gpB,bArr2('sga'));
-    const nB=sub12(eB,bArr2('cea'));
+    const eB=t2ShowOH?sub12(gpB,bArr2('sga')):Array(12).fill(0);
+    const nB=t2ShowOH?sub12(eB,bArr2('cea')):Array(12).fill(0);
 
     function sHdr2(lbl,col){
       return `<tr><td style="${stk()};padding:7px 10px 3px;font-weight:800;color:${col||'#1B4D4A'};font-size:11px;font-style:italic;text-transform:uppercase;letter-spacing:0.04em">${lbl}</td><td colspan="${nM+1}"></td></tr>`;
@@ -7684,23 +7723,25 @@ async function renderBVA(){
     mns2.forEach(m=>html2+=`<th style="${hcs}">${m}</th>`);
     html2+=`<th style="${hcs};border-left:2px solid #C8DAD6;color:#1B4D4A">Total</th></tr></thead><tbody>`;
     html2+=sHdr2('Revenues','#1B4D4A');
-    revL.forEach(l=>html2+=inpRow(l));
+    t2RevL.forEach(l=>html2+=inpRow(l));
     html2+=compRow2('totalRev','Total Revenues',tRB,'#F4F8F6',false,'#1B4D4A');
     html2+=sp2();
     html2+=sHdr2('Direct Costs','#B8860B');
-    dcL.forEach(l=>html2+=inpRow(l));
+    t2DcL.forEach(l=>html2+=inpRow(l));
     html2+=compRow2('totalDC','Total Direct Costs',tDB,'#F4F8F6',false,'#B8860B');
     html2+=sp2();
     html2+=compRow2('gp','Gross Profit',gpB,'#E8F0ED',true);
-    html2+=sp2();
-    html2+=sHdr2('Operating Expenses','#8E44AD');
-    html2+=inpRow(sgaLine);
-    html2+=sp2();
-    html2+=compRow2('ebitda','EBITDA',eB,'#E8F0ED',true);
-    html2+=sp2();
-    html2+=inpRow(ceaLine);
-    html2+=sp2();
-    html2+=compRow2('net','Net Income',nB,'#E8F0ED',true);
+    if(t2ShowOH){
+      html2+=sp2();
+      html2+=sHdr2('Operating Expenses','#8E44AD');
+      html2+=inpRow(sgaLine);
+      html2+=sp2();
+      html2+=compRow2('ebitda','EBITDA',eB,'#E8F0ED',true);
+      html2+=sp2();
+      html2+=inpRow(ceaLine);
+      html2+=sp2();
+      html2+=compRow2('net','Net Income',nB,'#E8F0ED',true);
+    }
     html2+='</tbody>';
     document.getElementById('bvaTable2').innerHTML=html2;
 
@@ -7780,6 +7821,13 @@ document.getElementById('bvaViewToggle')?.addEventListener('click', e=>{
   _bvaViewMode=btn.dataset.vm;
   document.getElementById('bvaViewToggle')?.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===btn));
   _bvaLiveUpdate();
+});
+
+document.getElementById('bvaProductToggle')?.addEventListener('click', e=>{
+  const btn=e.target.closest('button[data-bp]'); if(!btn) return;
+  _bvaProduct=btn.dataset.bp;
+  document.getElementById('bvaProductToggle')?.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===btn));
+  renderBVA();
 });
 
 document.getElementById('bvaCycleToggle')?.addEventListener('click', e=>{
