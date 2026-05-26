@@ -448,7 +448,7 @@ function renderReport(deals27, ts, allDeals27){
   openDeals.forEach(d => {
     const w = (STAGE_WEIGHTS[d.s] || {prob:0.05}).prob;
     pipeRaw += (d.a || 0);
-    pipeWtd += (d.a > 0 ? d.a : avgWon) * w;
+    pipeWtd += (d.a || 0) * w;
   });
   const projTotal = totSp + pipeWtd;
 
@@ -482,7 +482,7 @@ function renderReport(deals27, ts, allDeals27){
       const w = (STAGE_WEIGHTS[sid]||{prob:0.05}).prob;
       byStage[sid].deals.push(d);
       byStage[sid].raw  += (d.a||0);
-      byStage[sid].wtd  += (d.a > 0 ? d.a : avgWon) * w;
+      byStage[sid].wtd  += (d.a||0) * w;
     });
 
     // Sort by probability descending
@@ -547,7 +547,7 @@ function renderReport(deals27, ts, allDeals27){
     sortedOpen.forEach(d => {
       const cfg = STAGE_WEIGHTS[d.s] || {prob:0.05, label:d.s, color:'#9BB5B1'};
       const p   = Math.round(cfg.prob * 100);
-      const wtd = (d.a > 0 ? d.a : avgWon) * cfg.prob;
+      const wtd = (d.a || 0) * cfg.prob;
       const probCol = p >= 80 ? '#1B7A3D' : p >= 50 ? '#3D9B8F' : p >= 25 ? '#B8860B' : '#9BB5B1';
       html += `<tr>
         <td>${d.n}</td>
@@ -560,8 +560,8 @@ function renderReport(deals27, ts, allDeals27){
     html += `</tbody></table></div>`;
 
     html += `<div class="pipe-note" style="background:#fff;border-radius:10px;padding:14px 18px;box-shadow:0 1px 6px rgba(27,77,74,.07);margin-bottom:28px">
-      <strong>Methodology:</strong> Weighted pipeline applies stage probabilities (Contract Sent 85%, Negotiating 55%, Qualified Meeting 30%, Contact 10%) to deal amounts.
-      Deals without a set amount use the current average closed-won deal value (${fmt$(Math.round(avgWon))}).
+      <strong>Methodology:</strong> Weighted pipeline applies stage probabilities (Contract Sent 85%, Negotiating 55%, Qualified Meeting 30%, Contact 10%) to deal amounts set in HubSpot.
+      Deals without an amount are shown as TBD and counted as $0.
       Projected Total = Closed Won + Weighted Pipeline.
     </div>`;
   } else {
