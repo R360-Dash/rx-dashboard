@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SC2027 Sales Report · RacquetX</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F0F4F3; color: #0D2B29; min-height: 100vh; }
+
+  /* ── Header ── */
+  .report-header {
+    background: linear-gradient(135deg, #0D2B29 0%, #1B4D4A 60%, #2A6B65 100%);
+    color: #fff;
+    padding: 36px 48px 32px;
+  }
+  .report-header .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 600;
+    letter-spacing: .06em; text-transform: uppercase; color: #A8D5CF; margin-bottom: 14px;
+  }
+  .report-header h1 { font-size: 28px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; }
+  .report-header .subtitle { font-size: 14px; color: #A8D5CF; margin-top: 6px; }
+  .report-header .meta { font-size: 12px; color: rgba(255,255,255,0.45); margin-top: 18px; }
+
+  /* ── Layout ── */
+  .content { max-width: 960px; margin: 0 auto; padding: 36px 24px 60px; }
+
+  /* ── Status Banner ── */
+  .status-banner {
+    background: #fff; border-radius: 12px; padding: 18px 24px;
+    border-left: 4px solid #3D9B8F; margin-bottom: 28px;
+    display: flex; align-items: center; gap: 14px;
+    box-shadow: 0 1px 6px rgba(27,77,74,.07);
+  }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #3D9B8F; flex-shrink: 0; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .status-banner .status-text { font-size: 13.5px; color: #2A4E4A; }
+  .status-banner .status-text strong { color: #0D2B29; }
+
+  /* ── Section title ── */
+  .sec-title {
+    font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    color: #7BA69E; margin-bottom: 12px; margin-top: 28px;
+  }
+  .sec-title:first-child { margin-top: 0; }
+
+  /* ── KPI row ── */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px; }
+  @media(max-width:700px) { .kpi-grid { grid-template-columns: repeat(2,1fr); } }
+  .kpi-card {
+    background: #fff; border-radius: 12px; padding: 18px 20px;
+    box-shadow: 0 1px 6px rgba(27,77,74,.07);
+  }
+  .kpi-card .kpi-label { font-size: 11px; color: #7BA69E; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+  .kpi-card .kpi-value { font-size: 26px; font-weight: 800; color: #0D2B29; letter-spacing: -.02em; line-height: 1; }
+  .kpi-card .kpi-sub { font-size: 12px; color: #9BB5B1; margin-top: 4px; }
+  .kpi-card.highlight { background: linear-gradient(135deg,#1B4D4A,#3D9B8F); }
+  .kpi-card.highlight .kpi-label { color: rgba(255,255,255,.65); }
+  .kpi-card.highlight .kpi-value { color: #fff; }
+  .kpi-card.highlight .kpi-sub { color: rgba(255,255,255,.55); }
+
+  /* ── Comparison table ── */
+  .table-wrap { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 6px rgba(27,77,74,.07); margin-bottom: 28px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: #F6FAF9; }
+  thead th { padding: 11px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #7BA69E; text-align: right; white-space: nowrap; }
+  thead th:first-child { text-align: left; }
+  tbody tr { border-top: 1px solid #EDF2F1; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody td { padding: 11px 16px; font-size: 13.5px; color: #0D2B29; text-align: right; }
+  tbody td:first-child { text-align: left; font-weight: 600; color: #2A4E4A; }
+  tbody tr.highlight-row td { background: #F0FAF8; font-weight: 700; }
+  tbody tr.highlight-row td:first-child { color: #1B4D4A; }
+  .tag { display: inline-block; font-size: 10px; font-weight: 700; border-radius: 4px; padding: 2px 6px; margin-left: 6px; vertical-align: middle; }
+  .tag-live { background: #D4F0E8; color: #1B6B55; }
+  .tag-final { background: #EDF2F1; color: #5A8A84; }
+  .trend-up { color: #22A374; }
+  .trend-down { color: #D05B5B; }
+  .muted { color: #9BB5B1; font-size: 12px; }
+
+  /* ── Progress bar ── */
+  .prog-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .prog-label { font-size: 13px; font-weight: 600; color: #2A4E4A; min-width: 62px; }
+  .prog-bar-bg { flex: 1; height: 8px; background: #EDF2F1; border-radius: 4px; overflow: hidden; }
+  .prog-bar-fill { height: 100%; border-radius: 4px; transition: width .6s ease; }
+  .prog-value { font-size: 13px; font-weight: 700; color: #0D2B29; min-width: 80px; text-align: right; }
+
+  /* ── Insight boxes ── */
+  .insights { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 28px; }
+  @media(max-width:620px) { .insights { grid-template-columns: 1fr; } }
+  .insight-card { background: #fff; border-radius: 12px; padding: 18px 20px; box-shadow: 0 1px 6px rgba(27,77,74,.07); }
+  .insight-card .ic-icon { font-size: 20px; margin-bottom: 8px; }
+  .insight-card .ic-title { font-size: 13px; font-weight: 700; color: #0D2B29; margin-bottom: 5px; }
+  .insight-card .ic-body { font-size: 12.5px; color: #5A8A84; line-height: 1.55; }
+
+  /* ── Timeline ── */
+  .timeline { background: #fff; border-radius: 12px; padding: 20px 24px; box-shadow: 0 1px 6px rgba(27,77,74,.07); margin-bottom: 28px; }
+  .tl-item { display: flex; gap: 16px; padding: 10px 0; border-bottom: 1px solid #EDF2F1; }
+  .tl-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .tl-dot-col { display: flex; flex-direction: column; align-items: center; width: 20px; flex-shrink: 0; }
+  .tl-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+  .tl-dot.done { background: #3D9B8F; }
+  .tl-dot.now { background: #F5A623; }
+  .tl-dot.future { background: #D8E6E3; }
+  .tl-line { flex: 1; width: 2px; background: #EDF2F1; margin-top: 2px; }
+  .tl-item:last-child .tl-line { display: none; }
+  .tl-content { flex: 1; }
+  .tl-month { font-size: 12px; font-weight: 700; color: #2A4E4A; }
+  .tl-desc { font-size: 12px; color: #7BA69E; margin-top: 1px; }
+  .tl-amount { font-size: 13px; font-weight: 700; color: #0D2B29; margin-top: 1px; }
+
+  /* ── Footer ── */
+  .report-footer { text-align: center; font-size: 11px; color: #9BB5B1; padding-top: 20px; border-top: 1px solid #E0ECEB; }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<div class="report-header">
+  <div class="badge">
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
+    Sales Report · Confidential
+  </div>
+  <h1>Show Cycle 2027 Sales</h1>
+  <div class="subtitle">Apr 2026 – Mar 2027 · Cycle-to-Date as of May 2026</div>
+  <div class="meta">RacquetX · Board Reports · Generated May 2026</div>
+</div>
+
+<!-- ── CONTENT ── -->
+<div class="content">
+
+  <!-- Status Banner -->
+  <div class="status-banner">
+    <div class="status-dot"></div>
+    <div class="status-text">
+      <strong>SC2027 is in its opening month.</strong> Early deposits captured through Mar 2026 — 2 new firms signed.
+      Full cycle closes Mar 2027. Rebook outreach begins May 2026.
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="sec-title">SC2027 Current Snapshot</div>
+  <div class="kpi-grid">
+    <div class="kpi-card highlight">
+      <div class="kpi-label">Sponsorship Revenue</div>
+      <div class="kpi-value">$41K</div>
+      <div class="kpi-sub">1 month of deposits</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Firms Signed</div>
+      <div class="kpi-value">2</div>
+      <div class="kpi-sub">All new — 0 rebooks yet</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Avg. Deal Size</div>
+      <div class="kpi-value">$20.5K</div>
+      <div class="kpi-sub">per firm</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Tickets</div>
+      <div class="kpi-value">—</div>
+      <div class="kpi-sub">Sales not yet open</div>
+    </div>
+  </div>
+
+  <!-- Cycle comparison table -->
+  <div class="sec-title">Show Cycle Comparison — Final Totals</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>SC2024</th>
+          <th>SC2025</th>
+          <th>SC2026</th>
+          <th>SC2027 <span class="tag tag-live">Live</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Dates</td>
+          <td class="muted">Apr'23–Mar'24</td>
+          <td class="muted">Apr'24–Mar'25</td>
+          <td class="muted">Apr'25–Mar'26</td>
+          <td class="muted">Apr'26–Mar'27</td>
+        </tr>
+        <tr class="highlight-row">
+          <td>Sponsorship Revenue</td>
+          <td>$496,300</td>
+          <td>$822,650</td>
+          <td>$1,353,450</td>
+          <td>$41,000 <span class="muted">(1 mo.)</span></td>
+        </tr>
+        <tr>
+          <td>Total Revenue (incl. tickets)</td>
+          <td>$496,300</td>
+          <td>$927,531</td>
+          <td>$1,425,707</td>
+          <td>$41,000 <span class="muted">(est. early)</span></td>
+        </tr>
+        <tr>
+          <td>Total Firms</td>
+          <td>67</td>
+          <td>102</td>
+          <td>100</td>
+          <td>2 <span class="muted">(1 mo.)</span></td>
+        </tr>
+        <tr>
+          <td>Rebook Firms</td>
+          <td>19</td>
+          <td>29</td>
+          <td>27</td>
+          <td>0 <span class="muted">(outreach pending)</span></td>
+        </tr>
+        <tr>
+          <td>New Firms</td>
+          <td>48</td>
+          <td>73</td>
+          <td>73</td>
+          <td>2</td>
+        </tr>
+        <tr>
+          <td>Rebook Revenue</td>
+          <td>$125,300</td>
+          <td>$354,500</td>
+          <td>$587,500</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td>New Firm Revenue</td>
+          <td>$371,000</td>
+          <td>$468,150</td>
+          <td>$740,450</td>
+          <td>$41,000</td>
+        </tr>
+        <tr>
+          <td>YoY Sponsorship Growth</td>
+          <td class="muted">—</td>
+          <td class="trend-up">+65.8%</td>
+          <td class="trend-up">+64.5%</td>
+          <td class="muted">cycle in progress</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Revenue trajectory bar chart -->
+  <div class="sec-title">Sponsorship Revenue Growth Trajectory</div>
+  <div style="background:#fff;border-radius:12px;padding:20px 24px;box-shadow:0 1px 6px rgba(27,77,74,.07);margin-bottom:28px">
+    <div class="prog-row">
+      <div class="prog-label">SC2024</div>
+      <div class="prog-bar-bg">
+        <div class="prog-bar-fill" style="width:36.7%;background:#C5DDD9;"></div>
+      </div>
+      <div class="prog-value">$496,300 <span class="tag tag-final">Final</span></div>
+    </div>
+    <div class="prog-row">
+      <div class="prog-label">SC2025</div>
+      <div class="prog-bar-bg">
+        <div class="prog-bar-fill" style="width:60.8%;background:#8BBFB8;"></div>
+      </div>
+      <div class="prog-value">$822,650 <span class="tag tag-final">Final</span></div>
+    </div>
+    <div class="prog-row">
+      <div class="prog-label">SC2026</div>
+      <div class="prog-bar-bg">
+        <div class="prog-bar-fill" style="width:100%;background:linear-gradient(90deg,#1B4D4A,#3D9B8F);"></div>
+      </div>
+      <div class="prog-value">$1,353,450 <span class="tag tag-final">Final</span></div>
+    </div>
+    <div class="prog-row">
+      <div class="prog-label">SC2027</div>
+      <div class="prog-bar-bg">
+        <div class="prog-bar-fill" style="width:3%;background:#F5A623;"></div>
+      </div>
+      <div class="prog-value">$41,000 <span class="tag tag-live">Live</span></div>
+    </div>
+    <div style="font-size:11px;color:#9BB5B1;margin-top:12px;text-align:center">
+      SC2027 bar reflects 1 month of data only. Full cycle closes Mar 2027.
+    </div>
+  </div>
+
+  <!-- Key Insights -->
+  <div class="sec-title">Key Observations</div>
+  <div class="insights">
+    <div class="insight-card">
+      <div class="ic-icon">📈</div>
+      <div class="ic-title">Strong Multi-Year Growth Platform</div>
+      <div class="ic-body">SC2026 closed at $1.35M in sponsorship — a <strong>+64.5% increase</strong> over SC2025 and a <strong>+173%</strong> increase over SC2024. Two consecutive cycles of 60%+ growth create a high baseline for SC2027.</div>
+    </div>
+    <div class="insight-card">
+      <div class="ic-icon">🔄</div>
+      <div class="ic-title">Rebook Cycle Not Yet Activated</div>
+      <div class="ic-body">Rebook outreach for SC2027 begins in May 2026. SC2026 had 27 rebook firms generating $587,500 (43% of sponsorship). Capturing a similar rebook base is the #1 near-term priority.</div>
+    </div>
+    <div class="insight-card">
+      <div class="ic-icon">🆕</div>
+      <div class="ic-title">Early New-Firm Signal</div>
+      <div class="ic-body">2 new firms signed in March 2026 at an average deal size of $20,500 — ahead of the SC2026 new-firm average of $10,143. Early signs suggest higher-value accounts leading the cycle.</div>
+    </div>
+    <div class="insight-card">
+      <div class="ic-icon">🎯</div>
+      <div class="ic-title">Cycle Timeline Context</div>
+      <div class="ic-body">SC2027 is approximately <strong>1 month into a 12-month sales cycle</strong>. SC2026 data at this same stage was similarly thin — the bulk of sales activity concentrates in Oct 2026 – Feb 2027.</div>
+    </div>
+  </div>
+
+  <!-- Monthly Timeline -->
+  <div class="sec-title">SC2027 Sales Activity — Month by Month</div>
+  <div class="timeline">
+    <div class="tl-item">
+      <div class="tl-dot-col"><div class="tl-dot done"></div><div class="tl-line"></div></div>
+      <div class="tl-content">
+        <div class="tl-month">Mar 2026 <span class="tag tag-live">Recorded</span></div>
+        <div class="tl-desc">Early deposits · 2 firms signed</div>
+        <div class="tl-amount">$41,000</div>
+      </div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot-col"><div class="tl-dot now"></div><div class="tl-line"></div></div>
+      <div class="tl-content">
+        <div class="tl-month">Apr – Jun 2026 <span class="tag" style="background:#FFF3DC;color:#A07010;">Now</span></div>
+        <div class="tl-desc">Rebook outreach launches · Early exhibitor confirmations</div>
+        <div class="tl-amount">—</div>
+      </div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot-col"><div class="tl-dot future"></div><div class="tl-line"></div></div>
+      <div class="tl-content">
+        <div class="tl-month">Jul – Sep 2026</div>
+        <div class="tl-desc">Sales acceleration · New prospect outreach · Website launch</div>
+        <div class="tl-amount">—</div>
+      </div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot-col"><div class="tl-dot future"></div><div class="tl-line"></div></div>
+      <div class="tl-content">
+        <div class="tl-month">Oct 2026 – Feb 2027</div>
+        <div class="tl-desc">Peak sales window · Bulk of sponsorship &amp; ticket revenue</div>
+        <div class="tl-amount">—</div>
+      </div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot-col"><div class="tl-dot future"></div></div>
+      <div class="tl-content">
+        <div class="tl-month">Mar 2027</div>
+        <div class="tl-desc">Show Cycle 2027 closes · RacquetX Show date TBD</div>
+        <div class="tl-amount">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="report-footer">
+    RacquetX · Board Report — SC2027 Sales · Confidential &amp; Proprietary · May 2026
+  </div>
+
+</div><!-- /content -->
+</body>
+</html>
