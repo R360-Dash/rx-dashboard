@@ -158,7 +158,8 @@ function fmtFull$(v){ return '$'+Math.round(v).toLocaleString(); }
 function pct(a,b){ return b>0?Math.round(a/b*100):0; }
 function ck(name){ return name.split(' - ')[0].trim().toLowerCase(); }
 function isCsDeal(name){ return name.toLowerCase().includes('city series'); }
-function isRebook(d){ return d.r==='Rebook'||d.n.toLowerCase().includes('rebook'); }
+function isRebook(d){ return d.r==='Rebook'; }
+function isNewDeal(d){ return d.r==='New_Deal'; }
 
 function sc27Idx(cd){
   if(!cd||cd.length<7)return -1;
@@ -243,27 +244,29 @@ function renderReport(deals27, ts, allDeals27){
   let html = '';
 
   // ── KPI cards ──
+  const avgDeal = deals27.length > 0 ? Math.round(totSp / deals27.length) : 0;
+
   html += `<div class="sec-title">SC2027 Live Snapshot — As of ${MO_LBL[ci]}</div>`;
   html += `<div class="kpi-grid">
     <div class="kpi-card highlight">
-      <div class="kpi-label">Total Sponsorship</div>
+      <div class="kpi-label">Closed Won</div>
       <div class="kpi-value">${fmt$(totSp)}</div>
-      <div class="kpi-sub">${tF} firms · ${deals27.length} contracts</div>
+      <div class="kpi-sub">${deals27.length} deals · ${tF} firms</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-label">Show Sponsorship</div>
-      <div class="kpi-value">${fmt$(showSp)}</div>
-      <div class="kpi-sub">Annual quota: ${fmt$(annQShow)}</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">City Series</div>
-      <div class="kpi-value">${fmt$(csSp)}</div>
-      <div class="kpi-sub">Annual quota: ${fmt$(annQCS)}</div>
+      <div class="kpi-label">Avg Deal Size</div>
+      <div class="kpi-value">${fmt$(avgDeal)}</div>
+      <div class="kpi-sub">Closed-won average</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Rebooks</div>
-      <div class="kpi-value">${fmt$(rbRev)}</div>
-      <div class="kpi-sub">${rbF} firms · ${rbCt} contracts</div>
+      <div class="kpi-value">${rbCt}</div>
+      <div class="kpi-sub">${fmt$(rbRev)} total</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">New Deals</div>
+      <div class="kpi-value">${nwCt}</div>
+      <div class="kpi-sub">${fmt$(nwRev)} total</div>
     </div>
   </div>`;
 
