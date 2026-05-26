@@ -1077,6 +1077,7 @@ const AUTH_USERS = [
   { username: 'bautista', password: 'Bautista2026!', displayName: 'Bautista',         role: 'Viewer' },
   { username: 'giberti',  password: 'Giberti2026!',  displayName: 'M. Giberti',       role: 'Administrator' },
   { username: 'emiliano', password: 'Emiliano2026!', displayName: 'Emiliano',         role: 'Administrator' },
+  { username: 'budwickm', password: 'BudwickMKT2026!', displayName: 'Mary B.',         role: 'Viewer' },
   { username: 'nicolas',  password: 'Nicolas2026!',  displayName: 'Nicolas',          role: 'Viewer' },
   { username: 'analyst',  password: 'Analyst2026!',  displayName: 'Analyst',          role: 'Viewer' },
   { username: 'sales',    password: 'Sales2026!',    displayName: 'Sales Team',       role: 'Sales' },
@@ -1097,6 +1098,9 @@ const FULL_ACCESS_ROLES = ['Administrator', 'Owner'];
 
 // Users with access to the Board Reports section
 const BOARD_REPORT_USERS = ['matias', 'robyn', 'giberti', 'emiliano'];
+
+// Users restricted to Marketing Costs only within Expense Breakdown
+const MARKETING_ONLY_USERS = ['budwickm'];
 
 function hasAccess(role, sectionId) {
   if (FULL_ACCESS_ROLES.includes(role)) return true;
@@ -1205,6 +1209,8 @@ function logout() {
   // Hide board reports group until re-login
   const boardGroup = document.querySelector('.nav-group-board');
   if (boardGroup) boardGroup.style.display = 'none';
+  // Reset marketing-only flag
+  window._expMarketingOnly = false;
   document.getElementById('loginUser').focus();
 }
 
@@ -1234,12 +1240,27 @@ function applyRoleAccess(role) {
 // ═══ USER-SPECIFIC ACCESS ═══
 function applyUserAccess(user) {
   const username = (user._defaultUsername || user.username || '').toLowerCase();
+
+  // Board Reports visibility
   const boardGroup = document.querySelector('.nav-group-board');
-  if (!boardGroup) return;
-  if (BOARD_REPORT_USERS.includes(username)) {
-    boardGroup.style.display = '';
-  } else {
-    boardGroup.style.display = 'none';
+  if (boardGroup) {
+    boardGroup.style.display = BOARD_REPORT_USERS.includes(username) ? '' : 'none';
+  }
+
+  // Marketing-only: restrict nav to Expense Breakdown, filter section to Marketing Costs
+  window._expMarketingOnly = MARKETING_ONLY_USERS.includes(username);
+  if (window._expMarketingOnly) {
+    // Hide every nav item except sec-expenses
+    document.querySelectorAll('.nav-item').forEach(n => {
+      if (n.dataset.nav !== 'sec-expenses') n.style.display = 'none';
+    });
+    // Hide nav groups that now have no visible items
+    document.querySelectorAll('.nav-group').forEach(g => {
+      const visible = g.querySelectorAll('.nav-item:not([style*="display: none"])');
+      g.style.display = visible.length === 0 ? 'none' : '';
+    });
+    // Auto-navigate to the only accessible section
+    setTimeout(() => navigateTo('sec-expenses'), 50);
   }
 }
 
@@ -5478,7 +5499,7 @@ async function renderExpenses(){
           (acc,c)=>{ acc.total+=c.total; c.monthly.forEach((v,i)=>acc.monthly[i]+=v); acc.leafs.push(...c.leafs); return acc; },
           { total:0, monthly:Array(parsed.monthLabels.length).fill(0), leafs:[] }
         )},
-    ];
+    ].filter(s => !window._expMarketingOnly || s.key === 'mktCosts');
     const totalExp = SECTIONS.reduce((s,sec)=>{ const d=sec.get(bk); return s+(d?.total||0); }, 0);
     const totalLineItems = Object.values(bk.dcByCat).concat(Object.values(bk.sgaByCat)).flatMap(c=>c.leafs).length;
     // Unified formatter for this section: always $0.0K
