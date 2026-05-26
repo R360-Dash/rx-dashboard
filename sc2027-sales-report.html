@@ -294,48 +294,60 @@ function renderReport(deals27, ts, allDeals27){
   html += `<div class="table-wrap"><table class="monthly-table">
     <thead><tr>
       <th>Month</th>
+      <th>Quota</th>
+      <th>Actual</th>
+      <th style="min-width:160px">Attainment</th>
       <th>Show Act.</th>
       <th>CS Act.</th>
-      <th>Total</th>
-      <th>Show Quota</th>
-      <th>CS Quota</th>
       <th>Firms</th>
     </tr></thead><tbody>`;
 
-  let runShow=0, runCS=0, runTot=0;
+  let runTot=0, runQ=0;
   monthly.forEach((m,i)=>{
-    const tot=m.show+m.cs;
-    runShow+=m.show; runCS+=m.cs; runTot+=tot;
-    const isCur=i===ci;
-    const isFut=i>ci;
-    const rowStyle=isCur?'background:#F5FAF9;font-weight:600;':isFut?'opacity:.45':'';
-    const qShowPct=Q_SHOW[i]>0?Math.min(pct(m.show,Q_SHOW[i]),100):0;
-    const qCSPct  =Q_CS[i]>0?Math.min(pct(m.cs,Q_CS[i]),100):0;
-    const qShowCol=qShowPct>=100?'#1B7A3D':qShowPct>=75?'#1B4D4A':qShowPct>=50?'#B8860B':m.show>0?'#C0392B':'#D8E6E3';
-    const qCSCol  =qCSPct>=100?'#1B7A3D':qCSPct>=75?'#1B4D4A':qCSPct>=50?'#B8860B':m.cs>0?'#C0392B':'#D8E6E3';
+    const tot   = m.show + m.cs;
+    const q     = Q_SHOW[i] + Q_CS[i];
+    runTot += tot; runQ += q;
+    const isCur = i === ci;
+    const isFut = i > ci;
+    const rowStyle = isCur ? 'background:#F5FAF9;font-weight:600;' : isFut ? 'color:#9BB5B1;' : '';
+
+    let attainCell = '';
+    if(isFut){
+      attainCell = `<span class="muted">upcoming</span>`;
+    } else if(q === 0){
+      attainCell = `<span class="muted">—</span>`;
+    } else {
+      const p   = Math.min(pct(tot, q), 100);
+      const ovr = tot > q;
+      const c   = p >= 100 ? '#1B7A3D' : p >= 75 ? '#1B4D4A' : p >= 50 ? '#B8860B' : tot > 0 ? '#C0392B' : '#D8E6E3';
+      attainCell = `<div style="display:flex;align-items:center;gap:8px">
+        <div style="flex:1;background:#EDF2F1;border-radius:3px;height:6px;overflow:hidden;min-width:80px">
+          <div style="width:${p}%;height:100%;background:${c};border-radius:3px"></div>
+        </div>
+        <span style="font-size:12px;font-weight:700;color:${c};white-space:nowrap">${p}%${ovr?' ▲':''}</span>
+      </div>`;
+    }
+
     html+=`<tr style="${rowStyle}">
-      <td>${MO_LBL[i]}${isCur?' <span class="tag tag-live">Now</span>':''}</td>
-      <td>${m.show?fmtFull$(m.show):'—'}</td>
-      <td>${m.cs?fmtFull$(m.cs):'—'}</td>
-      <td style="font-weight:600">${tot?fmtFull$(tot):'—'}</td>
-      <td>
-        ${fmtFull$(Q_SHOW[i])}
-        ${!isFut&&Q_SHOW[i]>0?`<span class="quota-bar"><span class="quota-fill" style="width:${qShowPct}%;background:${qShowCol}"></span></span><span class="pct-lbl" style="color:${qShowCol}">${qShowPct}%</span>`:''}
-      </td>
-      <td>
-        ${Q_CS[i]?fmtFull$(Q_CS[i]):'—'}
-        ${!isFut&&Q_CS[i]>0?`<span class="quota-bar"><span class="quota-fill" style="width:${qCSPct}%;background:${qCSCol}"></span></span><span class="pct-lbl" style="color:${qCSCol}">${qCSPct}%</span>`:''}
-      </td>
-      <td>${m.firms.size||'—'}</td>
+      <td>${MO_LBL[i]}${isCur ? ' <span class="tag tag-live">Now</span>' : ''}</td>
+      <td style="font-weight:600">${q ? fmtFull$(q) : '—'}</td>
+      <td style="font-weight:700;color:${tot?'#0D2B29':'#9BB5B1'}">${tot ? fmtFull$(tot) : '—'}</td>
+      <td>${attainCell}</td>
+      <td class="muted">${m.show ? fmtFull$(m.show) : '—'}</td>
+      <td class="muted">${m.cs  ? fmtFull$(m.cs)  : '—'}</td>
+      <td>${m.firms.size || '—'}</td>
     </tr>`;
   });
+
+  const cyclePct = runQ > 0 ? Math.min(pct(runTot, runQ), 999) : 0;
+  const cycleCol = cyclePct >= 100 ? '#1B7A3D' : cyclePct >= 75 ? '#1B4D4A' : cyclePct >= 50 ? '#B8860B' : '#C0392B';
   html+=`<tr class="total-row">
     <td>Cycle Total</td>
-    <td>${fmtFull$(runShow)}</td>
-    <td>${fmtFull$(runCS)}</td>
+    <td>${fmtFull$(annQTot)}</td>
     <td>${fmtFull$(runTot)}</td>
-    <td>${fmtFull$(annQShow)}</td>
-    <td>${fmtFull$(annQCS)}</td>
+    <td><span style="font-size:13px;font-weight:700;color:${cycleCol}">${cyclePct}% of annual quota</span></td>
+    <td class="muted">${fmtFull$(monthly.reduce((s,m)=>s+m.show,0))}</td>
+    <td class="muted">${fmtFull$(monthly.reduce((s,m)=>s+m.cs,0))}</td>
     <td>${tF}</td>
   </tr>`;
   html+=`</tbody></table></div>`;
