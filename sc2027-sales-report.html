@@ -8,11 +8,9 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F0F4F3; color: #0D2B29; min-height: 100vh; }
 
-  /* ── Header ── */
   .report-header {
     background: linear-gradient(135deg, #0D2B29 0%, #1B4D4A 60%, #2A6B65 100%);
-    color: #fff;
-    padding: 36px 48px 32px;
+    color: #fff; padding: 36px 48px 32px;
   }
   .report-header .badge {
     display: inline-flex; align-items: center; gap: 6px;
@@ -22,341 +20,429 @@
   }
   .report-header h1 { font-size: 28px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; }
   .report-header .subtitle { font-size: 14px; color: #A8D5CF; margin-top: 6px; }
-  .report-header .meta { font-size: 12px; color: rgba(255,255,255,0.45); margin-top: 18px; }
+  .report-header .meta { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 18px; }
+  .report-header .sync-badge { font-size: 11px; color: rgba(255,255,255,0.55); margin-top: 8px; }
 
-  /* ── Layout ── */
-  .content { max-width: 960px; margin: 0 auto; padding: 36px 24px 60px; }
+  .content { max-width: 980px; margin: 0 auto; padding: 36px 24px 60px; }
 
-  /* ── Status Banner ── */
-  .status-banner {
-    background: #fff; border-radius: 12px; padding: 18px 24px;
-    border-left: 4px solid #3D9B8F; margin-bottom: 28px;
-    display: flex; align-items: center; gap: 14px;
-    box-shadow: 0 1px 6px rgba(27,77,74,.07);
+  .loading-state {
+    background: #fff; border-radius: 12px; padding: 40px; text-align: center;
+    box-shadow: 0 1px 6px rgba(27,77,74,.07); margin-bottom: 28px;
   }
-  .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #3D9B8F; flex-shrink: 0; animation: pulse 2s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-  .status-banner .status-text { font-size: 13.5px; color: #2A4E4A; }
-  .status-banner .status-text strong { color: #0D2B29; }
+  .spinner { width: 32px; height: 32px; border: 3px solid #D4E2DD; border-top-color: #3D9B8F;
+    border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-state p { font-size: 13px; color: #7BA69E; }
 
-  /* ── Section title ── */
+  .error-state {
+    background: #FFF5F5; border: 1px solid #FCC; border-radius: 12px; padding: 20px 24px;
+    color: #C0392B; font-size: 13px; margin-bottom: 28px;
+  }
+
   .sec-title {
     font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
     color: #7BA69E; margin-bottom: 12px; margin-top: 28px;
   }
-  .sec-title:first-child { margin-top: 0; }
+  .sec-title:first-of-type { margin-top: 0; }
 
-  /* ── KPI row ── */
-  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 28px; }
   @media(max-width:700px) { .kpi-grid { grid-template-columns: repeat(2,1fr); } }
-  .kpi-card {
-    background: #fff; border-radius: 12px; padding: 18px 20px;
-    box-shadow: 0 1px 6px rgba(27,77,74,.07);
-  }
-  .kpi-card .kpi-label { font-size: 11px; color: #7BA69E; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
-  .kpi-card .kpi-value { font-size: 26px; font-weight: 800; color: #0D2B29; letter-spacing: -.02em; line-height: 1; }
-  .kpi-card .kpi-sub { font-size: 12px; color: #9BB5B1; margin-top: 4px; }
+  .kpi-card { background: #fff; border-radius: 12px; padding: 18px 20px; box-shadow: 0 1px 6px rgba(27,77,74,.07); }
   .kpi-card.highlight { background: linear-gradient(135deg,#1B4D4A,#3D9B8F); }
+  .kpi-card .kpi-label { font-size: 11px; color: #7BA69E; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
   .kpi-card.highlight .kpi-label { color: rgba(255,255,255,.65); }
+  .kpi-card .kpi-value { font-size: 26px; font-weight: 800; color: #0D2B29; letter-spacing: -.02em; line-height: 1; }
   .kpi-card.highlight .kpi-value { color: #fff; }
+  .kpi-card .kpi-sub { font-size: 12px; color: #9BB5B1; margin-top: 4px; }
   .kpi-card.highlight .kpi-sub { color: rgba(255,255,255,.55); }
 
-  /* ── Comparison table ── */
   .table-wrap { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 6px rgba(27,77,74,.07); margin-bottom: 28px; }
   table { width: 100%; border-collapse: collapse; }
   thead tr { background: #F6FAF9; }
   thead th { padding: 11px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #7BA69E; text-align: right; white-space: nowrap; }
   thead th:first-child { text-align: left; }
   tbody tr { border-top: 1px solid #EDF2F1; }
-  tbody tr:last-child { border-bottom: none; }
   tbody td { padding: 11px 16px; font-size: 13.5px; color: #0D2B29; text-align: right; }
   tbody td:first-child { text-align: left; font-weight: 600; color: #2A4E4A; }
-  tbody tr.highlight-row td { background: #F0FAF8; font-weight: 700; }
-  tbody tr.highlight-row td:first-child { color: #1B4D4A; }
-  .tag { display: inline-block; font-size: 10px; font-weight: 700; border-radius: 4px; padding: 2px 6px; margin-left: 6px; vertical-align: middle; }
+  tbody tr.sub td { background: #FAFCFB; font-size: 12.5px; }
+  tbody tr.sub td:first-child { padding-left: 28px; font-weight: 400; color: #5A8A84; }
+  tbody tr.total-row td { background: #F0FAF8; font-weight: 700; border-top: 2px solid #D4E2DD; }
+  .muted { color: #9BB5B1; font-size: 12px; }
+  .tag { display: inline-block; font-size: 10px; font-weight: 700; border-radius: 4px; padding: 2px 6px; margin-left: 5px; vertical-align: middle; }
   .tag-live { background: #D4F0E8; color: #1B6B55; }
   .tag-final { background: #EDF2F1; color: #5A8A84; }
   .trend-up { color: #22A374; }
-  .trend-down { color: #D05B5B; }
-  .muted { color: #9BB5B1; font-size: 12px; }
+  .trend-dn { color: #D05B5B; }
 
-  /* ── Progress bar ── */
-  .prog-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-  .prog-label { font-size: 13px; font-weight: 600; color: #2A4E4A; min-width: 62px; }
+  .prog-section { background: #fff; border-radius: 12px; padding: 20px 24px; box-shadow: 0 1px 6px rgba(27,77,74,.07); margin-bottom: 28px; }
+  .prog-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .prog-row:last-child { margin-bottom: 0; }
+  .prog-label { font-size: 13px; font-weight: 600; color: #2A4E4A; min-width: 68px; }
   .prog-bar-bg { flex: 1; height: 8px; background: #EDF2F1; border-radius: 4px; overflow: hidden; }
-  .prog-bar-fill { height: 100%; border-radius: 4px; transition: width .6s ease; }
-  .prog-value { font-size: 13px; font-weight: 700; color: #0D2B29; min-width: 80px; text-align: right; }
+  .prog-bar-fill { height: 100%; border-radius: 4px; }
+  .prog-value { font-size: 13px; font-weight: 700; color: #0D2B29; min-width: 90px; text-align: right; }
+  .prog-note { font-size: 11px; color: #9BB5B1; margin-top: 10px; text-align: center; }
 
-  /* ── Insight boxes ── */
+  .monthly-table .quota-bar { display: block; height: 4px; background: #EDF2F1; border-radius: 2px; margin-top: 4px; overflow: hidden; }
+  .monthly-table .quota-fill { height: 100%; border-radius: 2px; }
+  .monthly-table .pct-lbl { font-size: 10px; font-weight: 600; margin-top: 2px; display: block; }
+
   .insights { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 28px; }
-  @media(max-width:620px) { .insights { grid-template-columns: 1fr; } }
+  @media(max-width:620px){ .insights { grid-template-columns: 1fr; } }
   .insight-card { background: #fff; border-radius: 12px; padding: 18px 20px; box-shadow: 0 1px 6px rgba(27,77,74,.07); }
   .insight-card .ic-icon { font-size: 20px; margin-bottom: 8px; }
   .insight-card .ic-title { font-size: 13px; font-weight: 700; color: #0D2B29; margin-bottom: 5px; }
   .insight-card .ic-body { font-size: 12.5px; color: #5A8A84; line-height: 1.55; }
 
-  /* ── Timeline ── */
-  .timeline { background: #fff; border-radius: 12px; padding: 20px 24px; box-shadow: 0 1px 6px rgba(27,77,74,.07); margin-bottom: 28px; }
-  .tl-item { display: flex; gap: 16px; padding: 10px 0; border-bottom: 1px solid #EDF2F1; }
-  .tl-item:last-child { border-bottom: none; padding-bottom: 0; }
-  .tl-dot-col { display: flex; flex-direction: column; align-items: center; width: 20px; flex-shrink: 0; }
-  .tl-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
-  .tl-dot.done { background: #3D9B8F; }
-  .tl-dot.now { background: #F5A623; }
-  .tl-dot.future { background: #D8E6E3; }
-  .tl-line { flex: 1; width: 2px; background: #EDF2F1; margin-top: 2px; }
-  .tl-item:last-child .tl-line { display: none; }
-  .tl-content { flex: 1; }
-  .tl-month { font-size: 12px; font-weight: 700; color: #2A4E4A; }
-  .tl-desc { font-size: 12px; color: #7BA69E; margin-top: 1px; }
-  .tl-amount { font-size: 13px; font-weight: 700; color: #0D2B29; margin-top: 1px; }
-
-  /* ── Footer ── */
   .report-footer { text-align: center; font-size: 11px; color: #9BB5B1; padding-top: 20px; border-top: 1px solid #E0ECEB; }
 </style>
 </head>
 <body>
 
-<!-- ── HEADER ── -->
 <div class="report-header">
   <div class="badge">
     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
     Sales Report · Confidential
   </div>
   <h1>Show Cycle 2027 Sales</h1>
-  <div class="subtitle">Apr 2026 – Mar 2027 · Cycle-to-Date as of May 2026</div>
-  <div class="meta">RacquetX · Board Reports · Generated May 2026</div>
+  <div class="subtitle">Apr 2026 – Mar 2027 · Live data from HubSpot</div>
+  <div class="sync-badge" id="syncBadge">⟳ Loading live data…</div>
 </div>
 
-<!-- ── CONTENT ── -->
-<div class="content">
-
-  <!-- Status Banner -->
-  <div class="status-banner">
-    <div class="status-dot"></div>
-    <div class="status-text">
-      <strong>SC2027 is in its opening month.</strong> Early deposits captured through Mar 2026 — 2 new firms signed.
-      Full cycle closes Mar 2027. Rebook outreach begins May 2026.
-    </div>
+<div class="content" id="reportContent">
+  <div class="loading-state" id="loadingState">
+    <div class="spinner"></div>
+    <p>Fetching live HubSpot data…</p>
   </div>
+</div>
 
-  <!-- KPIs -->
-  <div class="sec-title">SC2027 Current Snapshot</div>
-  <div class="kpi-grid">
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+const HS_PROXY = 'https://racquetx-hubspot-proxy.racquetx.workers.dev/api/deals';
+
+// SC2027 monthly quotas — index 0=Apr'26 … 11=Mar'27
+const Q_SHOW = [0,350000,80000,80000,75000,120000,160000,180000,250000,180000,190000,35000];
+const Q_CS   = [0,70500, 30000,30000,19500,0,     0,     0,     0,     0,     0,     0    ];
+const MO_LBL = ["Apr'26","May'26","Jun'26","Jul'26","Aug'26","Sep'26","Oct'26","Nov'26","Dec'26","Jan'27","Feb'27","Mar'27"];
+
+// Prior-cycle finals (static — closed cycles)
+const SC26 = { sp:1353450, tk:72257, firms:100, rebooks:27, newFirms:73, rbRev:587500, nwRev:740450 };
+const SC25 = { sp:822650,  tk:104881,firms:102, rebooks:29, newFirms:73, rbRev:354500, nwRev:468150 };
+const SC24 = { sp:496300,  tk:0,     firms:67,  rebooks:19, newFirms:48, rbRev:125300, nwRev:371000 };
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmt$(v){ if(v==null||isNaN(v))return '—'; if(v>=1e6)return '$'+(v/1e6).toFixed(2)+'M'; if(v>=1e3)return '$'+Math.round(v/1e3).toLocaleString()+'K'; return '$'+Math.round(v).toLocaleString(); }
+function fmtFull$(v){ return '$'+Math.round(v).toLocaleString(); }
+function pct(a,b){ return b>0?Math.round(a/b*100):0; }
+function ck(name){ return name.split(' - ')[0].trim().toLowerCase(); }
+function isCsDeal(name){ return name.toLowerCase().includes('city series'); }
+function isRebook(d){ return d.r==='Rebook'||d.n.toLowerCase().includes('rebook'); }
+
+function sc27Idx(cd){
+  if(!cd||cd.length<7)return -1;
+  const yr=+cd.slice(0,4),mo=+cd.slice(5,7);
+  if(yr===2026&&mo>=4)return mo-4;
+  if(yr===2027&&mo<=3)return mo+8;
+  return -1;
+}
+function curIdx(){
+  const now=new Date(),yr=now.getFullYear(),mo=now.getMonth()+1;
+  if(yr<2026||(yr===2026&&mo<4))return 0;
+  if(yr===2026&&mo>=4)return Math.min(mo-4,11);
+  if(yr===2027&&mo<=3)return Math.min(mo+8,11);
+  return 11;
+}
+
+function splitAmts(deal){
+  if(deal.li&&deal.li.length){
+    const csAmt=deal.li.filter(l=>isCsDeal(l.n)).reduce((s,l)=>s+l.a,0);
+    const liTotal=deal.li.reduce((s,l)=>s+l.a,0);
+    const unattr=Math.max(0,deal.a-liTotal);
+    const showAmt=deal.li.filter(l=>!isCsDeal(l.n)).reduce((s,l)=>s+l.a,0)+unattr;
+    return{showAmt,csAmt};
+  }
+  return isCsDeal(deal.n)?{csAmt:deal.a,showAmt:0}:{csAmt:0,showAmt:deal.a};
+}
+
+// ── Render report ─────────────────────────────────────────────────────────────
+function renderReport(deals27, ts){
+  const ci = curIdx();
+  const content = document.getElementById('reportContent');
+  const syncEl = document.getElementById('syncBadge');
+  if(syncEl) syncEl.textContent = ts ? 'Live data · Last synced: ' + ts : 'Live data loaded';
+
+  // Compute totals
+  let totSp=0, showSp=0, csSp=0;
+  let totFirms=new Set(), newFirms=new Set(), rbFirms=new Set();
+  let nwCt=0, rbCt=0, nwRev=0, rbRev=0;
+  const monthly=Array(12).fill(null).map(()=>({show:0,cs:0,deals:0,firms:new Set()}));
+
+  deals27.forEach(d=>{
+    totSp+=d.a;
+    const{showAmt,csAmt}=splitAmts(d);
+    showSp+=showAmt; csSp+=csAmt;
+    const key=ck(d.n);
+    totFirms.add(key);
+    if(isRebook(d)){ rbCt++; rbRev+=d.a; rbFirms.add(key); }
+    else { nwCt++; nwRev+=d.a; newFirms.add(key); }
+    const idx=sc27Idx(d.cd);
+    if(idx>=0&&idx<=11){
+      monthly[idx].show+=showAmt;
+      monthly[idx].cs+=csAmt;
+      monthly[idx].deals++;
+      monthly[idx].firms.add(key);
+    }
+  });
+  const nF=newFirms.size, rbF=rbFirms.size, tF=totFirms.size;
+
+  // YTD sums
+  const ytdActShow=monthly.slice(0,ci+1).reduce((s,m)=>s+m.show,0);
+  const ytdActCS  =monthly.slice(0,ci+1).reduce((s,m)=>s+m.cs,0);
+  const ytdActTot =ytdActShow+ytdActCS;
+  const ytdQShow  =Q_SHOW.slice(0,ci+1).reduce((s,v)=>s+v,0);
+  const ytdQCS    =Q_CS.slice(0,ci+1).reduce((s,v)=>s+v,0);
+  const ytdQTot   =ytdQShow+ytdQCS;
+  const annQShow  =Q_SHOW.reduce((s,v)=>s+v,0);
+  const annQCS    =Q_CS.reduce((s,v)=>s+v,0);
+  const annQTot   =annQShow+annQCS;
+
+  const totPct=pct(ytdActTot,ytdQTot);
+  const showPct=pct(ytdActShow,ytdQShow);
+  const csPct=pct(ytdActCS,ytdQCS);
+
+  function pBar(act,q,color){
+    const p=q>0?Math.min(pct(act,q),100):0;
+    const c=p>=100?'#1B7A3D':p>=75?'#1B4D4A':p>=50?'#B8860B':'#C0392B';
+    return `<span class="quota-bar"><span class="quota-fill" style="width:${p}%;background:${c||color}"></span></span><span class="pct-lbl" style="color:${c}">${p}% of YTD quota</span>`;
+  }
+
+  function delta(a,b){ if(!b)return ''; const v=a-b; const p=Math.round(v/b*100); const col=v>=0?'#22A374':'#D05B5B'; const arrow=v>=0?'▲':'▼'; return `<span style="font-size:11px;color:${col};font-weight:600;margin-left:6px">${arrow} ${p>0?'+':''}${p}%</span>`; }
+
+  let html = '';
+
+  // ── KPI cards ──
+  html += `<div class="sec-title">SC2027 Live Snapshot — As of ${MO_LBL[ci]}</div>`;
+  html += `<div class="kpi-grid">
     <div class="kpi-card highlight">
-      <div class="kpi-label">Sponsorship Revenue</div>
-      <div class="kpi-value">$41K</div>
-      <div class="kpi-sub">1 month of deposits</div>
+      <div class="kpi-label">Total Sponsorship</div>
+      <div class="kpi-value">${fmt$(totSp)}</div>
+      <div class="kpi-sub">${tF} firms · ${deals27.length} contracts</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-label">Firms Signed</div>
-      <div class="kpi-value">2</div>
-      <div class="kpi-sub">All new — 0 rebooks yet</div>
+      <div class="kpi-label">Show Sponsorship</div>
+      <div class="kpi-value">${fmt$(showSp)}</div>
+      <div class="kpi-sub">Annual quota: ${fmt$(annQShow)}</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-label">Avg. Deal Size</div>
-      <div class="kpi-value">$20.5K</div>
-      <div class="kpi-sub">per firm</div>
+      <div class="kpi-label">City Series</div>
+      <div class="kpi-value">${fmt$(csSp)}</div>
+      <div class="kpi-sub">Annual quota: ${fmt$(annQCS)}</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-label">Tickets</div>
-      <div class="kpi-value">—</div>
-      <div class="kpi-sub">Sales not yet open</div>
+      <div class="kpi-label">Rebooks</div>
+      <div class="kpi-value">${fmt$(rbRev)}</div>
+      <div class="kpi-sub">${rbF} firms · ${rbCt} contracts</div>
     </div>
-  </div>
+  </div>`;
 
-  <!-- Cycle comparison table -->
-  <div class="sec-title">Show Cycle Comparison — Final Totals</div>
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Metric</th>
-          <th>SC2024</th>
-          <th>SC2025</th>
-          <th>SC2026</th>
-          <th>SC2027 <span class="tag tag-live">Live</span></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>Dates</td>
-          <td class="muted">Apr'23–Mar'24</td>
-          <td class="muted">Apr'24–Mar'25</td>
-          <td class="muted">Apr'25–Mar'26</td>
-          <td class="muted">Apr'26–Mar'27</td>
-        </tr>
-        <tr class="highlight-row">
-          <td>Sponsorship Revenue</td>
-          <td>$496,300</td>
-          <td>$822,650</td>
-          <td>$1,353,450</td>
-          <td>$41,000 <span class="muted">(1 mo.)</span></td>
-        </tr>
-        <tr>
-          <td>Total Revenue (incl. tickets)</td>
-          <td>$496,300</td>
-          <td>$927,531</td>
-          <td>$1,425,707</td>
-          <td>$41,000 <span class="muted">(est. early)</span></td>
-        </tr>
-        <tr>
-          <td>Total Firms</td>
-          <td>67</td>
-          <td>102</td>
-          <td>100</td>
-          <td>2 <span class="muted">(1 mo.)</span></td>
-        </tr>
-        <tr>
-          <td>Rebook Firms</td>
-          <td>19</td>
-          <td>29</td>
-          <td>27</td>
-          <td>0 <span class="muted">(outreach pending)</span></td>
-        </tr>
-        <tr>
-          <td>New Firms</td>
-          <td>48</td>
-          <td>73</td>
-          <td>73</td>
-          <td>2</td>
-        </tr>
-        <tr>
-          <td>Rebook Revenue</td>
-          <td>$125,300</td>
-          <td>$354,500</td>
-          <td>$587,500</td>
-          <td>—</td>
-        </tr>
-        <tr>
-          <td>New Firm Revenue</td>
-          <td>$371,000</td>
-          <td>$468,150</td>
-          <td>$740,450</td>
-          <td>$41,000</td>
-        </tr>
-        <tr>
-          <td>YoY Sponsorship Growth</td>
-          <td class="muted">—</td>
-          <td class="trend-up">+65.8%</td>
-          <td class="trend-up">+64.5%</td>
-          <td class="muted">cycle in progress</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+  // ── YTD Quota Progress ──
+  html += `<div class="sec-title">YTD Quota vs Actual — Through ${MO_LBL[ci]}</div>`;
+  html += `<div class="prog-section">`;
+  [
+    {label:'Total RX',  act:ytdActTot,  q:ytdQTot,  color:'#1B4D4A'},
+    {label:'Show',      act:ytdActShow, q:ytdQShow, color:'#3D9B8F'},
+    {label:'City Ser.', act:ytdActCS,   q:ytdQCS,   color:'#7BA69E'},
+  ].forEach(row=>{
+    const p=row.q>0?Math.min(pct(row.act,row.q),100):0;
+    const c=p>=100?'#1B7A3D':p>=75?'#1B4D4A':p>=50?'#B8860B':'#C0392B';
+    html+=`<div class="prog-row">
+      <div class="prog-label">${row.label}</div>
+      <div class="prog-bar-bg"><div class="prog-bar-fill" style="width:${p}%;background:${c}"></div></div>
+      <div class="prog-value">${fmt$(row.act)} <span class="muted">/ ${fmt$(row.q)}</span></div>
+    </div>`;
+  });
+  html += `<div class="prog-note">YTD quota = sum of monthly quotas through ${MO_LBL[ci]}. Annual total quota: ${fmt$(annQTot)}.</div>`;
+  html += `</div>`;
 
-  <!-- Revenue trajectory bar chart -->
-  <div class="sec-title">Sponsorship Revenue Growth Trajectory</div>
-  <div style="background:#fff;border-radius:12px;padding:20px 24px;box-shadow:0 1px 6px rgba(27,77,74,.07);margin-bottom:28px">
-    <div class="prog-row">
-      <div class="prog-label">SC2024</div>
-      <div class="prog-bar-bg">
-        <div class="prog-bar-fill" style="width:36.7%;background:#C5DDD9;"></div>
-      </div>
-      <div class="prog-value">$496,300 <span class="tag tag-final">Final</span></div>
-    </div>
-    <div class="prog-row">
-      <div class="prog-label">SC2025</div>
-      <div class="prog-bar-bg">
-        <div class="prog-bar-fill" style="width:60.8%;background:#8BBFB8;"></div>
-      </div>
-      <div class="prog-value">$822,650 <span class="tag tag-final">Final</span></div>
-    </div>
-    <div class="prog-row">
-      <div class="prog-label">SC2026</div>
-      <div class="prog-bar-bg">
-        <div class="prog-bar-fill" style="width:100%;background:linear-gradient(90deg,#1B4D4A,#3D9B8F);"></div>
-      </div>
-      <div class="prog-value">$1,353,450 <span class="tag tag-final">Final</span></div>
-    </div>
-    <div class="prog-row">
-      <div class="prog-label">SC2027</div>
-      <div class="prog-bar-bg">
-        <div class="prog-bar-fill" style="width:3%;background:#F5A623;"></div>
-      </div>
-      <div class="prog-value">$41,000 <span class="tag tag-live">Live</span></div>
-    </div>
-    <div style="font-size:11px;color:#9BB5B1;margin-top:12px;text-align:center">
-      SC2027 bar reflects 1 month of data only. Full cycle closes Mar 2027.
-    </div>
-  </div>
+  // ── Monthly Breakdown ──
+  html += `<div class="sec-title">Monthly Breakdown — Actuals vs Quota</div>`;
+  html += `<div class="table-wrap"><table class="monthly-table">
+    <thead><tr>
+      <th>Month</th>
+      <th>Show Act.</th>
+      <th>CS Act.</th>
+      <th>Total</th>
+      <th>Show Quota</th>
+      <th>CS Quota</th>
+      <th>Firms</th>
+    </tr></thead><tbody>`;
 
-  <!-- Key Insights -->
-  <div class="sec-title">Key Observations</div>
-  <div class="insights">
-    <div class="insight-card">
-      <div class="ic-icon">📈</div>
-      <div class="ic-title">Strong Multi-Year Growth Platform</div>
-      <div class="ic-body">SC2026 closed at $1.35M in sponsorship — a <strong>+64.5% increase</strong> over SC2025 and a <strong>+173%</strong> increase over SC2024. Two consecutive cycles of 60%+ growth create a high baseline for SC2027.</div>
-    </div>
-    <div class="insight-card">
-      <div class="ic-icon">🔄</div>
-      <div class="ic-title">Rebook Cycle Not Yet Activated</div>
-      <div class="ic-body">Rebook outreach for SC2027 begins in May 2026. SC2026 had 27 rebook firms generating $587,500 (43% of sponsorship). Capturing a similar rebook base is the #1 near-term priority.</div>
-    </div>
-    <div class="insight-card">
-      <div class="ic-icon">🆕</div>
-      <div class="ic-title">Early New-Firm Signal</div>
-      <div class="ic-body">2 new firms signed in March 2026 at an average deal size of $20,500 — ahead of the SC2026 new-firm average of $10,143. Early signs suggest higher-value accounts leading the cycle.</div>
-    </div>
-    <div class="insight-card">
-      <div class="ic-icon">🎯</div>
-      <div class="ic-title">Cycle Timeline Context</div>
-      <div class="ic-body">SC2027 is approximately <strong>1 month into a 12-month sales cycle</strong>. SC2026 data at this same stage was similarly thin — the bulk of sales activity concentrates in Oct 2026 – Feb 2027.</div>
-    </div>
-  </div>
+  let runShow=0, runCS=0, runTot=0;
+  monthly.forEach((m,i)=>{
+    const tot=m.show+m.cs;
+    runShow+=m.show; runCS+=m.cs; runTot+=tot;
+    const isCur=i===ci;
+    const isFut=i>ci;
+    const rowStyle=isCur?'background:#F5FAF9;font-weight:600;':isFut?'opacity:.45':'';
+    const qShowPct=Q_SHOW[i]>0?Math.min(pct(m.show,Q_SHOW[i]),100):0;
+    const qCSPct  =Q_CS[i]>0?Math.min(pct(m.cs,Q_CS[i]),100):0;
+    const qShowCol=qShowPct>=100?'#1B7A3D':qShowPct>=75?'#1B4D4A':qShowPct>=50?'#B8860B':m.show>0?'#C0392B':'#D8E6E3';
+    const qCSCol  =qCSPct>=100?'#1B7A3D':qCSPct>=75?'#1B4D4A':qCSPct>=50?'#B8860B':m.cs>0?'#C0392B':'#D8E6E3';
+    html+=`<tr style="${rowStyle}">
+      <td>${MO_LBL[i]}${isCur?' <span class="tag tag-live">Now</span>':''}</td>
+      <td>${m.show?fmtFull$(m.show):'—'}</td>
+      <td>${m.cs?fmtFull$(m.cs):'—'}</td>
+      <td style="font-weight:600">${tot?fmtFull$(tot):'—'}</td>
+      <td>
+        ${fmtFull$(Q_SHOW[i])}
+        ${!isFut&&Q_SHOW[i]>0?`<span class="quota-bar"><span class="quota-fill" style="width:${qShowPct}%;background:${qShowCol}"></span></span><span class="pct-lbl" style="color:${qShowCol}">${qShowPct}%</span>`:''}
+      </td>
+      <td>
+        ${Q_CS[i]?fmtFull$(Q_CS[i]):'—'}
+        ${!isFut&&Q_CS[i]>0?`<span class="quota-bar"><span class="quota-fill" style="width:${qCSPct}%;background:${qCSCol}"></span></span><span class="pct-lbl" style="color:${qCSCol}">${qCSPct}%</span>`:''}
+      </td>
+      <td>${m.firms.size||'—'}</td>
+    </tr>`;
+  });
+  html+=`<tr class="total-row">
+    <td>Cycle Total</td>
+    <td>${fmtFull$(runShow)}</td>
+    <td>${fmtFull$(runCS)}</td>
+    <td>${fmtFull$(runTot)}</td>
+    <td>${fmtFull$(annQShow)}</td>
+    <td>${fmtFull$(annQCS)}</td>
+    <td>${tF}</td>
+  </tr>`;
+  html+=`</tbody></table></div>`;
 
-  <!-- Monthly Timeline -->
-  <div class="sec-title">SC2027 Sales Activity — Month by Month</div>
-  <div class="timeline">
-    <div class="tl-item">
-      <div class="tl-dot-col"><div class="tl-dot done"></div><div class="tl-line"></div></div>
-      <div class="tl-content">
-        <div class="tl-month">Mar 2026 <span class="tag tag-live">Recorded</span></div>
-        <div class="tl-desc">Early deposits · 2 firms signed</div>
-        <div class="tl-amount">$41,000</div>
-      </div>
-    </div>
-    <div class="tl-item">
-      <div class="tl-dot-col"><div class="tl-dot now"></div><div class="tl-line"></div></div>
-      <div class="tl-content">
-        <div class="tl-month">Apr – Jun 2026 <span class="tag" style="background:#FFF3DC;color:#A07010;">Now</span></div>
-        <div class="tl-desc">Rebook outreach launches · Early exhibitor confirmations</div>
-        <div class="tl-amount">—</div>
-      </div>
-    </div>
-    <div class="tl-item">
-      <div class="tl-dot-col"><div class="tl-dot future"></div><div class="tl-line"></div></div>
-      <div class="tl-content">
-        <div class="tl-month">Jul – Sep 2026</div>
-        <div class="tl-desc">Sales acceleration · New prospect outreach · Website launch</div>
-        <div class="tl-amount">—</div>
-      </div>
-    </div>
-    <div class="tl-item">
-      <div class="tl-dot-col"><div class="tl-dot future"></div><div class="tl-line"></div></div>
-      <div class="tl-content">
-        <div class="tl-month">Oct 2026 – Feb 2027</div>
-        <div class="tl-desc">Peak sales window · Bulk of sponsorship &amp; ticket revenue</div>
-        <div class="tl-amount">—</div>
-      </div>
-    </div>
-    <div class="tl-item">
-      <div class="tl-dot-col"><div class="tl-dot future"></div></div>
-      <div class="tl-content">
-        <div class="tl-month">Mar 2027</div>
-        <div class="tl-desc">Show Cycle 2027 closes · RacquetX Show date TBD</div>
-        <div class="tl-amount">—</div>
-      </div>
-    </div>
-  </div>
+  // ── Prior Cycle Comparison ──
+  html += `<div class="sec-title">Show Cycle Comparison — Final vs Current</div>`;
+  html += `<div class="table-wrap"><table>
+    <thead><tr>
+      <th>Metric</th>
+      <th>SC2024 <span class="tag tag-final">Final</span></th>
+      <th>SC2025 <span class="tag tag-final">Final</span></th>
+      <th>SC2026 <span class="tag tag-final">Final</span></th>
+      <th>SC2027 <span class="tag tag-live">Live</span></th>
+    </tr></thead><tbody>
+    <tr class="total-row">
+      <td>Sponsorship Revenue</td>
+      <td>${fmtFull$(SC24.sp)}</td>
+      <td>${fmtFull$(SC25.sp)}</td>
+      <td>${fmtFull$(SC26.sp)}</td>
+      <td>${fmtFull$(totSp)}</td>
+    </tr>
+    <tr class="sub">
+      <td>→ Show</td>
+      <td class="muted">—</td>
+      <td class="muted">—</td>
+      <td class="muted">—</td>
+      <td>${showSp?fmtFull$(showSp):'—'}</td>
+    </tr>
+    <tr class="sub">
+      <td>→ City Series</td>
+      <td class="muted">—</td>
+      <td class="muted">—</td>
+      <td class="muted">—</td>
+      <td>${csSp?fmtFull$(csSp):'—'}</td>
+    </tr>
+    <tr>
+      <td>Total Firms</td>
+      <td>${SC24.firms}</td>
+      <td>${SC25.firms}</td>
+      <td>${SC26.firms}</td>
+      <td>${tF}</td>
+    </tr>
+    <tr class="sub">
+      <td>→ New Firms</td>
+      <td>${SC24.newFirms}</td>
+      <td>${SC25.newFirms}</td>
+      <td>${SC26.newFirms}</td>
+      <td>${nF}</td>
+    </tr>
+    <tr class="sub">
+      <td>→ Rebook Firms</td>
+      <td>${SC24.rebooks}</td>
+      <td>${SC25.rebooks}</td>
+      <td>${SC26.rebooks}</td>
+      <td>${rbF}</td>
+    </tr>
+    <tr>
+      <td>New Firm Revenue</td>
+      <td>${fmtFull$(SC24.nwRev)}</td>
+      <td>${fmtFull$(SC25.nwRev)}</td>
+      <td>${fmtFull$(SC26.nwRev)}</td>
+      <td>${nwRev?fmtFull$(nwRev):'—'}</td>
+    </tr>
+    <tr>
+      <td>Rebook Revenue</td>
+      <td>${fmtFull$(SC24.rbRev)}</td>
+      <td>${fmtFull$(SC25.rbRev)}</td>
+      <td>${fmtFull$(SC26.rbRev)}</td>
+      <td>${rbRev?fmtFull$(rbRev):'—'}</td>
+    </tr>
+    <tr>
+      <td>YoY Sponsorship Growth</td>
+      <td class="muted">—</td>
+      <td class="trend-up">+65.8%</td>
+      <td class="trend-up">+64.5%</td>
+      <td class="muted">${ci<6?'cycle in progress':delta(totSp,SC26.sp)}</td>
+    </tr>
+  </tbody></table></div>`;
 
-  <!-- Footer -->
-  <div class="report-footer">
-    RacquetX · Board Report — SC2027 Sales · Confidential &amp; Proprietary · May 2026
-  </div>
+  // ── Deal List ──
+  if(deals27.length>0){
+    html += `<div class="sec-title">SC2027 Closed-Won Deals (${deals27.length})</div>`;
+    html += `<div class="table-wrap"><table>
+      <thead><tr>
+        <th>Deal Name</th>
+        <th>Amount</th>
+        <th>Type</th>
+        <th>Close Date</th>
+        <th>Month</th>
+      </tr></thead><tbody>`;
+    const sorted=[...deals27].sort((a,b)=>b.a-a.a);
+    sorted.forEach(d=>{
+      const idx=sc27Idx(d.cd);
+      const mo=idx>=0?MO_LBL[idx]:'—';
+      const type=isRebook(d)?'Rebook':'New';
+      const typeCol=type==='Rebook'?'#7BA69E':'#1B4D4A';
+      html+=`<tr>
+        <td>${d.n}</td>
+        <td style="font-weight:600">${fmtFull$(d.a)}</td>
+        <td style="color:${typeCol};font-weight:600">${type}</td>
+        <td class="muted">${d.cd||'—'}</td>
+        <td>${mo}</td>
+      </tr>`;
+    });
+    html+=`</tbody></table></div>`;
+  }
 
-</div><!-- /content -->
+  // ── Footer ──
+  html += `<div class="report-footer">RacquetX · SC2027 Sales Report · Confidential &amp; Proprietary · Live data from HubSpot</div>`;
+
+  content.innerHTML = html;
+}
+
+// ── Fetch & bootstrap ─────────────────────────────────────────────────────────
+async function init(){
+  try{
+    const res = await fetch(HS_PROXY, {signal: AbortSignal.timeout(15000)});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const live = await res.json();
+    if(!live.d||!Array.isArray(live.d)) throw new Error('Invalid response');
+
+    const deals27 = live.d.filter(d => d.p===27 && d.s==='closedwon' && d.a>0);
+    renderReport(deals27, live.ts||'');
+  } catch(err){
+    const content = document.getElementById('reportContent');
+    const syncEl  = document.getElementById('syncBadge');
+    if(syncEl) syncEl.textContent = 'Failed to load live data';
+    content.innerHTML = `<div class="error-state">⚠️ Could not load live HubSpot data: ${err.message}. Please refresh or check your connection.</div>`;
+  }
+}
+
+init();
+</script>
 </body>
 </html>
