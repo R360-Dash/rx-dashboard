@@ -158,7 +158,7 @@ function fmtFull$(v){ return '$'+Math.round(v).toLocaleString(); }
 function pct(a,b){ return b>0?Math.round(a/b*100):0; }
 function ck(name){ return name.split(' - ')[0].trim().toLowerCase(); }
 function isCsDeal(name){ return name.toLowerCase().includes('city series'); }
-function isRebook(d){ return d.r==='Rebook'; }
+function isRebook(d){ return d.r==='Rebook' || d.n.toLowerCase().includes('rebook'); }
 function isNewDeal(d){ return d.r==='New_Deal'; }
 
 function sc27Idx(cd){
