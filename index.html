@@ -1252,15 +1252,15 @@ function applyUserAccess(user) {
   if (window._expMarketingOnly) {
     // Hide every nav item except sec-expenses
     document.querySelectorAll('.nav-item').forEach(n => {
-      if (n.dataset.nav !== 'sec-expenses') n.style.display = 'none';
+      n.style.display = n.dataset.nav === 'sec-expenses' ? '' : 'none';
     });
     // Hide nav groups that now have no visible items
     document.querySelectorAll('.nav-group').forEach(g => {
-      const visible = g.querySelectorAll('.nav-item:not([style*="display: none"])');
-      g.style.display = visible.length === 0 ? 'none' : '';
+      const hasVisible = [...g.querySelectorAll('.nav-item')].some(n => n.style.display !== 'none');
+      g.style.display = hasVisible ? '' : 'none';
     });
     // Auto-navigate to the only accessible section
-    setTimeout(() => navigateTo('sec-expenses'), 50);
+    setTimeout(() => showPage('sec-expenses'), 50);
   }
 }
 
