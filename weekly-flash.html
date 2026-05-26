@@ -86,6 +86,20 @@
   .cash-kpis { display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px; }
   @media(max-width:600px){ .cash-kpis { grid-template-columns:1fr 1fr; } }
 
+  /* Flag banner */
+  .flag-banner { border-radius:12px; padding:18px 22px; margin-bottom:24px; display:flex; align-items:flex-start; gap:16px; }
+  .flag-banner.red    { background:#FFF0EE; border:2px solid #E74C3C; }
+  .flag-banner.amber  { background:#FFFBF0; border:2px solid #F39C12; }
+  .flag-banner.green  { background:#F0FAF4; border:2px solid #1B7A3D; }
+  .flag-icon  { font-size:28px; flex-shrink:0; line-height:1; }
+  .flag-body  {}
+  .flag-title { font-size:15px; font-weight:800; margin-bottom:4px; }
+  .flag-banner.red    .flag-title { color:#C0392B; }
+  .flag-banner.amber  .flag-title { color:#B8860B; }
+  .flag-banner.green  .flag-title { color:#1B7A3D; }
+  .flag-detail { font-size:13px; line-height:1.55; color:#2A4E4A; }
+  .flag-detail strong { font-weight:700; }
+
   /* Divider */
   .divider { height:1px;background:#E0ECEB;margin:24px 0; }
 
@@ -163,6 +177,24 @@ function weekLabel(){
   const d2  = new Date(d1);  d2.setDate(d1.getDate() + 6);
   const fmt = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
   return `Week of ${fmt(d1)} – ${fmt(d2)}`;
+}
+
+// ── CF Lines (must match dashboard schema) ────────────────────────────────
+const CF_LINES = [
+  { key:'showColl',  sign:+1 },
+  { key:'csColl',    sign:+1 },
+  { key:'showCosts', sign:-1 },
+  { key:'cityCosts', sign:-1 },
+  { key:'marketing', sign:-1 },
+  { key:'sga',       sign:-1 },
+  { key:'salesComm', sign:-1 },
+];
+function computeNetBurn(lineMap){
+  return Array.from({length:12}, (_,i) => {
+    let net=0;
+    CF_LINES.forEach(l => { net += l.sign * (lineMap[l.key]?.[i] || 0); });
+    return net;
+  });
 }
 
 // ── QBO parsing ─────────────────────────────────────────────────────────────
@@ -243,8 +275,72 @@ function svgBars(data, opts={}){
   </svg>`;
 }
 
+// ── SVG bar chart — actuals solid, forecast hatched ───────────────────────
+function svgBarsActVsForecast(data, opts={}){
+  const W=600, H=opts.h||120;
+  const pad={t:8,b:28,l:48,r:8};
+  const gap=(W-pad.l-pad.r)/data.length;
+  const bW=Math.max(4, Math.floor(gap*0.62));
+  const vals=data.map(d=>d.v);
+  const maxAbs=Math.max(...vals.map(Math.abs),1);
+  const hasNeg=vals.some(v=>v<0);
+  const zeroY = hasNeg ? pad.t+(H-pad.t-pad.b)/2 : H-pad.b;
+  const scaleY = hasNeg ? (H-pad.t-pad.b)/2/maxAbs : (H-pad.t-pad.b)/maxAbs;
+
+  // Stripe pattern for forecast bars
+  const defs=`<defs>
+    <pattern id="stripe-pos" patternUnits="userSpaceOnUse" width="4" height="4">
+      <path d="M-1,1 l2,-2 M0,4 l4,-4 M3,5 l2,-2" stroke="#1B7A3D" stroke-width="1.2" opacity=".45"/>
+    </pattern>
+    <pattern id="stripe-neg" patternUnits="userSpaceOnUse" width="4" height="4">
+      <path d="M-1,1 l2,-2 M0,4 l4,-4 M3,5 l2,-2" stroke="#C0392B" stroke-width="1.2" opacity=".45"/>
+    </pattern>
+    <pattern id="stripe-blue" patternUnits="userSpaceOnUse" width="4" height="4">
+      <path d="M-1,1 l2,-2 M0,4 l4,-4 M3,5 l2,-2" stroke="#3D9B8F" stroke-width="1.2" opacity=".45"/>
+    </pattern>
+  </defs>`;
+
+  let bars='', labels='', vLabels='', gridLines='';
+  // Y-axis
+  const yTicks = hasNeg ? [-maxAbs,0,maxAbs] : [0, maxAbs/2, maxAbs];
+  yTicks.forEach(v=>{
+    const y=zeroY-v*scaleY;
+    gridLines+=`<line x1="${pad.l}" y1="${y.toFixed(1)}" x2="${W-pad.r}" y2="${y.toFixed(1)}" stroke="#EDF2F1" stroke-width="1"/>`;
+    gridLines+=`<text x="${(pad.l-4).toFixed(1)}" y="${y.toFixed(1)}" text-anchor="end" font-size="9" fill="#9BB5B1" dominant-baseline="middle">${fmt$(v)}</text>`;
+  });
+
+  data.forEach((d,i)=>{
+    const x=pad.l+gap*i+(gap-bW)/2;
+    const barH=Math.abs(d.v)*scaleY;
+    const y=d.v>=0?zeroY-barH:zeroY;
+    const isPos=d.v>=0;
+    let fill;
+    if(d.forecast) fill=isPos?'url(#stripe-blue)':'url(#stripe-neg)';
+    else           fill=isPos?'#3D9B8F':'#C0392B';
+    const opacity=d.forecast?0.85:1;
+    bars+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bW}" height="${Math.max(barH,1).toFixed(1)}" fill="${fill}" rx="2" opacity="${opacity}"/>`;
+    // value label on non-zero bars
+    if(Math.abs(d.v)>0){
+      const labelY=isPos?y-2:y+barH+10;
+      const col=isPos?'#1B7A3D':'#C0392B';
+      vLabels+=`<text x="${(x+bW/2).toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle" font-size="8" fill="${col}" font-weight="600">${isPos?'+':''}${fmt$(d.v).replace('$','')}</text>`;
+    }
+    labels+=`<text x="${(x+bW/2).toFixed(1)}" y="${(H-pad.b+12).toFixed(1)}" text-anchor="middle" font-size="9" fill="${d.forecast?'#B0C8C4':'#7BA69E'}">${d.label}</text>`;
+  });
+
+  // Zero line
+  const zLine=`<line x1="${pad.l}" y1="${zeroY.toFixed(1)}" x2="${W-pad.r}" y2="${zeroY.toFixed(1)}" stroke="#CBD9D6" stroke-width="1.5"/>`;
+  // Divider after last actual
+  const divX=pad.l+gap*(opts.lastActIdx+1);
+  const divLine=opts.lastActIdx>=0&&opts.lastActIdx<11
+    ?`<line x1="${divX.toFixed(1)}" y1="${pad.t}" x2="${divX.toFixed(1)}" y2="${H-pad.b}" stroke="#D4E2DD" stroke-width="1" stroke-dasharray="3,3"/><text x="${(divX+3).toFixed(1)}" y="${(pad.t+8).toFixed(1)}" font-size="8" fill="#A8C5BE">forecast ▶</text>`
+    :'';
+
+  return `<svg class="bar-chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${defs}${gridLines}${zLine}${bars}${vLabels}${labels}${divLine}</svg>`;
+}
+
 // ── Main render ─────────────────────────────────────────────────────────────
-function render(deals27all, cfData, bsData, hsTsLabel){
+function render(deals27all, cfData, bsData, forecastData, hsTsLabel){
   const ci = curIdx();
   const content = document.getElementById('reportContent');
 
@@ -292,6 +388,34 @@ function render(deals27all, cfData, bsData, hsTsLabel){
   const beginCash   = bankBals[0] - (netChanges[0]||0);
   const cashChange  = curCash - beginCash;
   const avgBurn3    = lastActIdx >= 0 ? netChanges.slice(Math.max(0,lastActIdx-2), lastActIdx+1).reduce((s,v)=>s+v,0) / Math.min(3, lastActIdx+1) : 0;
+
+  // ── Forecast: build forecastBurns & cashPos ──
+  const forecastBurns = Array(12).fill(0);
+  // Past months: use actuals
+  for(let i=0; i<=lastActIdx; i++) forecastBurns[i] = netChanges[i]||0;
+  // Future months: use saved forecast lines, else trailing avg
+  if(forecastData){
+    const computedFuture = computeNetBurn(forecastData);
+    for(let i=Math.max(0,lastActIdx+1); i<12; i++) forecastBurns[i] = computedFuture[i];
+  } else {
+    for(let i=Math.max(0,lastActIdx+1); i<12; i++) forecastBurns[i] = avgBurn3;
+  }
+  // Cash position per month
+  const cashPos = Array(12).fill(0);
+  for(let i=0; i<12; i++){
+    if(i<=lastActIdx) cashPos[i] = bankBals[i]||0;
+    else cashPos[i] = (i===0?beginCash:cashPos[i-1]) + forecastBurns[i];
+  }
+  const projYearEnd = cashPos[11];
+  // Runway: first future month where cashPos goes ≤ 0
+  let runwayMonths = null, runwayGoesNeg = false;
+  for(let i=lastActIdx+1; i<12; i++){
+    if(cashPos[i] <= 0){ runwayMonths = i - lastActIdx; runwayGoesNeg = true; break; }
+  }
+  if(!runwayGoesNeg) runwayMonths = 12 - lastActIdx - 1; // months to year-end
+  // Cash needed to stay positive through year-end
+  const cashNeededYE = projYearEnd < 0 ? Math.abs(projYearEnd) : 0;
+  const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
   // Monthly net change for bar chart (last 6 actual months)
   const burnBars = [];
@@ -419,6 +543,74 @@ function render(deals27all, cfData, bsData, hsTsLabel){
   h += `</div>`; // end burn card
   h += `</div>`; // end two-col
 
+  // ─ Cash Forecast & Runway ─
+  h += `<div class="sec-title">Cash Forecast &amp; Runway — FY${QBO_YEAR}</div>`;
+
+  // ── Flag banner ──
+  const flagLevel = runwayGoesNeg ? 'red' : (projYearEnd < curCash * 0.25 ? 'amber' : 'green');
+  const flagIcon  = runwayGoesNeg ? '🚨' : (flagLevel==='amber' ? '⚠️' : '✅');
+  let flagTitle, flagDetail;
+  if(runwayGoesNeg){
+    flagTitle  = `Cash Runway Alert — projected shortfall in ${runwayMonths} month${runwayMonths!==1?'s':''}`;
+    flagDetail = `At the current forecast burn rate, cash is projected to reach <strong>$0 by ${MN[lastActIdx+runwayMonths]} ${QBO_YEAR}</strong>.
+      Year-end balance: <strong style="color:#C0392B">${fmtFull(projYearEnd)}</strong>.
+      Additional cash needed to reach Dec 31: <strong style="color:#C0392B">${fmtFull(cashNeededYE)}</strong>.`;
+  } else if(flagLevel==='amber'){
+    flagTitle  = `Caution — cash declining toward year-end`;
+    flagDetail = `Projected year-end balance: <strong>${fmtFull(projYearEnd)}</strong> vs current <strong>${fmtFull(curCash)}</strong>.
+      No shortfall projected, but buffer is thinning. Monitor closely through ${MN[11]} ${QBO_YEAR}.`;
+  } else {
+    flagTitle  = `Cash Position Healthy Through Year-End`;
+    flagDetail = `Projected year-end balance: <strong>${fmtFull(projYearEnd)}</strong>. No cash shortfall expected through Dec 31, ${QBO_YEAR}.`;
+  }
+  h += `<div class="flag-banner ${flagLevel}">
+    <div class="flag-icon">${flagIcon}</div>
+    <div class="flag-body">
+      <div class="flag-title">${flagTitle}</div>
+      <div class="flag-detail">${flagDetail}</div>
+    </div>
+  </div>`;
+
+  // ── Forecast KPIs ──
+  h += `<div class="two-col">`;
+  h += `<div class="card">
+    <div class="card-title"><span>📈</span> Full-Year Cash Position Forecast</div>
+    <div class="cash-kpis" style="grid-template-columns:repeat(4,1fr)">
+      <div class="kpi-mini accent"><div class="lbl">Current</div><div class="val">${fmt$(curCash)}</div><div class="sub">End of ${MN[lastActIdx]}</div></div>
+      <div class="kpi-mini"><div class="lbl">Projected YE</div><div class="val" style="color:${projYearEnd>=0?'#1B7A3D':'#C0392B'}">${fmt$(projYearEnd)}</div><div class="sub">Dec 31, ${QBO_YEAR}</div></div>
+      <div class="kpi-mini"><div class="lbl">Cash Needed</div><div class="val" style="color:${cashNeededYE>0?'#C0392B':'#1B7A3D'}">${cashNeededYE>0?fmtFull(cashNeededYE):'None'}</div><div class="sub">to stay positive</div></div>
+      <div class="kpi-mini"><div class="lbl">Runway</div><div class="val" style="color:${runwayGoesNeg?'#C0392B':'#1B7A3D'}">${runwayGoesNeg?runwayMonths+'mo':'> YE'}</div><div class="sub">${runwayGoesNeg?'until $0':'through Dec'}</div></div>
+    </div>`;
+
+  // Cash position chart: actuals (solid) + forecast (lighter)
+  const cashPosBars = cashPos.map((v,i)=>({
+    label: MN[i].slice(0,3),
+    v: Math.round(v),
+    forecast: i > lastActIdx
+  }));
+  h += `<div class="chart-wrap">${svgBarsActVsForecast(cashPosBars, {h:110, lastActIdx})}</div>`;
+  h += `<div class="chart-note">Monthly ending cash balance — solid = actuals, hatched = forecast</div>`;
+  h += `</div>`; // end card
+
+  // Forecast burn chart
+  h += `<div class="card">
+    <div class="card-title"><span>🔥</span> Monthly Burn Rate — Actuals &amp; Forecast</div>
+    <div class="cash-kpis" style="grid-template-columns:repeat(3,1fr)">
+      <div class="kpi-mini accent"><div class="lbl">3-mo Avg Burn</div><div class="val" style="${avgBurn3<0?'color:#ff8a7a':''}">${avgBurn3>=0?'+':''}${fmt$(avgBurn3)}</div><div class="sub">trailing actual</div></div>
+      <div class="kpi-mini"><div class="lbl">Remaining Mos</div><div class="val">${12-lastActIdx-1}</div><div class="sub">to forecast</div></div>
+      <div class="kpi-mini"><div class="lbl">Forecast YTD-YE</div><div class="val" style="color:${forecastBurns.slice(lastActIdx+1).reduce((s,v)=>s+v,0)>=0?'#1B7A3D':'#C0392B'}">${fmt$(forecastBurns.slice(lastActIdx+1).reduce((s,v)=>s+v,0))}</div><div class="sub">net change Jun–Dec</div></div>
+    </div>`;
+
+  const burnForecastBars = forecastBurns.map((v,i)=>({
+    label: MN[i].slice(0,3),
+    v: Math.round(v),
+    forecast: i > lastActIdx
+  }));
+  h += `<div class="chart-wrap">${svgBarsActVsForecast(burnForecastBars, {h:110, lastActIdx, zeroBased:true})}</div>`;
+  h += `<div class="chart-note">Net cash in/out per month — solid = actuals, hatched = forecast</div>`;
+  h += `</div>`; // end card
+  h += `</div>`; // end two-col
+
   h += `<div class="report-footer">RacquetX · Weekly Flash Report · Confidential &amp; Proprietary · Live: HubSpot + QuickBooks Online · ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div>`;
 
   content.innerHTML = h;
@@ -434,20 +626,23 @@ async function init(){
   const fetchQbo = path => fetch(QBO_BASE+path,{signal:AbortSignal.timeout(20000)}).then(r=>r.ok?r.json():Promise.reject('HTTP '+r.status));
 
   try {
-    const [hsRes, cfRes, bsRes] = await Promise.allSettled([
+    const [hsRes, cfRes, bsRes, fcRes] = await Promise.allSettled([
       fetch(HS_PROXY,{signal:AbortSignal.timeout(15000)}).then(r=>r.json()),
       fetchQbo(`/api/cashflow?year=${QBO_YEAR}`),
-      fetchQbo(`/api/balancesheet?year=${QBO_YEAR}`)
+      fetchQbo(`/api/balancesheet?year=${QBO_YEAR}`),
+      fetchQbo(`/api/forecast?year=${QBO_YEAR}`)
     ]);
 
     const hsData = hsRes.status==='fulfilled' ? hsRes.value : null;
     const cfData = cfRes.status==='fulfilled' ? cfRes.value : null;
     const bsData = bsRes.status==='fulfilled' ? bsRes.value : null;
+    const fcRaw  = fcRes.status==='fulfilled' ? fcRes.value : null;
+    const fcData = fcRaw?.forecast || null;
 
     if(!hsData?.d) throw new Error('HubSpot data unavailable');
 
     const deals27 = hsData.d.filter(d => d.p===27);
-    render(deals27, cfData, bsData, hsData.ts||'');
+    render(deals27, cfData, bsData, fcData, hsData.ts||'');
   } catch(err){
     document.getElementById('reportContent').innerHTML =
       `<div style="background:#FFF5F5;border:1px solid #FCC;border-radius:12px;padding:20px 24px;color:#C0392B;font-size:13px;">
