@@ -95,6 +95,19 @@
   .insight-card .ic-body { font-size: 12.5px; color: #5A8A84; line-height: 1.55; }
 
   .report-footer { text-align: center; font-size: 11px; color: #9BB5B1; padding-top: 20px; border-top: 1px solid #E0ECEB; }
+
+  /* Pipeline */
+  .pipe-kpi-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-bottom: 20px; }
+  @media(max-width:620px){ .pipe-kpi-grid { grid-template-columns: 1fr 1fr; } }
+  .stage-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #EDF2F1; }
+  .stage-row:last-child { border-bottom: none; }
+  .stage-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .stage-name { font-size: 13px; font-weight: 600; color: #2A4E4A; flex: 1; }
+  .stage-prob { font-size: 11px; font-weight: 700; min-width: 34px; text-align: center; padding: 2px 5px; border-radius: 4px; }
+  .stage-deals { font-size: 12px; color: #7BA69E; min-width: 60px; text-align: right; }
+  .stage-raw { font-size: 13px; font-weight: 600; color: #0D2B29; min-width: 90px; text-align: right; }
+  .stage-wtd { font-size: 12px; color: #3D9B8F; min-width: 80px; text-align: right; }
+  .pipe-note { font-size: 11px; color: #9BB5B1; margin-top: 10px; line-height: 1.5; }
 </style>
 </head>
 <body>
@@ -119,6 +132,15 @@
 <script>
 // ── Config ────────────────────────────────────────────────────────────────────
 const HS_PROXY = 'https://racquetx-hubspot-proxy.racquetx.workers.dev/api/deals';
+
+// Pipeline stage weights & labels
+const STAGE_WEIGHTS = {
+  '101597223':          { prob: 0.85, label: 'Contract Sent',       color: '#1B7A3D' },
+  '101597222':          { prob: 0.55, label: 'Negotiating',          color: '#3D9B8F' },
+  'presentationscheduled':{ prob: 0.30, label: 'Qualified Meeting',  color: '#B8860B' },
+  'appointmentscheduled': { prob: 0.10, label: 'Contact',            color: '#C0392B' },
+  '1037013850':         { prob: 0.00, label: 'Non-Qualified',         color: '#9BB5B1' },
+};
 
 // SC2027 monthly quotas — index 0=Apr'26 … 11=Mar'27
 const Q_SHOW = [0,350000,80000,80000,75000,120000,160000,180000,250000,180000,190000,35000];
@@ -165,7 +187,7 @@ function splitAmts(deal){
 }
 
 // ── Render report ─────────────────────────────────────────────────────────────
-function renderReport(deals27, ts){
+function renderReport(deals27, ts, allDeals27){
   const ci = curIdx();
   const content = document.getElementById('reportContent');
   const syncEl = document.getElementById('syncBadge');
@@ -418,6 +440,136 @@ function renderReport(deals27, ts){
     html+=`</tbody></table></div>`;
   }
 
+  // ── Pipeline ──
+  const openDeals  = allDeals27.filter(d => d.s !== 'closedwon' && d.s !== 'closedlost');
+  const avgWon     = deals27.length > 0 ? totSp / deals27.length : 20000;
+
+  let pipeRaw = 0, pipeWtd = 0;
+  openDeals.forEach(d => {
+    const w = (STAGE_WEIGHTS[d.s] || {prob:0.05}).prob;
+    pipeRaw += (d.a || 0);
+    pipeWtd += (d.a > 0 ? d.a : avgWon) * w;
+  });
+  const projTotal = totSp + pipeWtd;
+
+  html += `<div class="sec-title">Pipeline — What Comes Next</div>`;
+
+  // KPI row
+  html += `<div class="pipe-kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">Open Pipeline (Raw)</div>
+      <div class="kpi-value">${fmt$(pipeRaw)}</div>
+      <div class="kpi-sub">${openDeals.length} open deals</div>
+    </div>
+    <div class="kpi-card highlight">
+      <div class="kpi-label">Weighted Pipeline</div>
+      <div class="kpi-value">${fmt$(pipeWtd)}</div>
+      <div class="kpi-sub">Probability-adjusted</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Projected Total</div>
+      <div class="kpi-value">${fmt$(projTotal)}</div>
+      <div class="kpi-sub">Closed + weighted pipeline</div>
+    </div>
+  </div>`;
+
+  // Stage breakdown
+  if(openDeals.length > 0){
+    const byStage = {};
+    openDeals.forEach(d => {
+      const sid = d.s;
+      if(!byStage[sid]) byStage[sid] = { deals:[], raw:0, wtd:0 };
+      const w = (STAGE_WEIGHTS[sid]||{prob:0.05}).prob;
+      byStage[sid].deals.push(d);
+      byStage[sid].raw  += (d.a||0);
+      byStage[sid].wtd  += (d.a > 0 ? d.a : avgWon) * w;
+    });
+
+    // Sort by probability descending
+    const stageOrder = Object.keys(STAGE_WEIGHTS);
+    const stages = stageOrder.filter(sid => byStage[sid]).concat(
+      Object.keys(byStage).filter(sid => !STAGE_WEIGHTS[sid])
+    );
+
+    html += `<div class="table-wrap" style="padding:16px 20px;margin-bottom:20px">`;
+    // Header row
+    html += `<div style="display:flex;align-items:center;gap:12px;padding-bottom:8px;border-bottom:2px solid #EDF2F1;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#7BA69E">
+      <div style="width:10px"></div>
+      <div style="flex:1">Stage</div>
+      <div style="min-width:34px;text-align:center">Prob.</div>
+      <div style="min-width:60px;text-align:right">Deals</div>
+      <div style="min-width:100px;text-align:right">Raw Value</div>
+      <div style="min-width:100px;text-align:right">Weighted</div>
+    </div>`;
+
+    stages.forEach(sid => {
+      const s   = byStage[sid];
+      const cfg = STAGE_WEIGHTS[sid] || {prob:0.05, label:sid, color:'#9BB5B1'};
+      const p   = Math.round(cfg.prob * 100);
+      const probCol = p >= 80 ? '#1B7A3D' : p >= 50 ? '#3D9B8F' : p >= 25 ? '#B8860B' : '#9BB5B1';
+      const firms = new Set(s.deals.map(d => ck(d.n))).size;
+      html += `<div class="stage-row">
+        <div class="stage-dot" style="background:${cfg.color}"></div>
+        <div class="stage-name">${cfg.label}</div>
+        <div class="stage-prob" style="background:${probCol}18;color:${probCol}">${p}%</div>
+        <div class="stage-deals">${s.deals.length} deal${s.deals.length!==1?'s':''} · ${firms} firm${firms!==1?'s':''}</div>
+        <div class="stage-raw">${s.raw ? fmtFull$(s.raw) : '<span class="muted">TBD</span>'}</div>
+        <div class="stage-wtd">${fmtFull$(Math.round(s.wtd))}</div>
+      </div>`;
+    });
+
+    // Totals
+    html += `<div class="stage-row" style="font-weight:700;border-top:2px solid #D4E2DD;padding-top:12px;margin-top:2px">
+      <div style="width:10px"></div>
+      <div class="stage-name" style="color:#0D2B29">Total Pipeline</div>
+      <div class="stage-prob"></div>
+      <div class="stage-deals" style="color:#0D2B29;font-weight:700">${openDeals.length} deals</div>
+      <div class="stage-raw">${fmtFull$(pipeRaw)}</div>
+      <div class="stage-wtd">${fmtFull$(Math.round(pipeWtd))}</div>
+    </div>`;
+    html += `</div>`;
+
+    // Deal list
+    html += `<div class="table-wrap"><table>
+      <thead><tr>
+        <th>Deal Name</th>
+        <th>Stage</th>
+        <th>Prob.</th>
+        <th>Amount</th>
+        <th>Weighted</th>
+      </tr></thead><tbody>`;
+
+    const sortedOpen = [...openDeals].sort((a,b) => {
+      const wa = (STAGE_WEIGHTS[a.s]||{prob:0}).prob;
+      const wb = (STAGE_WEIGHTS[b.s]||{prob:0}).prob;
+      return wb !== wa ? wb - wa : (b.a||0) - (a.a||0);
+    });
+    sortedOpen.forEach(d => {
+      const cfg = STAGE_WEIGHTS[d.s] || {prob:0.05, label:d.s, color:'#9BB5B1'};
+      const p   = Math.round(cfg.prob * 100);
+      const wtd = (d.a > 0 ? d.a : avgWon) * cfg.prob;
+      const probCol = p >= 80 ? '#1B7A3D' : p >= 50 ? '#3D9B8F' : p >= 25 ? '#B8860B' : '#9BB5B1';
+      html += `<tr>
+        <td>${d.n}</td>
+        <td><span style="color:${cfg.color};font-weight:600">${cfg.label}</span></td>
+        <td style="color:${probCol};font-weight:700">${p}%</td>
+        <td style="font-weight:600">${d.a ? fmtFull$(d.a) : '<span class="muted">TBD</span>'}</td>
+        <td class="muted">${fmtFull$(Math.round(wtd))}</td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+
+    html += `<div class="pipe-note" style="background:#fff;border-radius:10px;padding:14px 18px;box-shadow:0 1px 6px rgba(27,77,74,.07);margin-bottom:28px">
+      <strong>Methodology:</strong> Weighted pipeline applies stage probabilities (Contract Sent 85%, Negotiating 55%, Qualified Meeting 30%, Contact 10%) to deal amounts.
+      Deals without a set amount use the current average closed-won deal value (${fmt$(Math.round(avgWon))}).
+      Projected Total = Closed Won + Weighted Pipeline.
+    </div>`;
+  } else {
+    html += `<div style="background:#fff;border-radius:12px;padding:24px;text-align:center;color:#7BA69E;font-size:13px;margin-bottom:28px;box-shadow:0 1px 6px rgba(27,77,74,.07)">
+      No open pipeline deals found for SC2027 yet.
+    </div>`;
+  }
+
   // ── Footer ──
   html += `<div class="report-footer">RacquetX · SC2027 Sales Report · Confidential &amp; Proprietary · Live data from HubSpot</div>`;
 
@@ -432,8 +584,9 @@ async function init(){
     const live = await res.json();
     if(!live.d||!Array.isArray(live.d)) throw new Error('Invalid response');
 
-    const deals27 = live.d.filter(d => d.p===27 && d.s==='closedwon' && d.a>0);
-    renderReport(deals27, live.ts||'');
+    const allDeals27 = live.d.filter(d => d.p===27);
+    const deals27    = allDeals27.filter(d => d.s==='closedwon' && d.a>0);
+    renderReport(deals27, live.ts||'', allDeals27);
   } catch(err){
     const content = document.getElementById('reportContent');
     const syncEl  = document.getElementById('syncBadge');
