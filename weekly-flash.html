@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weekly Flash Report · RacquetX</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F0F4F3; color: #0D2B29; }
+
+  .report-header {
+    background: linear-gradient(135deg, #0D2B29 0%, #1B4D4A 60%, #2A6B65 100%);
+    color: #fff; padding: 28px 48px 26px;
+    display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+  }
+  .report-header .left .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 600;
+    letter-spacing: .06em; text-transform: uppercase; color: #A8D5CF; margin-bottom: 10px;
+  }
+  .report-header h1 { font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
+  .report-header .subtitle { font-size: 13px; color: #A8D5CF; margin-top: 4px; }
+  .report-header .sync { font-size: 11px; color: rgba(255,255,255,.4); margin-top: 14px; }
+  .report-header .right { text-align: right; }
+  .report-header .week-badge { font-size: 13px; font-weight: 700; color: #fff; background: rgba(255,255,255,.12); border-radius: 8px; padding: 8px 16px; }
+  .report-header .week-sub  { font-size: 11px; color: #A8D5CF; margin-top: 6px; }
+
+  .content { max-width: 1060px; margin: 0 auto; padding: 32px 24px 60px; }
+
+  /* Loading */
+  .loading-state { background:#fff;border-radius:12px;padding:40px;text-align:center;box-shadow:0 1px 6px rgba(27,77,74,.07);margin-bottom:24px; }
+  .spinner { width:28px;height:28px;border:3px solid #D4E2DD;border-top-color:#3D9B8F;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* Section */
+  .sec-title { font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#7BA69E;margin-bottom:10px;margin-top:24px; }
+  .sec-title:first-of-type { margin-top:0; }
+
+  /* Two-col grid */
+  .two-col { display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px; }
+  @media(max-width:700px){ .two-col { grid-template-columns:1fr; } }
+
+  /* Cards */
+  .card { background:#fff;border-radius:12px;padding:20px 22px;box-shadow:0 1px 6px rgba(27,77,74,.07); }
+  .card-title { font-size:13px;font-weight:700;color:#0D2B29;margin-bottom:14px;display:flex;align-items:center;gap:8px; }
+  .card-title span { font-size:16px; }
+
+  /* KPI mini grid */
+  .kpi-row { display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px; }
+  .kpi-mini { background:#F6FAF9;border-radius:8px;padding:12px 14px; }
+  .kpi-mini .lbl { font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#7BA69E;margin-bottom:4px; }
+  .kpi-mini .val { font-size:20px;font-weight:800;color:#0D2B29;letter-spacing:-.02em; }
+  .kpi-mini .sub { font-size:11px;color:#9BB5B1;margin-top:2px; }
+  .kpi-mini.accent { background:linear-gradient(135deg,#1B4D4A,#3D9B8F); }
+  .kpi-mini.accent .lbl { color:rgba(255,255,255,.6); }
+  .kpi-mini.accent .val { color:#fff; }
+  .kpi-mini.accent .sub { color:rgba(255,255,255,.5); }
+
+  /* Attainment bar */
+  .att-row { display:flex;align-items:center;gap:10px;margin-bottom:10px; }
+  .att-label { font-size:12px;font-weight:600;color:#2A4E4A;min-width:56px; }
+  .att-bar-bg { flex:1;height:8px;background:#EDF2F1;border-radius:4px;overflow:hidden; }
+  .att-bar-fill { height:100%;border-radius:4px;transition:width .5s; }
+  .att-nums { font-size:11px;min-width:140px;text-align:right;color:#5A8A84; }
+  .att-pct  { font-size:12px;font-weight:700;min-width:38px;text-align:right; }
+
+  /* Pipeline stage list */
+  .stage-list { display:flex;flex-direction:column;gap:0; }
+  .stage-item { display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F0F6F4; }
+  .stage-item:last-child { border-bottom:none; }
+  .s-dot { width:8px;height:8px;border-radius:50%;flex-shrink:0; }
+  .s-name { font-size:13px;font-weight:600;flex:1;color:#2A4E4A; }
+  .s-prob { font-size:10px;font-weight:700;padding:2px 5px;border-radius:3px;min-width:30px;text-align:center; }
+  .s-ct   { font-size:12px;color:#7BA69E;min-width:50px;text-align:right; }
+  .s-raw  { font-size:13px;font-weight:700;color:#0D2B29;min-width:80px;text-align:right; }
+  .s-wtd  { font-size:12px;color:#3D9B8F;min-width:70px;text-align:right; }
+  .stage-total { display:flex;align-items:center;gap:10px;padding:10px 0 0;border-top:2px solid #D4E2DD;margin-top:4px; }
+
+  /* SVG bar chart */
+  .chart-wrap { width:100%;overflow:hidden; }
+  .bar-chart-svg { width:100%;display:block; }
+  .chart-note { font-size:10px;color:#9BB5B1;margin-top:6px;text-align:center; }
+
+  /* Cash cards */
+  .cash-kpis { display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px; }
+  @media(max-width:600px){ .cash-kpis { grid-template-columns:1fr 1fr; } }
+
+  /* Divider */
+  .divider { height:1px;background:#E0ECEB;margin:24px 0; }
+
+  /* Footer */
+  .report-footer { text-align:center;font-size:11px;color:#9BB5B1;padding-top:20px;border-top:1px solid #E0ECEB;margin-top:8px; }
+  .tag-live { background:#D4F0E8;color:#1B6B55;font-size:10px;font-weight:700;border-radius:4px;padding:2px 6px; }
+</style>
+</head>
+<body>
+
+<div class="report-header">
+  <div class="left">
+    <div class="badge">⚡ Weekly Flash · Confidential</div>
+    <h1>Weekly Business Update</h1>
+    <div class="subtitle">RacquetX · SC2027 Sales · Cash &amp; Burn</div>
+    <div class="sync" id="syncLine">Loading live data…</div>
+  </div>
+  <div class="right">
+    <div class="week-badge" id="weekBadge">—</div>
+    <div class="week-sub">as of <span id="asOfDate">—</span></div>
+  </div>
+</div>
+
+<div class="content" id="reportContent">
+  <div class="loading-state">
+    <div class="spinner"></div>
+    <p style="font-size:13px;color:#7BA69E">Fetching live data from HubSpot &amp; QuickBooks…</p>
+  </div>
+</div>
+
+<script>
+// ── Config ─────────────────────────────────────────────────────────────────
+const HS_PROXY  = 'https://racquetx-hubspot-proxy.racquetx.workers.dev/api/deals';
+const QBO_BASE  = 'https://racquetx-qbo-proxy.racquetx.workers.dev';
+const QBO_YEAR  = 2026;
+
+// SC2027 quotas — index 0=Apr'26 … 11=Mar'27
+const Q_SHOW = [100000,250000,80000,80000,75000,120000,160000,180000,250000,180000,190000,35000];
+const Q_CS   = [0,70500,30000,30000,19500,0,0,0,0,0,0,0];
+const MO_LBL = ["Apr'26","May'26","Jun'26","Jul'26","Aug'26","Sep'26","Oct'26","Nov'26","Dec'26","Jan'27","Feb'27","Mar'27"];
+
+const STAGE_CFG = {
+  '101597223':           {prob:0.85, label:'Contract Sent',    color:'#1B7A3D'},
+  '101597222':           {prob:0.55, label:'Negotiating',       color:'#3D9B8F'},
+  'presentationscheduled':{prob:0.30, label:'Qualified Meeting',color:'#B8860B'},
+  'appointmentscheduled': {prob:0.10, label:'Contact',          color:'#C0392B'},
+  '1037013850':          {prob:0.00, label:'Non-Qualified',     color:'#9BB5B1'},
+};
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+const fmt$ = v => v == null ? '—' : v >= 1e6 ? '$'+(v/1e6).toFixed(2)+'M' : v >= 1e3 ? '$'+Math.round(v/1e3).toLocaleString()+'K' : '$'+Math.round(v).toLocaleString();
+const fmtFull = v => '$'+Math.round(v).toLocaleString();
+const pct = (a,b) => b > 0 ? Math.min(Math.round(a/b*100), 999) : 0;
+const ck  = n => n.split(' - ')[0].trim().toLowerCase();
+const isRebook = d => d.r === 'Rebook' || d.n.toLowerCase().includes('rebook');
+const isCsDeal = n => n.toLowerCase().includes('city series');
+
+function sc27Idx(cd){
+  if(!cd||cd.length<7) return -1;
+  const yr=+cd.slice(0,4), mo=+cd.slice(5,7);
+  if(yr===2026&&mo>=4) return mo-4;
+  if(yr===2027&&mo<=3) return mo+8;
+  return -1;
+}
+function curIdx(){
+  const now=new Date(), yr=now.getFullYear(), mo=now.getMonth()+1;
+  if(yr<2026||(yr===2026&&mo<4)) return 0;
+  if(yr===2026&&mo>=4) return Math.min(mo-4,11);
+  if(yr===2027&&mo<=3) return Math.min(mo+8,11);
+  return 11;
+}
+function weekLabel(){
+  const now = new Date();
+  const d1  = new Date(now); d1.setDate(now.getDate() - now.getDay() + 1);
+  const d2  = new Date(d1);  d2.setDate(d1.getDate() + 6);
+  const fmt = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  return `Week of ${fmt(d1)} – ${fmt(d2)}`;
+}
+
+// ── QBO parsing ─────────────────────────────────────────────────────────────
+function parseNetChanges(report){
+  if(!report?.Rows) return Array(12).fill(0);
+  const rows = report.Rows.Row || [];
+  for(const r of rows){
+    if(r.Summary){
+      const cd  = r.Summary.ColData || [];
+      const lbl = cd[0]?.value || '';
+      if(/Net cash|Net Increase|Ending Cash|Net change/i.test(lbl)){
+        return cd.slice(1,-1).map(c=>parseFloat(c.value||0)||0);
+      }
+    }
+    if(r.Header && r.Rows){
+      const sub = r.Summary?.ColData || [];
+      const lbl = (sub[0]?.value || r.Header?.ColData?.[0]?.value || '');
+      if(/Net cash|Net Increase/i.test(lbl)){
+        return sub.slice(1,-1).map(c=>parseFloat(c.value||0)||0);
+      }
+    }
+  }
+  return Array(12).fill(0);
+}
+function extractBankBalances(bsReport){
+  if(!bsReport?.Rows) return null;
+  function find(node){
+    if(node.Header && node.Rows){
+      const lbl = node.Header.ColData?.[0]?.value || '';
+      if(/^Bank Accounts$/i.test(lbl)){
+        const cd = node.Summary?.ColData || [];
+        return cd.slice(1,-1).map(c=>parseFloat(c.value||0)||0);
+      }
+      for(const sub of (node.Rows.Row||[])){ const r=find(sub); if(r) return r; }
+    }
+    return null;
+  }
+  for(const r of (bsReport.Rows.Row||[])){ const f=find(r); if(f) return f; }
+  return null;
+}
+
+// ── SVG bar chart ──────────────────────────────────────────────────────────
+function svgBars(data, opts={}){
+  const W = opts.w || 600, H = opts.h || 120;
+  const pad = { t:8, b:32, l:44, r:8 };
+  const bW  = opts.barW || Math.max(4, Math.floor((W - pad.l - pad.r) / data.length * 0.65));
+  const gap  = (W - pad.l - pad.r) / data.length;
+  const maxAbs = Math.max(...data.map(d=>Math.abs(d.v)), 1);
+  const zeroY  = pad.t + (H - pad.t - pad.b) / 2;
+  const scaleY = (H - pad.t - pad.b) / 2 / maxAbs;
+
+  let bars = '', labels = '', vals = '';
+
+  data.forEach((d, i) => {
+    const x    = pad.l + gap * i + (gap - bW) / 2;
+    const barH = Math.abs(d.v) * scaleY;
+    const y    = d.v >= 0 ? zeroY - barH : zeroY;
+    const col  = d.v >= 0 ? (opts.posColor || '#1B7A3D') : (opts.negColor || '#C0392B');
+    const lbl  = d.label || '';
+    const valY = d.v >= 0 ? y - 3 : y + barH + 11;
+    bars   += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bW}" height="${Math.max(barH,1).toFixed(1)}" fill="${col}" rx="2"/>`;
+    labels += `<text x="${(x+bW/2).toFixed(1)}" y="${(H-pad.b+14).toFixed(1)}" text-anchor="middle" font-size="9" fill="#9BB5B1">${lbl}</text>`;
+    if(Math.abs(d.v) > 0){
+      vals += `<text x="${(x+bW/2).toFixed(1)}" y="${valY.toFixed(1)}" text-anchor="middle" font-size="8" fill="${col}" font-weight="600">${d.v>=0?'+':''}${fmt$(d.v).replace('$','').trim()}</text>`;
+    }
+  });
+
+  // Zero line
+  const zLine = `<line x1="${pad.l}" y1="${zeroY.toFixed(1)}" x2="${W-pad.r}" y2="${zeroY.toFixed(1)}" stroke="#D4E2DD" stroke-width="1"/>`;
+  // Y-axis labels
+  const yLabels = [-maxAbs, 0, maxAbs].map(v => {
+    const y = zeroY - v * scaleY;
+    return `<text x="${(pad.l-4).toFixed(1)}" y="${y.toFixed(1)}" text-anchor="end" font-size="9" fill="#9BB5B1" dominant-baseline="middle">${fmt$(v)}</text>`;
+  }).join('');
+
+  return `<svg class="bar-chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+    ${yLabels}${zLine}${bars}${labels}${vals}
+  </svg>`;
+}
+
+// ── Main render ─────────────────────────────────────────────────────────────
+function render(deals27all, cfData, bsData, hsTsLabel){
+  const ci = curIdx();
+  const content = document.getElementById('reportContent');
+
+  // ── HubSpot: closed won
+  const wonDeals = deals27all.filter(d => d.s==='closedwon' && d.a>0);
+  let totSp=0, rbRev=0, nwRev=0, rbCt=0, nwCt=0;
+  const firms = new Set(), rbFirms = new Set(), nwFirms = new Set();
+  const monthly = Array(12).fill(null).map(()=>({v:0,cs:0}));
+  wonDeals.forEach(d=>{
+    totSp += d.a;
+    const key = ck(d.n);
+    firms.add(key);
+    const idx = sc27Idx(d.cd); if(idx>=0&&idx<=11) monthly[idx].v += d.a;
+    if(isRebook(d)){ rbCt++; rbRev+=d.a; rbFirms.add(key); }
+    else { nwCt++; nwRev+=d.a; nwFirms.add(key); }
+  });
+
+  // ── HubSpot: open pipeline
+  const openDeals = deals27all.filter(d => d.s!=='closedwon' && d.s!=='closedlost');
+  let pipeRaw=0, pipeWtd=0;
+  const byStage={};
+  openDeals.forEach(d=>{
+    const cfg = STAGE_CFG[d.s]||{prob:0.05,label:d.s,color:'#9BB5B1'};
+    pipeRaw += (d.a||0);
+    pipeWtd += (d.a||0) * cfg.prob;
+    if(!byStage[d.s]) byStage[d.s]={raw:0,wtd:0,ct:0,firms:new Set()};
+    byStage[d.s].raw += (d.a||0);
+    byStage[d.s].wtd += (d.a||0)*cfg.prob;
+    byStage[d.s].ct++;
+    byStage[d.s].firms.add(ck(d.n));
+  });
+
+  // ── Quota attainment YTD
+  const ytdActShow = monthly.slice(0,ci+1).reduce((s,m)=>s+m.v,0);
+  const ytdQ       = Q_SHOW.slice(0,ci+1).reduce((s,v)=>s+v,0) + Q_CS.slice(0,ci+1).reduce((s,v)=>s+v,0);
+  const annQ       = Q_SHOW.reduce((s,v)=>s+v,0) + Q_CS.reduce((s,v)=>s+v,0);
+  const ytdPct     = pct(totSp, ytdQ);
+  const attCol     = ytdPct>=100?'#1B7A3D':ytdPct>=75?'#1B4D4A':ytdPct>=50?'#B8860B':'#C0392B';
+
+  // ── QBO: net cash changes
+  const netChanges  = parseNetChanges(cfData?.report) || Array(12).fill(0);
+  const bankBals    = extractBankBalances(bsData?.report) || Array(12).fill(0);
+  const lastActIdx  = netChanges.reduce((idx,v,i)=>Math.abs(v)>0.01?i:idx, -1);
+  const curCash     = lastActIdx >= 0 ? bankBals[lastActIdx] : 0;
+  const beginCash   = bankBals[0] - (netChanges[0]||0);
+  const cashChange  = curCash - beginCash;
+  const avgBurn3    = lastActIdx >= 0 ? netChanges.slice(Math.max(0,lastActIdx-2), lastActIdx+1).reduce((s,v)=>s+v,0) / Math.min(3, lastActIdx+1) : 0;
+
+  // Monthly net change for bar chart (last 6 actual months)
+  const burnBars = [];
+  for(let i = Math.max(0, lastActIdx-5); i <= lastActIdx; i++){
+    const mo = i < 9 ? `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][i]}'26` : `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][i]}'${QBO_YEAR%100}`;
+    burnBars.push({ label: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][i], v: Math.round(netChanges[i]) });
+  }
+
+  // Cash balance bars (same period)
+  const cashBars = [];
+  for(let i = Math.max(0,lastActIdx-5); i <= lastActIdx; i++){
+    cashBars.push({ label: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][i], v: Math.round(bankBals[i]) });
+  }
+
+  // ── Build HTML ──────────────────────────────────────────────────────────
+  let h = '';
+
+  // ─ Row 1: Sales KPIs + Pipeline ─
+  h += `<div class="two-col">`;
+
+  // Sales
+  h += `<div class="card">
+    <div class="card-title"><span>💰</span> SC2027 Closed Won <span class="tag-live">Live</span></div>
+    <div class="kpi-row">
+      <div class="kpi-mini accent"><div class="lbl">Total</div><div class="val">${fmt$(totSp)}</div><div class="sub">${wonDeals.length} deals · ${firms.size} firms</div></div>
+      <div class="kpi-mini"><div class="lbl">Rebooks</div><div class="val">${rbCt}</div><div class="sub">${fmt$(rbRev)}</div></div>
+      <div class="kpi-mini"><div class="lbl">New</div><div class="val">${nwCt}</div><div class="sub">${fmt$(nwRev)}</div></div>
+    </div>`;
+
+  // Monthly attainment bars (all SC2027 months)
+  h += `<div style="margin-top:4px">`;
+  MO_LBL.forEach((lbl, i) => {
+    const q   = Q_SHOW[i] + Q_CS[i];
+    const act = monthly[i].v;
+    const isFut = i > ci;
+    const p   = q > 0 ? Math.min(pct(act, q), 100) : 0;
+    const c   = p >= 100 ? '#1B7A3D' : p >= 75 ? '#1B4D4A' : p >= 50 ? '#B8860B' : act > 0 ? '#C0392B' : '#D8E6E3';
+    const attStr = !isFut && q > 0 ? `${p}% · ${act ? fmtFull(act) : '$0'} / ${fmtFull(q)}` : isFut ? `quota: ${fmtFull(q)}` : '—';
+    h += `<div class="att-row">
+      <div class="att-label" style="font-size:11px">${lbl}</div>
+      <div class="att-bar-bg"><div class="att-bar-fill" style="width:${isFut?0:p}%;background:${c};opacity:${isFut?.3:1}"></div></div>
+      <div class="att-nums" style="color:${isFut?'#9BB5B1':c}">${attStr}</div>
+    </div>`;
+  });
+  h += `</div>`;
+
+  // YTD summary
+  h += `<div style="margin-top:14px;padding-top:12px;border-top:1px solid #EDF2F1;display:flex;justify-content:space-between;align-items:center">
+    <span style="font-size:12px;color:#5A8A84">YTD Attainment through ${MO_LBL[ci]}</span>
+    <span style="font-size:15px;font-weight:800;color:${attCol}">${ytdPct}% <span style="font-size:11px;font-weight:400;color:#9BB5B1">of ${fmt$(ytdQ)} YTD quota</span></span>
+  </div>`;
+  h += `</div>`; // end sales card
+
+  // Pipeline
+  h += `<div class="card">
+    <div class="card-title"><span>📋</span> SC2027 Pipeline</div>
+    <div class="kpi-row">
+      <div class="kpi-mini accent"><div class="lbl">Weighted</div><div class="val">${fmt$(pipeWtd)}</div><div class="sub">prob-adjusted</div></div>
+      <div class="kpi-mini"><div class="lbl">Raw</div><div class="val">${fmt$(pipeRaw)}</div><div class="sub">${openDeals.length} open deals</div></div>
+      <div class="kpi-mini"><div class="lbl">Projected</div><div class="val">${fmt$(totSp+pipeWtd)}</div><div class="sub">Won + weighted</div></div>
+    </div>
+    <div class="stage-list">`;
+
+  const stageOrder = Object.keys(STAGE_CFG);
+  const activeStages = stageOrder.filter(s=>byStage[s]).concat(Object.keys(byStage).filter(s=>!STAGE_CFG[s]));
+  activeStages.forEach(sid=>{
+    const s=byStage[sid], cfg=STAGE_CFG[sid]||{prob:0.05,label:sid,color:'#9BB5B1'};
+    const p=Math.round(cfg.prob*100);
+    const probCol=p>=80?'#1B7A3D':p>=50?'#3D9B8F':p>=25?'#B8860B':'#9BB5B1';
+    h+=`<div class="stage-item">
+      <div class="s-dot" style="background:${cfg.color}"></div>
+      <div class="s-name">${cfg.label}</div>
+      <div class="s-prob" style="background:${probCol}1A;color:${probCol}">${p}%</div>
+      <div class="s-ct">${s.ct} · ${s.firms.size}f</div>
+      <div class="s-raw">${s.raw?fmtFull(s.raw):'TBD'}</div>
+      <div class="s-wtd">${fmtFull(Math.round(s.wtd))}</div>
+    </div>`;
+  });
+  h+=`</div>
+    <div class="stage-total">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#7BA69E;flex:1">Total</div>
+      <div class="s-ct" style="color:#0D2B29;font-weight:700">${openDeals.length}</div>
+      <div class="s-raw" style="font-weight:700">${fmt$(pipeRaw)}</div>
+      <div class="s-wtd" style="font-weight:700;color:#1B4D4A">${fmtFull(Math.round(pipeWtd))}</div>
+    </div>
+  </div>`; // end pipeline card
+
+  h += `</div>`; // end two-col
+
+  // ─ Row 2: Cash Position + Burn Rate ─
+  h += `<div class="sec-title">Cash &amp; Burn — FY${QBO_YEAR}</div>`;
+  h += `<div class="two-col">`;
+
+  // Cash position
+  const cashCol = curCash >= 0 ? '#1B7A3D' : '#C0392B';
+  h += `<div class="card">
+    <div class="card-title"><span>🏦</span> Cash Position</div>
+    <div class="cash-kpis">
+      <div class="kpi-mini accent"><div class="lbl">Current Balance</div><div class="val">${fmt$(curCash)}</div><div class="sub">${lastActIdx>=0?`End of ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][lastActIdx]} ${QBO_YEAR}`:'No data'}</div></div>
+      <div class="kpi-mini"><div class="lbl">Jan 1 Balance</div><div class="val">${fmt$(beginCash)}</div><div class="sub">Beginning ${QBO_YEAR}</div></div>
+      <div class="kpi-mini"><div class="lbl">YTD Change</div><div class="val" style="color:${cashChange>=0?'#1B7A3D':'#C0392B'}">${cashChange>=0?'+':''}${fmt$(cashChange)}</div><div class="sub">vs Jan 1</div></div>
+    </div>`;
+
+  if(cashBars.length > 0){
+    h += `<div class="chart-wrap">${svgBars(cashBars, {h:100, posColor:'#3D9B8F', negColor:'#C0392B'})}</div>`;
+    h += `<div class="chart-note">Monthly ending cash balance (bank accounts)</div>`;
+  }
+  h += `</div>`; // end cash card
+
+  // Burn rate
+  h += `<div class="card">
+    <div class="card-title"><span>🔥</span> Monthly Net Cash Flow</div>
+    <div class="cash-kpis">
+      <div class="kpi-mini accent"><div class="lbl">Latest Month</div><div class="val" style="${lastActIdx>=0&&netChanges[lastActIdx]<0?'color:#ff8a7a':''}">${lastActIdx>=0?fmt$(netChanges[lastActIdx]):'—'}</div><div class="sub">${lastActIdx>=0?['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][lastActIdx]+' '+QBO_YEAR:'—'}</div></div>
+      <div class="kpi-mini"><div class="lbl">3-mo Avg</div><div class="val" style="color:${avgBurn3>=0?'#1B7A3D':'#C0392B'}">${avgBurn3>=0?'+':''}${fmt$(avgBurn3)}</div><div class="sub">trailing average</div></div>
+      <div class="kpi-mini"><div class="lbl">Trend</div><div class="val">${avgBurn3>=0?'📈 Positive':'📉 Negative'}</div><div class="sub">${avgBurn3>=0?'Cash generating':'Cash consuming'}</div></div>
+    </div>`;
+
+  if(burnBars.length > 0){
+    h += `<div class="chart-wrap">${svgBars(burnBars, {h:100})}</div>`;
+    h += `<div class="chart-note">Net cash in/out per month — green = inflow, red = outflow</div>`;
+  } else {
+    h += `<div style="text-align:center;padding:20px;font-size:13px;color:#9BB5B1">No cash flow data available</div>`;
+  }
+  h += `</div>`; // end burn card
+  h += `</div>`; // end two-col
+
+  h += `<div class="report-footer">RacquetX · Weekly Flash Report · Confidential &amp; Proprietary · Live: HubSpot + QuickBooks Online · ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div>`;
+
+  content.innerHTML = h;
+
+  // Header
+  document.getElementById('weekBadge').textContent = weekLabel();
+  document.getElementById('asOfDate').textContent   = new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  document.getElementById('syncLine').textContent   = hsTsLabel ? `HubSpot synced: ${hsTsLabel}` : 'Live data loaded';
+}
+
+// ── Fetch & init ─────────────────────────────────────────────────────────────
+async function init(){
+  const fetchQbo = path => fetch(QBO_BASE+path,{signal:AbortSignal.timeout(20000)}).then(r=>r.ok?r.json():Promise.reject('HTTP '+r.status));
+
+  try {
+    const [hsRes, cfRes, bsRes] = await Promise.allSettled([
+      fetch(HS_PROXY,{signal:AbortSignal.timeout(15000)}).then(r=>r.json()),
+      fetchQbo(`/api/cashflow?year=${QBO_YEAR}`),
+      fetchQbo(`/api/balancesheet?year=${QBO_YEAR}`)
+    ]);
+
+    const hsData = hsRes.status==='fulfilled' ? hsRes.value : null;
+    const cfData = cfRes.status==='fulfilled' ? cfRes.value : null;
+    const bsData = bsRes.status==='fulfilled' ? bsRes.value : null;
+
+    if(!hsData?.d) throw new Error('HubSpot data unavailable');
+
+    const deals27 = hsData.d.filter(d => d.p===27);
+    render(deals27, cfData, bsData, hsData.ts||'');
+  } catch(err){
+    document.getElementById('reportContent').innerHTML =
+      `<div style="background:#FFF5F5;border:1px solid #FCC;border-radius:12px;padding:20px 24px;color:#C0392B;font-size:13px;">
+        ⚠️ Failed to load report data: ${err.message}. Please refresh.
+      </div>`;
+    document.getElementById('syncLine').textContent = 'Load failed';
+  }
+}
+
+init();
+</script>
+</body>
+</html>
