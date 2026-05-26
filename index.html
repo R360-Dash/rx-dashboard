@@ -1123,7 +1123,8 @@ const AUTH_USERS = [
   { username: 'nicolas',  password: 'Nicolas2026!',  displayName: 'Nicolas',          role: 'Viewer' },
   { username: 'analyst',  password: 'Analyst2026!',  displayName: 'Analyst',          role: 'Viewer' },
   { username: 'sales',    password: 'Sales2026!',    displayName: 'Sales Team',       role: 'Sales' },
-  { username: 'investor', password: 'Investor2026!', displayName: 'Investor',         role: 'Viewer' }
+  { username: 'investor',    password: 'Investor2026!',  displayName: 'Investor',         role: 'Viewer' },
+  { username: 'andyfreire26', password: 'AndyFreire@2026', displayName: 'Andy Freire',     role: 'Administrator' }
 ];
 
 // ════════════════════════════════════════════════════
@@ -1144,7 +1145,7 @@ const ALLOWED_SECTIONS = {
 };
 
 // Users with access to the Board Reports section
-const BOARD_REPORT_USERS = ['matias', 'robyn', 'giberti', 'emiliano'];
+const BOARD_REPORT_USERS = ['matias', 'robyn', 'giberti', 'emiliano', 'andyfreire26'];
 
 function hasAccess(role, sectionId) {
   if (FULL_ACCESS_ROLES.includes(role)) return true;
