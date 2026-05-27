@@ -1132,17 +1132,17 @@ const AUTH_USERS = [
 // Roles not listed here (Administrator, Owner) get full access
 // ════════════════════════════════════════════════════
 const RESTRICTED_SECTIONS = {
-  'Viewer': ['sec-pl', 'sec-bva', 'sec-cashflow', 'sec-revproj', 'sec-scenario'],
-  'Sales':  ['sec-arcl', 'sec-arinv', 'sec-pl', 'sec-bva', 'sec-cashflow', 'sec-revproj', 'sec-scenario']
+  'Viewer':    ['sec-pl', 'sec-bva', 'sec-cashflow', 'sec-revproj', 'sec-scenario'],
+  'Sales':     ['sec-arcl', 'sec-arinv', 'sec-pl', 'sec-bva', 'sec-cashflow', 'sec-revproj', 'sec-scenario'],
+  // Marketing: full access except financial sections; within Expenses only sees Marketing Breakdown
+  'Marketing': ['sec-pl', 'sec-bva', 'sec-cashflow', 'sec-revproj', 'sec-scenario']
 };
 
 // Roles with full access (no restrictions)
 const FULL_ACCESS_ROLES = ['Administrator', 'Owner'];
 
 // Roles with an allowlist — ONLY these sections are accessible (everything else is blocked)
-const ALLOWED_SECTIONS = {
-  'Marketing': ['sec-expenses']
-};
+const ALLOWED_SECTIONS = {};
 
 // Users with access to the Board Reports section
 const BOARD_REPORT_USERS = ['matias', 'robyn', 'giberti', 'emiliano', 'andyfreire26'];
@@ -1292,9 +1292,9 @@ function applyUserAccess(user) {
     boardGroup.style.display = BOARD_REPORT_USERS.includes(username) ? '' : 'none';
   }
 
-  // Marketing role: auto-navigate to the only accessible section
+  // Marketing role: land on the dashboard overview (full nav access except financials)
   if (user.role === 'Marketing') {
-    setTimeout(() => showPage('sec-expenses'), 50);
+    setTimeout(() => showPage('sec-overview'), 50);
   }
 }
 
