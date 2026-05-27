@@ -1124,7 +1124,8 @@ const AUTH_USERS = [
   { username: 'analyst',  password: 'Analyst2026!',  displayName: 'Analyst',          role: 'Viewer' },
   { username: 'sales',    password: 'Sales2026!',    displayName: 'Sales Team',       role: 'Sales' },
   { username: 'investor',    password: 'Investor2026!',  displayName: 'Investor',         role: 'Viewer' },
-  { username: 'andyfreire26', password: 'AndyFreire@2026', displayName: 'Andy Freire',     role: 'Administrator' }
+  { username: 'andyfreire26', password: 'AndyFreire@2026', displayName: 'Andy Freire',     role: 'Administrator' },
+  { username: 'mrivera',      password: 'MichelleRivera@2026', displayName: 'Michelle Rivera', role: 'MarketingPlus' }
 ];
 
 // ════════════════════════════════════════════════════
@@ -1135,7 +1136,9 @@ const RESTRICTED_SECTIONS = {
   'Viewer':    ['sec-pl', 'sec-bva', 'sec-cashflow', 'sec-revproj', 'sec-scenario'],
   'Sales':     ['sec-arcl', 'sec-arinv', 'sec-pl', 'sec-bva', 'sec-cashflow', 'sec-revproj', 'sec-scenario'],
   // Marketing: full access except financial sections; within Expenses only sees Marketing Breakdown
-  'Marketing': ['sec-pl', 'sec-bva', 'sec-cashflow', 'sec-revproj', 'sec-scenario']
+  'Marketing':     ['sec-pl', 'sec-bva', 'sec-cashflow', 'sec-revproj', 'sec-scenario'],
+  // MarketingPlus: same as Marketing + Direct Costs (Show/City Series) in Expenses
+  'MarketingPlus': ['sec-pl', 'sec-bva', 'sec-cashflow', 'sec-revproj', 'sec-scenario']
 };
 
 // Roles with full access (no restrictions)
@@ -1292,8 +1295,8 @@ function applyUserAccess(user) {
     boardGroup.style.display = BOARD_REPORT_USERS.includes(username) ? '' : 'none';
   }
 
-  // Marketing role: land on the dashboard overview (full nav access except financials)
-  if (user.role === 'Marketing') {
+  // Marketing/MarketingPlus: land on the dashboard overview (full nav access except financials)
+  if (user.role === 'Marketing' || user.role === 'MarketingPlus') {
     setTimeout(() => showPage('sec-overview'), 50);
   }
 }
@@ -5533,7 +5536,12 @@ async function renderExpenses(){
           (acc,c)=>{ acc.total+=c.total; c.monthly.forEach((v,i)=>acc.monthly[i]+=v); acc.leafs.push(...c.leafs); return acc; },
           { total:0, monthly:Array(parsed.monthLabels.length).fill(0), leafs:[] }
         )},
-    ].filter(s => currentUser?.role !== 'Marketing' || s.key === 'mktCosts');
+    ].filter(s => {
+      const r = currentUser?.role;
+      if (r === 'Marketing')     return s.key === 'mktCosts';
+      if (r === 'MarketingPlus') return s.key === 'mktCosts' || s.key === 'showCosts' || s.key === 'cityCosts';
+      return true;
+    });
     const totalExp = SECTIONS.reduce((s,sec)=>{ const d=sec.get(bk); return s+(d?.total||0); }, 0);
     const totalLineItems = Object.values(bk.dcByCat).concat(Object.values(bk.sgaByCat)).flatMap(c=>c.leafs).length;
     // Unified formatter for this section: always $0.0K
