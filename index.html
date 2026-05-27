@@ -1295,9 +1295,9 @@ function applyUserAccess(user) {
     boardGroup.style.display = BOARD_REPORT_USERS.includes(username) ? '' : 'none';
   }
 
-  // Marketing/MarketingPlus: land on the dashboard overview (full nav access except financials)
+  // Marketing/MarketingPlus: land on KPI Snapshot (full nav access except financials)
   if (user.role === 'Marketing' || user.role === 'MarketingPlus') {
-    setTimeout(() => showPage('sec-overview'), 50);
+    setTimeout(() => showPage('sec-kpis'), 50);
   }
 }
 
