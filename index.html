@@ -1125,7 +1125,7 @@ const AUTH_USERS = [
   { username: 'sales',    password: 'Sales2026!',    displayName: 'Sales Team',       role: 'Sales' },
   { username: 'investor',    password: 'Investor2026!',  displayName: 'Investor',         role: 'Viewer' },
   { username: 'andyfreire26', password: 'AndyFreire@2026', displayName: 'Andy Freire',     role: 'Administrator' },
-  { username: 'mrivera',      password: 'MichelleRivera@2026', displayName: 'Michelle Rivera', role: 'MarketingPlus' }
+  { username: 'mrivera',      password: 'MichelleRivera@2026', displayName: 'Michelle Rivera', role: 'Operations' }
 ];
 
 // ════════════════════════════════════════════════════
@@ -1137,8 +1137,8 @@ const RESTRICTED_SECTIONS = {
   'Sales':     ['sec-arcl', 'sec-arinv', 'sec-pl', 'sec-bva', 'sec-cashflow', 'sec-revproj', 'sec-scenario'],
   // Marketing: full access except financial sections; within Expenses only sees Marketing Breakdown
   'Marketing':     ['sec-pl', 'sec-bva', 'sec-cashflow', 'sec-revproj', 'sec-scenario'],
-  // MarketingPlus: same as Marketing + Direct Costs (Show/City Series) in Expenses
-  'MarketingPlus': ['sec-pl', 'sec-bva', 'sec-cashflow', 'sec-revproj', 'sec-scenario']
+  // Operations: same as Marketing + Direct Costs (Show/City Series) in Expenses
+  'Operations': ['sec-pl', 'sec-bva', 'sec-cashflow', 'sec-revproj', 'sec-scenario']
 };
 
 // Roles with full access (no restrictions)
@@ -1295,8 +1295,8 @@ function applyUserAccess(user) {
     boardGroup.style.display = BOARD_REPORT_USERS.includes(username) ? '' : 'none';
   }
 
-  // Marketing/MarketingPlus: land on KPI Snapshot (full nav access except financials)
-  if (user.role === 'Marketing' || user.role === 'MarketingPlus') {
+  // Marketing/Operations: land on KPI Snapshot (full nav access except financials)
+  if (user.role === 'Marketing' || user.role === 'Operations') {
     setTimeout(() => showPage('sec-kpis'), 50);
   }
 }
@@ -5539,7 +5539,7 @@ async function renderExpenses(){
     ].filter(s => {
       const r = currentUser?.role;
       if (r === 'Marketing')     return s.key === 'mktCosts';
-      if (r === 'MarketingPlus') return s.key === 'mktCosts' || s.key === 'showCosts' || s.key === 'cityCosts';
+      if (r === 'Operations') return s.key === 'mktCosts' || s.key === 'showCosts' || s.key === 'cityCosts';
       return true;
     });
     const totalExp = SECTIONS.reduce((s,sec)=>{ const d=sec.get(bk); return s+(d?.total||0); }, 0);
