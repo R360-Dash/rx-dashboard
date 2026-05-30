@@ -699,6 +699,8 @@ tr:hover td{background:#E8F0ED}
 
 <div class="kpi-grid" id="hsKpiGrid"></div>
 
+<div id="hsActivityKpis" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px"></div>
+
 <div class="section">
 <div class="section-header"><div class="section-bar"></div><div class="section-title" id="hsFunnelTitle">Pipeline Funnel — 2026</div></div>
 <div class="card"><div id="hsFunnelActive"></div></div>
@@ -743,6 +745,9 @@ tr:hover td{background:#E8F0ED}
 <th>Close Date</th>
 <th>Type</th>
 <th>Channel</th>
+<th title="Meetings held">Mtgs</th>
+<th title="Emails exchanged">Emails</th>
+<th title="Days from creation to close date">Days</th>
 </tr></thead>
 <tbody id="hsDealsBody"></tbody>
 </table>
@@ -2976,6 +2981,27 @@ function renderKpis(){
     {l:'New Deals',v:newDeals.length,s:fmt$(newDeals.reduce((s,d)=>s+d.a,0))+' total'}
   ];
   el.innerHTML=kpis.map(k=>`<div class="kpi"><div class="kpi-label">${k.l}</div><div class="kpi-value">${k.v}</div><div class="kpi-sub">${k.s}</div></div>`).join('');
+
+  // ── Activity KPIs (closed-won only) ──
+  const actEl=document.getElementById('hsActivityKpis');
+  if(actEl){
+    const wonWithM=won.filter(d=>d.m>0), wonWithE=won.filter(d=>d.e>0);
+    const wonWithDt=won.filter(d=>d.dt!=null&&d.dt>0);
+    const avgM=wonWithM.length?(wonWithM.reduce((s,d)=>s+d.m,0)/wonWithM.length):0;
+    const avgE=wonWithE.length?(wonWithE.reduce((s,d)=>s+d.e,0)/wonWithE.length):0;
+    const avgDt=wonWithDt.length?(wonWithDt.reduce((s,d)=>s+d.dt,0)/wonWithDt.length):0;
+    const act=[
+      {l:'Avg Meetings to Close',v:avgM?avgM.toFixed(1):'—',s:wonWithM.length+' closed-won deals tracked',icon:'📅'},
+      {l:'Avg Emails to Close',  v:avgE?Math.round(avgE):'—',  s:wonWithE.length+' closed-won deals tracked',icon:'✉️'},
+      {l:'Avg Days to Close',    v:avgDt?Math.round(avgDt)+' d':'—',s:wonWithDt.length+' closed-won deals tracked',icon:'⏱️'},
+    ];
+    actEl.innerHTML=act.map(a=>`
+      <div style="background:#F0F5F3;border:1px solid #D4E2DD;border-radius:12px;padding:16px 20px">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#7BA69E;margin-bottom:6px">${a.icon} ${a.l}</div>
+        <div style="font-size:28px;font-weight:700;color:#0D2B29;line-height:1">${a.v}</div>
+        <div style="font-size:11px;color:#A8C5BE;margin-top:6px">${a.s}</div>
+      </div>`).join('');
+  }
 }
 
 // ═══ PIPELINE FUNNEL ═══
@@ -3142,6 +3168,9 @@ function renderDeals(){
     if(sortCol==='a'){va=a.a;vb=b.a;}
     else if(sortCol==='n'){va=a.n.toLowerCase();vb=b.n.toLowerCase();}
     else if(sortCol==='cd'){va=a.cd||'';vb=b.cd||'';}
+    else if(sortCol==='m'){va=a.m||0;vb=b.m||0;}
+    else if(sortCol==='e'){va=a.e||0;vb=b.e||0;}
+    else if(sortCol==='dt'){va=a.dt??-1;vb=b.dt??-1;}
     else{va=a[sortCol]||'';vb=b[sortCol]||'';}
     if(va<vb)return -sortDir;
     if(va>vb)return sortDir;
@@ -3167,6 +3196,8 @@ function renderDeals(){
     if(d.io==='inbound')channelBadge='<span class="hs-badge inbound">Inbound</span>';
     else if(d.io==='outbound')channelBadge='<span class="hs-badge outbound">Outbound</span>';
     
+    const isClosed=(stageCls==='won'||stageCls==='lost');
+    const dtDisplay=isClosed&&d.dt!=null?d.dt+'d':'—';
     html+=`<tr>
       <td style="text-align:left;font-weight:500">${d.n}</td>
       <td>${d.a?fmt$(d.a):'—'}</td>
@@ -3175,6 +3206,9 @@ function renderDeals(){
       <td>${d.cd||'—'}</td>
       <td>${typeBadge}</td>
       <td>${channelBadge}</td>
+      <td style="color:${d.m>0?'#1B4D4A':'#C5D8D3'};font-weight:${d.m>0?'600':'400'}">${d.m||'—'}</td>
+      <td style="color:${d.e>0?'#1B4D4A':'#C5D8D3'};font-weight:${d.e>0?'600':'400'}">${d.e||'—'}</td>
+      <td style="color:${isClosed&&d.dt?'#1B4D4A':'#C5D8D3'}">${dtDisplay}</td>
     </tr>`;
   });
   
@@ -3223,7 +3257,7 @@ document.getElementById('hsDealsTable')?.querySelector('thead')?.addEventListene
   const th=e.target.closest('th');
   if(!th)return;
   const idx=[...th.parentElement.children].indexOf(th);
-  const cols=['n','a','s','p','cd','r','io'];
+  const cols=['n','a','s','p','cd','r','io','m','e','dt'];
   if(cols[idx]){
     if(sortCol===cols[idx])sortDir*=-1;
     else{sortCol=cols[idx];sortDir=-1;}
