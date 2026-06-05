@@ -6845,6 +6845,32 @@ function _cfComputeNetBurn(lineMap){
   });
 }
 
+// Compute outstanding AP balance owed to Racquet 360 Inc. from GL data.
+// Walks all GL rows, finds Accounts Payable entries where vendor = "RACQUET 360 INC",
+// sums amounts (positive = bill created, negative = payment applied).
+function _cfGetR360ApBalance(glData){
+  if(!glData || !glData.report) return null;
+  try {
+    let balance = 0;
+    function walkRows(rows){
+      for(const row of rows || []){
+        if(row.type === 'Data'){
+          const cv = row.ColData || [];
+          const vendor  = (cv[3]?.value || '').toUpperCase();
+          const account = (cv[5]?.value || '').toUpperCase();
+          const amount  = parseFloat(cv[6]?.value || '0');
+          if(vendor.includes('RACQUET 360') && account.includes('ACCOUNTS PAYABLE') && !isNaN(amount)){
+            balance += amount;
+          }
+        }
+        walkRows(row.Rows?.Row);
+      }
+    }
+    walkRows(glData.report.Rows?.Row);
+    return balance;
+  } catch(e){ console.warn('R360 AP parse error:', e); return null; }
+}
+
 async function renderCashFlow(){
   const updEl = document.getElementById('cfUpdated');
   if(updEl) updEl.innerHTML = '<span style="color:#3D9B8F">Loading&hellip;</span>';
@@ -6855,10 +6881,11 @@ async function renderCashFlow(){
       _qboCache[cacheBucket][year]
         ? Promise.resolve(_qboCache[cacheBucket][year])
         : fetchQbo(path).then(d => { _qboCache[cacheBucket][year] = d; return d; });
-    const [cfData, bsData, plData] = await Promise.all([
+    const [cfData, bsData, plData, glData] = await Promise.all([
       fetchOrCached('cf', _cfYear, `/api/cashflow?year=${_cfYear}`),
       fetchOrCached('bs', _cfYear, `/api/balancesheet?year=${_cfYear}`),
-      fetchOrCached('pl', _cfYear, `/api/pl?year=${_cfYear}`).catch(e => { console.warn('P&L fetch for cash flow failed:', e); return null; })
+      fetchOrCached('pl', _cfYear, `/api/pl?year=${_cfYear}`).catch(e => { console.warn('P&L fetch for cash flow failed:', e); return null; }),
+      fetchOrCached('gl', _cfYear, `/api/gl?year=${_cfYear}`).catch(e => null)
     ]);
     if(updEl) updEl.textContent = 'Last synced: ' + new Date(cfData.ts).toLocaleString();
 
@@ -6940,12 +6967,16 @@ async function renderCashFlow(){
     // Save state for forecast handlers
     _cfState = { year: _cfYear, actualBurns, forecastBurns, bankBalances, beginCash, latestActualCash, lastActualIdx, cashPos, lineActuals, forecast, suggested };
 
+    // Racquet 360 AP balance from GL
+    const r360Ap = _cfGetR360ApBalance(glData);
+
     // KPI cards
     const kpis = [
       {i:'🏦',t:'Beginning Cash',v:_$k(beginCash),s:`Jan 1, ${_cfYear}`,cl:'#1B4D4A'},
       {i:'💧',t:'Latest Cash Balance',v:_$k(latestActualCash),s:lastActualIdx >= 0 ? `End of ${_MN[lastActualIdx]} ${_cfYear}` : 'No data yet',cl:latestActualCash>=0?'#1B7A3D':'#C0392B'},
       {i:'📊',t:'YTD Net Change',v:_$k(ytdBurn),s:`Through ${lastActualIdx>=0?_MN[lastActualIdx]:'-'}`,cl:ytdBurn>=0?'#1B7A3D':'#C0392B'},
-      {i:'🎯',t:'Projected Year-End',v:_$k(projectedYearEnd),s:lastActualIdx === 11 ? 'Actual ending cash' : 'Latest + forecasted burns',cl:projectedYearEnd>=0?'#1B7A3D':'#C0392B'}
+      {i:'🎯',t:'Projected Year-End',v:_$k(projectedYearEnd),s:lastActualIdx === 11 ? 'Actual ending cash' : 'Latest + forecasted burns',cl:projectedYearEnd>=0?'#1B7A3D':'#C0392B'},
+      {i:'🏢',t:'Payable — Racquet 360',v:r360Ap!=null?_$k(r360Ap):'—',s:'Accounts Payable balance',cl:'#8E44AD'}
     ];
     document.getElementById('cfKpis').innerHTML = kpis.map(k=>`<div class="kpi" style="border-left-color:${k.cl}"><div class="kpi-label">${k.i} ${k.t}</div><div class="kpi-value" style="color:${k.cl}">${k.v}</div><div class="kpi-sub">${k.s}</div></div>`).join('');
 
