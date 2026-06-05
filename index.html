@@ -6845,11 +6845,12 @@ function _cfComputeNetBurn(lineMap){
   });
 }
 
-// Compute outstanding AP balance owed to Racquet 360 Inc. from GL data.
-// Walks all GL rows, finds Accounts Payable entries where vendor = "RACQUET 360 INC",
-// sums amounts (positive = bill created, negative = payment applied).
-function _cfGetR360ApBalance(glData){
-  if(!glData || !glData.report) return null;
+// Compute outstanding AP balance owed to Racquet 360 Inc.
+// Accepts an array of GL datasets (one per year) to capture multi-year unpaid invoices.
+// Sums all Accounts Payable entries where vendor = "RACQUET 360 INC"
+// (positive = bill created, negative = payment applied).
+function _cfGetR360ApBalance(glDatasets){
+  const datasets = Array.isArray(glDatasets) ? glDatasets : [glDatasets];
   try {
     let balance = 0;
     function walkRows(rows){
@@ -6866,7 +6867,9 @@ function _cfGetR360ApBalance(glData){
         walkRows(row.Rows?.Row);
       }
     }
-    walkRows(glData.report.Rows?.Row);
+    for(const glData of datasets){
+      if(glData?.report) walkRows(glData.report.Rows?.Row);
+    }
     return balance;
   } catch(e){ console.warn('R360 AP parse error:', e); return null; }
 }
@@ -6881,11 +6884,12 @@ async function renderCashFlow(){
       _qboCache[cacheBucket][year]
         ? Promise.resolve(_qboCache[cacheBucket][year])
         : fetchQbo(path).then(d => { _qboCache[cacheBucket][year] = d; return d; });
-    const [cfData, bsData, plData, glData] = await Promise.all([
+    const [cfData, bsData, plData, glData, glDataPrior] = await Promise.all([
       fetchOrCached('cf', _cfYear, `/api/cashflow?year=${_cfYear}`),
       fetchOrCached('bs', _cfYear, `/api/balancesheet?year=${_cfYear}`),
       fetchOrCached('pl', _cfYear, `/api/pl?year=${_cfYear}`).catch(e => { console.warn('P&L fetch for cash flow failed:', e); return null; }),
-      fetchOrCached('gl', _cfYear, `/api/gl?year=${_cfYear}`).catch(e => null)
+      fetchOrCached('gl', _cfYear,   `/api/gl?year=${_cfYear}`).catch(e => null),
+      fetchOrCached('gl', _cfYear-1, `/api/gl?year=${_cfYear-1}`).catch(e => null)
     ]);
     if(updEl) updEl.textContent = 'Last synced: ' + new Date(cfData.ts).toLocaleString();
 
@@ -6967,8 +6971,8 @@ async function renderCashFlow(){
     // Save state for forecast handlers
     _cfState = { year: _cfYear, actualBurns, forecastBurns, bankBalances, beginCash, latestActualCash, lastActualIdx, cashPos, lineActuals, forecast, suggested };
 
-    // Racquet 360 AP balance from GL
-    const r360Ap = _cfGetR360ApBalance(glData);
+    // Racquet 360 AP balance — combine current + prior year GL to capture unpaid invoices
+    const r360Ap = _cfGetR360ApBalance([glData, glDataPrior].filter(Boolean));
 
     // KPI cards
     const kpis = [
