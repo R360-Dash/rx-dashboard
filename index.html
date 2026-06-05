@@ -7003,11 +7003,24 @@ async function renderCashFlow(){
     // Racquet 360 loan balance — from Balance Sheet long-term liabilities
     const r360Loan = _cfGetR360LoanBalance(bsData?.report);
 
+    // Runway: first future month where projected cash ≤ 0
+    let runwayLabel = 'Beyond year-end', runwayCl = '#1B7A3D', runwaySub = 'Cash stays positive';
+    for(let i = lastActualIdx + 1; i < 12; i++){
+      if(cashPos[i] <= 0){
+        runwayLabel = _MN[i] + ' ' + _cfYear;
+        runwayCl = '#C0392B';
+        runwaySub = `Projected balance: ${_$k(cashPos[i])}`;
+        break;
+      }
+    }
+    if(runwayLabel === 'Beyond year-end' && projectedYearEnd < 50000){
+      runwayCl = '#D4A000'; runwaySub = `Year-end balance: ${_$k(projectedYearEnd)}`;
+    }
+
     // KPI cards
     const kpis = [
-      {i:'🏦',t:'Beginning Cash',v:_$k(beginCash),s:`Jan 1, ${_cfYear}`,cl:'#1B4D4A'},
       {i:'💧',t:'Latest Cash Balance',v:_$k(latestActualCash),s:lastActualIdx >= 0 ? `End of ${_MN[lastActualIdx]} ${_cfYear}` : 'No data yet',cl:latestActualCash>=0?'#1B7A3D':'#C0392B'},
-      {i:'📊',t:'YTD Net Change',v:_$k(ytdBurn),s:`Through ${lastActualIdx>=0?_MN[lastActualIdx]:'-'}`,cl:ytdBurn>=0?'#1B7A3D':'#C0392B'},
+      {i:'⏱️',t:'Runway',v:runwayLabel,s:runwaySub,cl:runwayCl},
       {i:'🎯',t:'Projected Year-End',v:_$k(projectedYearEnd),s:lastActualIdx === 11 ? 'Actual ending cash' : 'Latest + forecasted burns',cl:projectedYearEnd>=0?'#1B7A3D':'#C0392B'},
       {i:'🏢',t:'Payable — Racquet 360',v:r360Ap!=null?_$k(r360Ap):'—',s:'Accounts Payable balance',cl:'#8E44AD'},
       {i:'🏦',t:'Loan — Racquet 360',v:r360Loan!=null?_$k(r360Loan):'—',s:'Long-term liability',cl:'#C0392B'}
