@@ -246,6 +246,20 @@ function renderReport(deals27, ts, allDeals27){
   // ── KPI cards ──
   const avgDeal = deals27.length > 0 ? Math.round(totSp / deals27.length) : 0;
 
+  // Activity metrics (uses m/e/dt fields added to HubSpot proxy)
+  const wonWithM  = deals27.filter(d => d.m  > 0);
+  const wonWithE  = deals27.filter(d => d.e  > 0);
+  const wonWithDt = deals27.filter(d => d.dt != null && d.dt > 0);
+  const avgM  = wonWithM.length  ? (wonWithM.reduce((s,d)=>s+d.m,0)  / wonWithM.length).toFixed(1)  : '—';
+  const avgE  = wonWithE.length  ? Math.round(wonWithE.reduce((s,d)=>s+d.e,0)  / wonWithE.length)   : '—';
+  const avgDt = wonWithDt.length ? Math.round(wonWithDt.reduce((s,d)=>s+d.dt,0) / wonWithDt.length) : '—';
+
+  // Recent closes — last 30 days
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
+  const recentCloses = [...deals27]
+    .filter(d => d.cd && new Date(d.cd) >= cutoff)
+    .sort((a,b) => (b.cd > a.cd ? 1 : b.cd < a.cd ? -1 : 0));
+
   html += `<div class="sec-title">SC2027 Live Snapshot — As of ${MO_LBL[ci]}</div>`;
   html += `<div class="kpi-grid">
     <div class="kpi-card highlight">
@@ -267,6 +281,25 @@ function renderReport(deals27, ts, allDeals27){
       <div class="kpi-label">New Deals</div>
       <div class="kpi-value">${nwCt}</div>
       <div class="kpi-sub">${fmt$(nwRev)} total</div>
+    </div>
+  </div>`;
+
+  // Activity KPIs row
+  html += `<div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-top:-14px">
+    <div class="kpi-card">
+      <div class="kpi-label">📅 Avg Meetings to Close</div>
+      <div class="kpi-value" style="font-size:22px">${avgM}</div>
+      <div class="kpi-sub">${wonWithM.length} closed-won deals w/ data</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">✉️ Avg Emails to Close</div>
+      <div class="kpi-value" style="font-size:22px">${avgE}</div>
+      <div class="kpi-sub">${wonWithE.length} closed-won deals w/ data</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">⏱️ Avg Days to Close</div>
+      <div class="kpi-value" style="font-size:22px">${avgDt === '—' ? '—' : avgDt + ' d'}</div>
+      <div class="kpi-sub">${wonWithDt.length} closed-won deals w/ data</div>
     </div>
   </div>`;
 
@@ -437,6 +470,9 @@ function renderReport(deals27, ts, allDeals27){
         <th>Type</th>
         <th>Close Date</th>
         <th>Month</th>
+        <th title="Meetings logged in HubSpot">Mtgs</th>
+        <th title="Emails logged in HubSpot">Emails</th>
+        <th title="Days from deal creation to close">Days</th>
       </tr></thead><tbody>`;
     const sorted=[...deals27].sort((a,b)=>b.a-a.a);
     sorted.forEach(d=>{
@@ -444,14 +480,50 @@ function renderReport(deals27, ts, allDeals27){
       const mo=idx>=0?MO_LBL[idx]:'—';
       const type=isRebook(d)?'Rebook':'New';
       const typeCol=type==='Rebook'?'#7BA69E':'#1B4D4A';
+      const dtCell = (d.dt != null && d.dt >= 0) ? d.dt+'d' : '<span class="muted">—</span>';
       html+=`<tr>
         <td>${d.n}</td>
         <td style="font-weight:600">${fmtFull$(d.a)}</td>
         <td style="color:${typeCol};font-weight:600">${type}</td>
         <td class="muted">${d.cd||'—'}</td>
         <td>${mo}</td>
+        <td class="muted">${d.m||'—'}</td>
+        <td class="muted">${d.e||'—'}</td>
+        <td class="muted">${dtCell}</td>
       </tr>`;
     });
+    html+=`</tbody></table></div>`;
+  }
+
+  // ── Recent Closes (last 30 days) ──
+  if(recentCloses.length > 0){
+    const recentTotal = recentCloses.reduce((s,d)=>s+d.a,0);
+    html += `<div class="sec-title">🗓️ Recent Closes — Last 30 Days (${recentCloses.length} deal${recentCloses.length!==1?'s':''})</div>`;
+    html += `<div class="table-wrap"><table>
+      <thead><tr>
+        <th>Deal Name</th>
+        <th>Amount</th>
+        <th>Type</th>
+        <th>Close Date</th>
+        <th>Meetings</th>
+        <th>Emails</th>
+        <th>Days to Close</th>
+      </tr></thead><tbody>`;
+    recentCloses.forEach(d=>{
+      const type=isRebook(d)?'Rebook':'New';
+      const typeCol=type==='Rebook'?'#7BA69E':'#1B4D4A';
+      const dtCell = (d.dt != null && d.dt >= 0) ? d.dt+'d' : '<span class="muted">—</span>';
+      html+=`<tr>
+        <td>${d.n}</td>
+        <td style="font-weight:600;color:#1B7A3D">${fmtFull$(d.a)}</td>
+        <td style="color:${typeCol};font-weight:600">${type}</td>
+        <td style="font-weight:600">${d.cd||'—'}</td>
+        <td class="muted">${d.m||'—'}</td>
+        <td class="muted">${d.e||'—'}</td>
+        <td class="muted">${dtCell}</td>
+      </tr>`;
+    });
+    html+=`<tr class="total-row"><td>Total</td><td style="color:#1B7A3D">${fmtFull$(recentTotal)}</td><td colspan="5"></td></tr>`;
     html+=`</tbody></table></div>`;
   }
 
