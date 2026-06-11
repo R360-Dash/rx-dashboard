@@ -7725,8 +7725,9 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter, viewMode){
   function annV(bdg12,act12){
     // Treat the current (open) month as budget, not actuals.
     // YTD = closed-month actuals + current month budget; Remaining = future months budget.
-    // _bvaCurMoIdx is SC-aware: 0=Apr for Show Cycle, 0=Jan for Fiscal Year.
-    const curMo=_bvaCurMoIdx;
+    // Show Cycle arrays start at April (index 0), so offset calendar month by -3.
+    const calMo=new Date().getMonth();
+    const curMo=_bvaCycleMode==='show'?(calMo>=3?calMo-3:calMo+9):calMo;
     const ytd=sum(act12.slice(0,curMo))+(bdg12[curMo]||0);
     const rem=sum(bdg12.slice(curMo+1));
     const full=ytd+rem;
@@ -7931,12 +7932,6 @@ async function renderBVA(){
   if(updEl) updEl.innerHTML='<span style="color:#3D9B8F">Loading…</span>';
 
   const isShowCycle = _bvaCycleMode === 'show';
-  // Current month index within the 12-element breakdown array.
-  // Fiscal year: 0=Jan…11=Dec (matches calendar month directly).
-  // Show Cycle starts in April: Apr=0, May=1, … Dec=8, Jan=9, Feb=10, Mar=11.
-  const _bvaCurMoIdx = isShowCycle
-    ? (new Date().getMonth() >= 3 ? new Date().getMonth() - 3 : new Date().getMonth() + 9)
-    : new Date().getMonth();
   // Sync product toggle active state
   document.getElementById('bvaProductToggle')?.querySelectorAll('button[data-bp]').forEach(b=>b.classList.toggle('active',b.dataset.bp===_bvaProduct));
   // Sync cycle toggle button state
