@@ -7723,13 +7723,24 @@ function _bvaBuildTable1(bk, budget, mns, nM, monthFilter, viewMode){
   const fmtPct=p=>p===null?'—':(p>=0?'+':'')+p.toFixed(0)+'%';
 
   function annV(bdg12,act12){
-    // Treat the current (open) month as budget, not actuals.
     // YTD = closed-month actuals + current month budget; Remaining = future months budget.
-    // Show Cycle arrays start at April (index 0), so offset calendar month by -3.
-    const calMo=new Date().getMonth();
-    const curMo=_bvaCycleMode==='show'?(calMo>=3?calMo-3:calMo+9):calMo;
-    const ytd=sum(act12.slice(0,curMo))+(bdg12[curMo]||0);
-    const rem=sum(bdg12.slice(curMo+1));
+    // curMo is the index of "now" within the 12-element array (-1 = year entirely future).
+    const calMo=new Date().getMonth(), calYear=new Date().getFullYear();
+    let curMo;
+    if(_bvaCycleMode==='show'){
+      // Show Cycle starts April of (_bvaYear-1). SC index: Apr=0 … Mar=11.
+      const scStartYear=_bvaYear-1;
+      if(calYear<scStartYear||(calYear===scStartYear&&calMo<3)) curMo=-1; // cycle not started
+      else if(calYear>_bvaYear||(calYear===_bvaYear&&calMo>=3)) curMo=11; // cycle fully elapsed
+      else curMo=calYear===scStartYear?calMo-3:calMo+9;
+    } else {
+      // Fiscal year
+      if(calYear<_bvaYear) curMo=-1;       // year entirely in the future
+      else if(calYear>_bvaYear) curMo=11;  // year entirely in the past
+      else curMo=calMo;
+    }
+    const ytd=curMo<0?0:sum(act12.slice(0,curMo))+(bdg12[curMo]||0);
+    const rem=curMo<0?sum(bdg12):sum(bdg12.slice(curMo+1));
     const full=ytd+rem;
     const annBdg=sum(bdg12);
     const v=full-annBdg;
