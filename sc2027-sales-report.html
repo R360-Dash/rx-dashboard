@@ -147,10 +147,7 @@ const Q_SHOW = [100000,250000,80000,80000,75000,120000,160000,180000,250000,1800
 const Q_CS   = [0,70500, 30000,30000,19500,0,     0,     0,     0,     0,     0,     0    ];
 const MO_LBL = ["Apr'26","May'26","Jun'26","Jul'26","Aug'26","Sep'26","Oct'26","Nov'26","Dec'26","Jan'27","Feb'27","Mar'27"];
 
-// Prior-cycle finals (static — closed cycles)
-const SC26 = { sp:1353450, tk:72257, firms:100, rebooks:27, newFirms:73, rbRev:587500, nwRev:740450 };
-const SC25 = { sp:822650,  tk:104881,firms:102, rebooks:29, newFirms:73, rbRev:354500, nwRev:468150 };
-const SC24 = { sp:496300,  tk:0,     firms:67,  rebooks:19, newFirms:48, rbRev:125300, nwRev:371000 };
+// Prior-cycle finals — computed live from HubSpot (see computeCycle() below)
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function fmt$(v){ if(v==null||isNaN(v))return '—'; if(v>=1e6)return '$'+(v/1e6).toFixed(2)+'M'; if(v>=1e3)return '$'+Math.round(v/1e3).toLocaleString()+'K'; return '$'+Math.round(v).toLocaleString(); }
@@ -187,8 +184,23 @@ function splitAmts(deal){
   return isCsDeal(deal.n)?{csAmt:deal.a,showAmt:0}:{csAmt:0,showAmt:deal.a};
 }
 
+function computeCycle(deals){
+  let sp=0, nwRev=0, rbRev=0, showSp=0, csSp=0;
+  const firms=new Set(), newFirms=new Set(), rbFirms=new Set();
+  deals.forEach(d=>{
+    sp+=d.a;
+    const{showAmt,csAmt}=splitAmts(d);
+    showSp+=showAmt; csSp+=csAmt;
+    const key=ck(d.n);
+    firms.add(key);
+    if(isRebook(d)){ rbRev+=d.a; rbFirms.add(key); }
+    else { nwRev+=d.a; newFirms.add(key); }
+  });
+  return{sp, showSp, csSp, firms:firms.size, rebooks:rbFirms.size, newFirms:newFirms.size, rbRev, nwRev};
+}
+
 // ── Render report ─────────────────────────────────────────────────────────────
-function renderReport(deals27, ts, allDeals27){
+function renderReport(deals27, ts, allDeals27, SC24, SC25, SC26){
   const ci = curIdx();
   const content = document.getElementById('reportContent');
   const syncEl = document.getElementById('syncBadge');
@@ -454,8 +466,8 @@ function renderReport(deals27, ts, allDeals27){
     <tr>
       <td>YoY Sponsorship Growth</td>
       <td class="muted">—</td>
-      <td class="trend-up">+65.8%</td>
-      <td class="trend-up">+64.5%</td>
+      <td class="${SC25.sp>SC24.sp?'trend-up':'trend-dn'}">${SC24.sp>0?(((SC25.sp-SC24.sp)/SC24.sp*100)>0?'+':'')+(((SC25.sp-SC24.sp)/SC24.sp*100).toFixed(1))+'%':'—'}</td>
+      <td class="${SC26.sp>SC25.sp?'trend-up':'trend-dn'}">${SC25.sp>0?(((SC26.sp-SC25.sp)/SC25.sp*100)>0?'+':'')+(((SC26.sp-SC25.sp)/SC25.sp*100).toFixed(1))+'%':'—'}</td>
       <td class="muted">${ci<6?'cycle in progress':delta(totSp,SC26.sp)}</td>
     </tr>
   </tbody></table></div>`;
@@ -673,7 +685,10 @@ async function init(){
 
     const allDeals27 = live.d.filter(d => d.p===27);
     const deals27    = allDeals27.filter(d => d.s==='closedwon' && d.a>0);
-    renderReport(deals27, live.ts||'', allDeals27);
+    const SC26 = computeCycle(live.d.filter(d => d.p===26 && d.s==='closedwon' && d.a>0));
+    const SC25 = computeCycle(live.d.filter(d => d.p===25 && d.s==='closedwon' && d.a>0));
+    const SC24 = computeCycle(live.d.filter(d => d.p===24 && d.s==='closedwon' && d.a>0));
+    renderReport(deals27, live.ts||'', allDeals27, SC24, SC25, SC26);
   } catch(err){
     const content = document.getElementById('reportContent');
     const syncEl  = document.getElementById('syncBadge');
