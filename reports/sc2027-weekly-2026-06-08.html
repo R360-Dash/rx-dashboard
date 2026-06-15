@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SC2027 Weekly Sales — June 8–14, 2026</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Source Sans 3",system-ui,sans-serif;background:#F0F5F3;color:#0D2B29;min-height:100vh;padding:32px 24px}
+  .wrap{max-width:860px;margin:0 auto}
+  .header{background:linear-gradient(135deg,#1B4D4A,#2D7A6F);border-radius:16px;padding:28px 32px;color:#fff;margin-bottom:24px}
+  .header h1{font-size:22px;font-weight:700;margin-bottom:4px}
+  .header .meta{font-size:13px;opacity:.75}
+  .back{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#fff;opacity:.8;text-decoration:none;margin-bottom:14px}
+  .back:hover{opacity:1}
+  .section{background:#fff;border-radius:12px;padding:24px 28px;margin-bottom:16px;border:1px solid #E2EDE9}
+  .section h2{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#7BA69E;margin-bottom:16px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th{text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#7BA69E;padding:6px 10px 6px 0;border-bottom:1px solid #E2EDE9}
+  th:not(:first-child){text-align:right}
+  td{padding:9px 10px 9px 0;border-bottom:1px solid #F0F5F3;vertical-align:middle}
+  td:not(:first-child){text-align:right}
+  tr:last-child td{border-bottom:none}
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+  .kpi-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+  .kpi{background:#F7FAF8;border-radius:10px;padding:16px 18px}
+  .kpi-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#7BA69E;margin-bottom:6px}
+  .kpi-value{font-size:26px;font-weight:700;color:#0D2B29;line-height:1}
+  .kpi-sub{font-size:11px;color:#A8C5BE;margin-top:5px}
+  .badge{display:inline-block;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600}
+  .badge.green{background:#E6F4F0;color:#1B4D4A}
+  .badge.amber{background:#FEF3CD;color:#8A6000}
+  .badge.blue{background:#E8F0FE;color:#1A56DB}
+  .badge.red{background:#FDE8E8;color:#C0392B}
+  .pos{color:#1B4D4A;font-weight:600}
+  .neg{color:#C0392B;font-weight:600}
+  .muted{color:#A8C5BE}
+  .week-tag{display:inline-block;background:rgba(255,255,255,.2);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:10px}
+  .progress-bar-wrap{background:#E2EDE9;border-radius:20px;height:10px;margin-top:10px;overflow:hidden}
+  .progress-bar{background:linear-gradient(90deg,#1B4D4A,#2D7A6F);height:10px;border-radius:20px;transition:width .4s}
+  .pipeline-stage{font-size:11px;color:#7BA69E}
+  .sub-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#7BA69E;margin-bottom:10px}
+  @media(max-width:640px){.kpi-grid{grid-template-columns:1fr 1fr}.kpi-grid-3{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <a href="../sc2027-sales-report.html" class="back">← Back to SC2027 Live Report</a>
+    <div class="week-tag">Week of June 8–14, 2026</div>
+    <h1>SC2027 Weekly Sales Snapshot</h1>
+    <div class="meta">Issued June 15, 2026 &nbsp;·&nbsp; Source: HubSpot CRM &nbsp;·&nbsp; Data as of June 15, 2026</div>
+  </div>
+
+  <!-- YTD SUMMARY -->
+  <div class="section">
+    <h2>📊 YTD Closed-Won — SC2027</h2>
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">YTD Revenue</div>
+        <div class="kpi-value">$624K</div>
+        <div class="kpi-sub">27 deals closed</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Quota Attainment</div>
+        <div class="kpi-value" style="color:#1B4D4A">148.5%</div>
+        <div class="kpi-sub">$624K vs $420.5K quota</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Week-over-Week</div>
+        <div class="kpi-value" style="color:#1B4D4A">+$83.4K</div>
+        <div class="kpi-sub">+4 deals vs last week</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Avg Deal Size</div>
+        <div class="kpi-value">$23.1K</div>
+        <div class="kpi-sub">Closed-won only</div>
+      </div>
+    </div>
+    <!-- quota progress bar -->
+    <div style="font-size:12px;color:#7BA69E;margin-bottom:6px">Quota progress — $624.4K of $420.5K annual target</div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" style="width:100%"></div>
+    </div>
+    <div style="font-size:11px;color:#1B4D4A;font-weight:600;margin-top:6px">✅ Quota exceeded by $203.9K</div>
+  </div>
+
+  <!-- NEW DEALS THIS WEEK -->
+  <div class="section">
+    <h2>🏆 New Deals — Week of June 8–14</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Deal</th>
+          <th>Amount</th>
+          <th>Type</th>
+          <th>Close Date</th>
+          <th>Stage</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="font-weight:600;text-align:left">Swips Band</td>
+          <td class="pos">$4,500</td>
+          <td><span class="badge green">Rebook</span></td>
+          <td class="muted">May 31</td>
+          <td><span class="badge green">Closed Won</span></td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;text-align:left">Skechers USA</td>
+          <td class="pos">$5,000</td>
+          <td><span class="badge blue">New Deal</span></td>
+          <td class="muted">May 31</td>
+          <td><span class="badge green">Closed Won</span></td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;text-align:left">Potent Tennis</td>
+          <td class="pos">$20,000</td>
+          <td><span class="badge blue">New Deal</span></td>
+          <td class="muted">Jul 1 (advance)</td>
+          <td><span class="badge green">Closed Won</span></td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;text-align:left">Amarantoidea</td>
+          <td class="pos">$5,000</td>
+          <td><span class="badge blue">New Deal</span></td>
+          <td class="muted">Jun 30 (advance)</td>
+          <td><span class="badge green">Closed Won</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top:12px;font-size:13px;color:#7BA69E">
+      Total identified this week: <strong style="color:#0D2B29">$34,500</strong> &nbsp;·&nbsp;
+      <span style="font-size:12px">Note: Swips Band &amp; Skechers backdated to May 31; Potent Tennis &amp; Amarantoidea booked in advance.</span>
+    </div>
+  </div>
+
+  <!-- OPEN PIPELINE -->
+  <div class="section">
+    <h2>🔍 Open Pipeline — SC2027</h2>
+    <div class="kpi-grid-3">
+      <div class="kpi">
+        <div class="kpi-label">Open Deals</div>
+        <div class="kpi-value">116</div>
+        <div class="kpi-sub">Active in pipeline</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Pipeline Value</div>
+        <div class="kpi-value">$98K</div>
+        <div class="kpi-sub">Deals with $ amounts</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">In Negotiating</div>
+        <div class="kpi-value">$87.5K</div>
+        <div class="kpi-sub">Advanced stage</div>
+      </div>
+    </div>
+
+    <div class="sub-label" style="margin-top:4px">Negotiating — High-Value Prospects</div>
+    <table>
+      <thead>
+        <tr><th>Company</th><th>Amount</th><th>Target Close</th><th>Type</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="font-weight:600;text-align:left">CentpourCentPadels</td>
+          <td class="pos">$30,000</td>
+          <td class="muted">Jun 30</td>
+          <td><span class="badge blue">New Deal</span></td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;text-align:left">Royal Padel</td>
+          <td class="pos">$12,000</td>
+          <td class="muted">Jun 30</td>
+          <td><span class="badge blue">New Deal</span></td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;text-align:left">WaveOn Health</td>
+          <td class="pos">$10,000</td>
+          <td class="muted">Jun 30</td>
+          <td><span class="badge blue">New Deal</span></td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;text-align:left">EnergyWise Solutions</td>
+          <td class="pos">$10,000</td>
+          <td class="muted">May 1 ⚠️</td>
+          <td><span class="badge green">Rebook</span></td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;text-align:left">Clutchvision.ai</td>
+          <td class="pos">$5,000</td>
+          <td class="muted">Jul 31</td>
+          <td><span class="badge blue">New Deal</span></td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;text-align:left">Bellevue Badminton Club</td>
+          <td class="pos">$5,500</td>
+          <td class="muted">Mar 31 ⚠️</td>
+          <td><span class="badge blue">New Deal</span></td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;text-align:left">IVS Group Digital</td>
+          <td class="pos">$5,500</td>
+          <td class="muted">Mar 31 ⚠️</td>
+          <td><span class="badge blue">New Deal</span></td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;text-align:left">Vairo</td>
+          <td class="pos">$5,500</td>
+          <td class="muted">Mar 31 ⚠️</td>
+          <td><span class="badge blue">New Deal</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top:10px;font-size:12px;color:#C0392B">⚠️ Deals with overdue close dates need attention — push or close.</div>
+  </div>
+
+  <!-- DEAL BREAKDOWN BY TYPE -->
+  <div class="section">
+    <h2>📋 YTD Closed-Won by Deal Type</h2>
+    <table>
+      <thead>
+        <tr><th>Type</th><th>Deals</th><th>Revenue</th><th>Avg Size</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="text-align:left"><span class="badge green">Rebook</span></td>
+          <td>20</td>
+          <td class="pos">$503,500</td>
+          <td>$25,175</td>
+        </tr>
+        <tr>
+          <td style="text-align:left"><span class="badge blue">New Deal</span></td>
+          <td>7</td>
+          <td class="pos">$74,000</td>
+          <td>$10,571</td>
+        </tr>
+        <tr style="border-top:2px solid #E2EDE9">
+          <td style="text-align:left;font-weight:700">Total</td>
+          <td style="font-weight:700">27</td>
+          <td style="font-weight:700;color:#1B4D4A">$624,400</td>
+          <td style="font-weight:700">$23,126</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ACTIVITY METRICS -->
+  <div class="section">
+    <h2>⚡ Sales Activity — Closed-Won Deals</h2>
+    <div class="kpi-grid-3">
+      <div class="kpi">
+        <div class="kpi-label">📅 Avg Meetings to Close</div>
+        <div class="kpi-value">1.7</div>
+        <div class="kpi-sub">Deals with meeting data</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">✉️ Avg Emails to Close</div>
+        <div class="kpi-value">3</div>
+        <div class="kpi-sub">Deals with email data</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">⏱️ Avg Days to Close</div>
+        <div class="kpi-value">15</div>
+        <div class="kpi-sub">Across all closed deals</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRIOR WEEKS CONTEXT -->
+  <div class="section">
+    <h2>📈 Weekly Trend — SC2027</h2>
+    <table>
+      <thead>
+        <tr><th>Week</th><th>YTD Deals</th><th>YTD Revenue</th><th>WoW Change</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="text-align:left" class="muted">May 25–31</td>
+          <td class="muted">22</td>
+          <td class="muted">$516,500</td>
+          <td class="muted">+$14,500 (+2 deals)</td>
+        </tr>
+        <tr>
+          <td style="text-align:left" class="muted">June 1–7</td>
+          <td class="muted">23</td>
+          <td class="muted">$541,000</td>
+          <td class="muted">+$9,500 (+1 deal)</td>
+        </tr>
+        <tr style="background:#F7FAF8">
+          <td style="text-align:left;font-weight:700">June 8–14 ◀ now</td>
+          <td style="font-weight:700">27</td>
+          <td style="font-weight:700;color:#1B4D4A">$624,400</td>
+          <td class="pos">+$83,400 (+4 deals)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="text-align:center;font-size:12px;color:#A8C5BE;margin-top:24px;padding-bottom:32px">
+    RacquetX SC2027 Weekly Sales &nbsp;·&nbsp; Week of June 8–14, 2026 &nbsp;·&nbsp; Issued June 15, 2026
+  </div>
+
+</div>
+</body>
+</html>
