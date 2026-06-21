@@ -1550,6 +1550,7 @@ const Q27_LBL =["Apr'26","May'26","Jun'26","Jul'26","Aug'26","Sep'26","Oct'26","
 function _sc27Idx(cd){
   if(!cd||cd.length<7)return -1;
   const yr=+cd.slice(0,4),mo=+cd.slice(5,7);
+  if(yr===2026&&mo===3){const day=+cd.slice(8,10);return day>=17?0:-1;} // Mar 17-31 → Apr bucket
   if(yr===2026&&mo>=4)return mo-4;  // Apr→0 … Dec→8
   if(yr===2027&&mo<=3)return mo+8;  // Jan→9, Feb→10, Mar→11
   return -1;
