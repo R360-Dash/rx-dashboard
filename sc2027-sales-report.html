@@ -686,9 +686,10 @@ async function init(){
 
     const allDeals27 = live.d.filter(d => d.p===27);
     const deals27    = allDeals27.filter(d => d.s==='closedwon' && d.a>0);
-    const SC26 = computeCycle(live.d.filter(d => d.p===26 && d.s==='closedwon' && d.a>0));
-    const SC25 = computeCycle(live.d.filter(d => d.p===25 && d.s==='closedwon' && d.a>0));
-    const SC24 = computeCycle(live.d.filter(d => d.p===24 && d.s==='closedwon' && d.a>0));
+    // SC26 exists in HubSpot (p=26) but is incomplete vs curated totals — use K data for all closed cycles
+    const SC26 = {sp:1353450, firms:100, rebooks:27, newFirms:73, rbRev:587500, nwRev:740450};
+    const SC25 = {sp:822650,  firms:102, rebooks:29, newFirms:73, rbRev:354500, nwRev:468150};
+    const SC24 = {sp:496300,  firms:67,  rebooks:19, newFirms:48, rbRev:125300, nwRev:371000};
     renderReport(deals27, live.ts||'', allDeals27, SC24, SC25, SC26);
   } catch(err){
     const content = document.getElementById('reportContent');
