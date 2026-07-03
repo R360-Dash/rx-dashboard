@@ -1907,11 +1907,12 @@ function render(){
     }
   }
 
-  // ═══ TICKETS: Grip for 2026, D.K for 2025/2024 ═══
+  // ═══ TICKETS: Use GRIP objects for all years for consistency with Registration & Tickets section ═══
   // City Series filter: tickets are show-only (no city series ticket tracking)
-  tTk=_revFilter==='cs'?0:is26?(window.GRIP?window.GRIP.ticketSales:K['ttk26']):K['ttk'+yr]||0;
+  const _gripForYr=is26?window.GRIP:yr==='2025'?GRIP_25:yr==='2024'?GRIP_24:null;
+  tTk=_revFilter==='cs'?0:(_gripForYr?_gripForYr.ticketSales:K['ttk'+yr]||0);
   tR=tSp+tTk;
-  tTS=is26?(window.GRIP?window.GRIP.tickets.reduce((s,t)=>s+t.count,0):K['tts26']):K['tts'+yr]||0;
+  tTS=_gripForYr?_gripForYr.tickets.reduce((s,t)=>s+t.count,0):K['tts'+yr]||0;
   const rpf=tF>0?tR/tF:0;
 
   // Monthly revenue for MoM (from sp arrays which are already HubSpot-derived)
