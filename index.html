@@ -1909,7 +1909,7 @@ function render(){
 
   // ═══ TICKETS: Use GRIP objects for all years for consistency with Registration & Tickets section ═══
   // City Series filter: tickets are show-only (no city series ticket tracking)
-  const _gripForYr=is26?window.GRIP:yr==='25'?GRIP_25:yr==='24'?GRIP_24:null;
+  const _gripForYr=is26?window.GRIP:yr==='25'?window.GRIP_25:yr==='24'?window.GRIP_24:null;
   tTk=_revFilter==='cs'?0:(_gripForYr?_gripForYr.ticketSales:K['ttk'+yr]||0);
   tR=tSp+tTk;
   tTS=_gripForYr?_gripForYr.tickets.reduce((s,t)=>s+t.count,0):K['tts'+yr]||0;
@@ -4425,7 +4425,9 @@ const GRIP = {
     {cat:'Other',            price:0.00,   revenue:0,        count:325}
   ]
 };
-window.GRIP = GRIP; // Expose globally for KPI Snapshot render()
+window.GRIP = GRIP;     // Expose globally for KPI Snapshot render()
+window.GRIP_24 = GRIP_24;
+window.GRIP_25 = GRIP_25;
 
 // ════════════════════════════════════════════════════
 // LINKEDIN ANALYTICS DATA
