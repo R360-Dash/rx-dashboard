@@ -6949,12 +6949,13 @@ async function renderCashFlow(){
       _qboCache[cacheBucket][year]
         ? Promise.resolve(_qboCache[cacheBucket][year])
         : fetchQbo(path).then(d => { _qboCache[cacheBucket][year] = d; return d; });
-    const [cfData, bsData, plData, glData, glDataPrior] = await Promise.all([
+    const [cfData, bsData, plData, glData, glDataPrior, bsDataPrior] = await Promise.all([
       fetchOrCached('cf', _cfYear, `/api/cashflow?year=${_cfYear}`),
       fetchOrCached('bs', _cfYear, `/api/balancesheet?year=${_cfYear}`),
       fetchOrCached('pl', _cfYear, `/api/pl?year=${_cfYear}`).catch(e => { console.warn('P&L fetch for cash flow failed:', e); return null; }),
       fetchOrCached('gl', _cfYear,   `/api/gl?year=${_cfYear}`).catch(e => null),
-      fetchOrCached('gl', _cfYear-1, `/api/gl?year=${_cfYear-1}`).catch(e => null)
+      fetchOrCached('gl', _cfYear-1, `/api/gl?year=${_cfYear-1}`).catch(e => null),
+      fetchOrCached('bs', _cfYear-1, `/api/balancesheet?year=${_cfYear-1}`).catch(e => null)
     ]);
     if(updEl) updEl.textContent = 'Last synced: ' + new Date(cfData.ts).toLocaleString();
 
@@ -6979,7 +6980,11 @@ async function renderCashFlow(){
     const now = new Date();
     if(_cfYear < now.getFullYear()) lastActualIdx = 11;
 
-    const beginCash = bankBalances[0] - actualBurns[0];
+    let beginCash = bankBalances[0] - actualBurns[0];
+    if(lastActualIdx === -1 && bsDataPrior){
+      const priorBal = _cfExtractBankBalances(bsDataPrior.report);
+      if(priorBal) beginCash = priorBal[11] ?? 0;
+    }
     const latestActualCash = lastActualIdx >= 0 ? bankBalances[lastActualIdx] : beginCash;
 
     // Build per-line monthly actuals from P&L (for trailing-avg suggestions)
