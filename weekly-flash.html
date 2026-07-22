@@ -120,6 +120,7 @@
   <div style="text-align:right">
     <div style="font-size:13px;font-weight:700;color:#fff;background:rgba(255,255,255,.12);border-radius:8px;padding:8px 16px" id="weekBadge">—</div>
     <div style="font-size:11px;color:#A8D5CF;margin-top:6px">as of <span id="asOfDate">—</span></div>
+    <button id="copyEmailBtn" onclick="copyForEmail()" style="margin-top:10px;background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.02em">📋 Copy for Email</button>
   </div>
 </div>
 
@@ -347,6 +348,161 @@ function svgBarsActVsForecast(data, opts={}){
 }
 
 // ── Main render ─────────────────────────────────────────────────────────────
+// ── Email-safe HTML builder (table-based layout, no SVG — for clipboard) ─────
+let _emailHTML = '';
+
+function _et(l,r){  // email two-column table
+  return `<table width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:20px"><tr>
+    <td width="50%" style="vertical-align:top;padding-right:8px">${l}</td>
+    <td width="50%" style="vertical-align:top;padding-left:8px">${r}</td>
+  </tr></table>`;
+}
+function _eg(cells,cols){ // email KPI grid table
+  const w=Math.floor(100/cols)+'%';
+  return `<table width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:14px"><tr>${
+    cells.map((c,i)=>`<td width="${w}" style="vertical-align:top${i<cols-1?';padding-right:8px':''}">${c}</td>`).join('')
+  }</tr></table>`;
+}
+function _em(data){ // email monthly data table (replaces SVG charts)
+  const lr=data.map(d=>`<td style="font-size:9px;text-align:center;color:${d.forecast?'#B0C8C4':'#7BA69E'};padding:3px 1px;white-space:nowrap">${d.label}</td>`).join('');
+  const vr=data.map(d=>{const p=d.v>=0,nz=Math.abs(d.v)>0;const c=p?'#1B7A3D':'#C0392B';return`<td style="font-size:10px;font-weight:700;text-align:center;color:${c};opacity:${d.forecast?.65:1};padding:2px 1px;white-space:nowrap">${nz?(p?'+':'')+fmt$(d.v):'—'}</td>`;}).join('');
+  return `<table width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:10px;border-top:1px solid #EDF2F1;padding-top:6px"><tr>${lr}</tr><tr>${vr}</tr></table>`;
+}
+function _ekm(lbl,val,sub,accent,vs=''){
+  const bg=accent?'background:linear-gradient(135deg,#1B4D4A,#3D9B8F)':'background:#F6FAF9';
+  const lc=accent?'rgba(255,255,255,.6)':'#7BA69E',vc=accent?'#fff':'#0D2B29',sc=accent?'rgba(255,255,255,.5)':'#9BB5B1';
+  return `<div style="${bg};border-radius:8px;padding:12px 14px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:${lc};margin-bottom:4px">${lbl}</div><div style="font-size:18px;font-weight:800;color:${vc};letter-spacing:-.02em;${vs}">${val}</div><div style="font-size:11px;color:${sc};margin-top:2px">${sub}</div></div>`;
+}
+
+function buildEmailHTML(d){
+  const {wonDeals,totSp,firms,rbCt,rbRev,nwCt,nwRev,monthly,ci,attCol,ytdPct,ytdQ,
+    pipeWtd,pipeRaw,openDeals,byStage,curCash,beginCash,cashChange,avgBurn3,
+    netChanges,lastActIdx,cashBars,burnBars,runwayGoesNeg,runwayMonths,
+    projYearEnd,cashNeededYE,cashPos,forecastBurns,MN,QBO_YEAR}=d;
+
+  const fSum=forecastBurns.slice(lastActIdx+1).reduce((s,v)=>s+v,0);
+  const flagLevel=runwayGoesNeg?'red':(projYearEnd<curCash*.25?'amber':'green');
+  const flagIcon=runwayGoesNeg?'🚨':(flagLevel==='amber'?'⚠️':'✅');
+  const flagBgS={red:'background:#FFF0EE;border-left:4px solid #E74C3C',amber:'background:#FFFBF0;border-left:4px solid #F39C12',green:'background:#F0FAF4;border-left:4px solid #1B7A3D'};
+  const flagTc={red:'#C0392B',amber:'#B8860B',green:'#1B7A3D'};
+  let flagTitle,flagDetail;
+  if(runwayGoesNeg){flagTitle=`Cash Runway Alert — projected shortfall in ${runwayMonths} month${runwayMonths!==1?'s':''}`;flagDetail=`Cash projected to reach $0 by <strong>${MN[lastActIdx+runwayMonths]} ${QBO_YEAR}</strong>. Year-end: <strong style="color:#C0392B">${fmt$(projYearEnd)}</strong>. Cash needed: <strong style="color:#C0392B">${fmt$(cashNeededYE)}</strong>.`;}
+  else if(flagLevel==='amber'){flagTitle=`Caution — cash declining toward year-end`;flagDetail=`Projected year-end: <strong>${fmt$(projYearEnd)}</strong> vs current <strong>${fmt$(curCash)}</strong>. No shortfall, but buffer thinning.`;}
+  else{flagTitle=`Cash Position Healthy Through Year-End`;flagDetail=`Projected year-end: <strong>${fmt$(projYearEnd)}</strong>. No shortfall expected through Dec 31, ${QBO_YEAR}.`;}
+
+  const CARD='background:#fff;border-radius:10px;padding:18px 20px;border:1px solid #E8F0EE';
+  const TITLE='font-size:13px;font-weight:700;color:#0D2B29;margin-bottom:12px';
+  const NOTE='font-size:10px;color:#9BB5B1;margin-top:6px;text-align:center';
+
+  // SC2027 attainment rows
+  const attRows=MO_LBL.map((lbl,i)=>{
+    const q=Q_SHOW[i]+Q_CS[i],act=monthly[i].v,isFut=i>ci;
+    const p=q>0?Math.min(pct(act,q),100):0;
+    const c=p>=100?'#1B7A3D':p>=75?'#1B4D4A':p>=50?'#B8860B':act>0?'#C0392B':'#9BB5B1';
+    const str=!isFut&&q>0?`${p}% · ${act?fmt$(act):'$0'} / ${fmt$(q)}`:isFut?`quota: ${fmt$(q)}`:'—';
+    return `<tr><td style="font-size:11px;font-weight:600;color:#2A4E4A;padding:4px 10px 4px 0;white-space:nowrap">${lbl}</td><td style="font-size:11px;color:${isFut?'#9BB5B1':c}">${str}</td></tr>`;
+  }).join('');
+
+  const salesCard=`<div style="${CARD}"><div style="${TITLE}">💰 SC2027 Closed Won <span style="background:#D4F0E8;color:#1B6B55;font-size:10px;font-weight:700;border-radius:4px;padding:2px 6px">Live</span></div>
+    ${_eg([_ekm('Total',fmt$(totSp),`${wonDeals.length} deals · ${firms.size} firms`,true),_ekm('Rebooks',rbCt,fmt$(rbRev)),_ekm('New',nwCt,fmt$(nwRev))],3)}
+    <table width="100%" cellspacing="0" cellpadding="0" border="0">${attRows}</table>
+    <div style="margin-top:12px;padding-top:10px;border-top:1px solid #EDF2F1;font-size:12px;color:#5A8A84">YTD through ${MO_LBL[ci]}: <strong style="color:${attCol}">${ytdPct}%</strong> <span style="font-size:11px;color:#9BB5B1">of ${fmt$(ytdQ)} YTD quota</span></div>
+  </div>`;
+
+  // Pipeline stage rows
+  const so=Object.keys(STAGE_CFG);
+  const as=so.filter(s=>byStage[s]).concat(Object.keys(byStage).filter(s=>!STAGE_CFG[s]));
+  const stageRows=as.map(sid=>{
+    const s=byStage[sid],cfg=STAGE_CFG[sid]||{prob:.05,label:sid,color:'#9BB5B1'};
+    const p=Math.round(cfg.prob*100),pc=p>=80?'#1B7A3D':p>=50?'#3D9B8F':p>=25?'#B8860B':'#9BB5B1';
+    return `<tr style="border-bottom:1px solid #F0F6F4"><td style="vertical-align:middle;padding:6px 6px 6px 0;width:14px"><div style="width:7px;height:7px;border-radius:50%;background:${cfg.color}"></div></td><td style="font-size:12px;font-weight:600;color:#2A4E4A;padding:6px 6px">${cfg.label}</td><td style="text-align:center;padding:6px 4px;width:34px"><span style="font-size:10px;font-weight:700;padding:2px 4px;border-radius:3px;background:${pc}1A;color:${pc}">${p}%</span></td><td style="font-size:11px;color:#7BA69E;text-align:right;padding:6px 4px;white-space:nowrap">${s.ct}·${s.firms.size}f</td><td style="font-size:12px;font-weight:700;color:#0D2B29;text-align:right;padding:6px 0 6px 4px;white-space:nowrap">${s.raw?fmt$(s.raw):'TBD'}</td><td style="font-size:11px;color:#3D9B8F;text-align:right;padding:6px 0 6px 4px;white-space:nowrap">${fmt$(Math.round(s.wtd))}</td></tr>`;
+  }).join('');
+
+  const pipelineCard=`<div style="${CARD}"><div style="${TITLE}">📋 SC2027 Pipeline</div>
+    ${_eg([_ekm('Weighted',fmt$(pipeWtd),'prob-adjusted',true),_ekm('Raw',fmt$(pipeRaw),`${openDeals.length} open deals`),_ekm('Projected',fmt$(totSp+pipeWtd),'Won + weighted')],3)}
+    <table width="100%" cellspacing="0" cellpadding="0" border="0">${stageRows}
+      <tr><td colspan="2" style="font-size:11px;font-weight:700;text-transform:uppercase;color:#7BA69E;padding:6px 6px 0 0;border-top:2px solid #D4E2DD">Total</td><td style="border-top:2px solid #D4E2DD"></td><td style="font-size:11px;color:#0D2B29;font-weight:700;text-align:right;padding:6px 4px 0;border-top:2px solid #D4E2DD">${openDeals.length}</td><td style="font-size:12px;font-weight:700;color:#0D2B29;text-align:right;padding:6px 0 0 4px;border-top:2px solid #D4E2DD">${fmt$(pipeRaw)}</td><td style="font-size:11px;font-weight:700;color:#1B4D4A;text-align:right;padding:6px 0 0 4px;border-top:2px solid #D4E2DD">${fmt$(Math.round(pipeWtd))}</td></tr>
+    </table>
+  </div>`;
+
+  const cashCard=`<div style="${CARD}"><div style="${TITLE}">🏦 Cash Position</div>
+    ${_eg([_ekm('Current Balance',fmt$(curCash),lastActIdx>=0?`End of ${MN[lastActIdx]} ${QBO_YEAR}`:'No data',true),_ekm('Jan 1 Balance',fmt$(beginCash),`Beginning ${QBO_YEAR}`),_ekm('YTD Change',`${cashChange>=0?'+':''}${fmt$(cashChange)}`,'vs Jan 1',false,`color:${cashChange>=0?'#1B7A3D':'#C0392B'}`)],3)}
+    ${cashBars.length?_em(cashBars.map(b=>({...b,forecast:false})))+'<div style="'+NOTE+'">Monthly ending cash balance</div>':''}
+  </div>`;
+
+  const burnCard=`<div style="${CARD}"><div style="${TITLE}">🔥 Monthly Net Cash Flow</div>
+    ${_eg([_ekm('Latest Month',lastActIdx>=0?fmt$(netChanges[lastActIdx]):'—',lastActIdx>=0?MN[lastActIdx]+' '+QBO_YEAR:'—',true,lastActIdx>=0&&netChanges[lastActIdx]<0?'color:#ff8a7a':''),_ekm('3-mo Avg',`${avgBurn3>=0?'+':''}${fmt$(avgBurn3)}`,'trailing average',false,`color:${avgBurn3>=0?'#1B7A3D':'#C0392B'}`),_ekm('Trend',avgBurn3>=0?'📈 Positive':'📉 Negative',avgBurn3>=0?'Cash generating':'Cash consuming')],3)}
+    ${burnBars.length?_em(burnBars.map(b=>({...b,forecast:false})))+'<div style="'+NOTE+'">Monthly net cash in/out</div>':''}
+  </div>`;
+
+  const cpBars=cashPos.map((v,i)=>({label:MN[i].slice(0,3),v:Math.round(v),forecast:i>lastActIdx}));
+  const bfBars=forecastBurns.map((v,i)=>({label:MN[i].slice(0,3),v:Math.round(v),forecast:i>lastActIdx}));
+
+  const fcCard=`<div style="${CARD}"><div style="${TITLE}">📈 Full-Year Cash Position Forecast</div>
+    ${_eg([_ekm('Current',fmt$(curCash),`End of ${MN[lastActIdx]}`,true),_ekm('Projected YE',fmt$(projYearEnd),`Dec 31, ${QBO_YEAR}`,false,`color:${projYearEnd>=0?'#1B7A3D':'#C0392B'}`),_ekm('Cash Needed',cashNeededYE>0?fmt$(cashNeededYE):'None','to stay positive',false,`color:${cashNeededYE>0?'#C0392B':'#1B7A3D'}`),_ekm('Runway',runwayGoesNeg?runwayMonths+'mo':'> YE',runwayGoesNeg?'until $0':'through Dec',false,`color:${runwayGoesNeg?'#C0392B':'#1B7A3D'}`)],4)}
+    ${_em(cpBars)}<div style="${NOTE}">Monthly ending cash — light = forecast</div>
+  </div>`;
+
+  const bfCard=`<div style="${CARD}"><div style="${TITLE}">🔥 Monthly Burn Rate — Actuals &amp; Forecast</div>
+    ${_eg([_ekm('3-mo Avg Burn',`${avgBurn3>=0?'+':''}${fmt$(avgBurn3)}`,'trailing actual',true,avgBurn3<0?'color:#ff8a7a':''),_ekm('Remaining Mos',12-lastActIdx-1,'to forecast'),_ekm('Forecast YTD-YE',fmt$(fSum),'net change thru Dec',false,`color:${fSum>=0?'#1B7A3D':'#C0392B'}`)],3)}
+    ${_em(bfBars)}<div style="${NOTE}">Monthly net cash — light = forecast</div>
+  </div>`;
+
+  const ST='font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#7BA69E;margin:0 0 10px';
+  const FT='text-align:center;font-size:11px;color:#9BB5B1;padding-top:16px;border-top:1px solid #E0ECEB;margin-top:8px';
+
+  return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0D2B29">
+  <table width="100%" cellspacing="0" cellpadding="0" border="0" style="background:linear-gradient(135deg,#0D2B29 0%,#1B4D4A 60%,#2A6B65 100%);margin-bottom:0"><tr>
+    <td style="padding:24px 40px;vertical-align:top">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#A8D5CF;margin-bottom:8px">⚡ Weekly Flash · Confidential</div>
+      <div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-.02em">Weekly Business Update</div>
+      <div style="font-size:13px;color:#A8D5CF;margin-top:4px">RacquetX · SC2027 Sales · Cash &amp; Burn</div>
+    </td>
+    <td style="padding:24px 40px 24px 0;text-align:right;vertical-align:top;white-space:nowrap">
+      <div style="font-size:13px;font-weight:700;color:#fff;background:rgba(255,255,255,.12);border-radius:8px;padding:8px 16px;display:inline-block">${weekLabel()}</div>
+      <div style="font-size:11px;color:#A8D5CF;margin-top:6px">${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</div>
+    </td>
+  </tr></table>
+  <div style="max-width:960px;margin:0 auto;padding:24px 24px 40px;background:#F0F4F3">
+    ${_et(salesCard,pipelineCard)}
+    <div style="${ST}">Cash &amp; Burn — FY${QBO_YEAR}</div>
+    ${_et(cashCard,burnCard)}
+    <div style="${ST};margin-top:18px">Cash Forecast &amp; Runway — FY${QBO_YEAR}</div>
+    <table width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:18px"><tr><td style="border-radius:10px;padding:16px 20px;${flagBgS[flagLevel]}">
+      <table cellspacing="0" cellpadding="0" border="0"><tr>
+        <td style="font-size:24px;line-height:1;vertical-align:top;padding-right:14px">${flagIcon}</td>
+        <td style="vertical-align:top"><div style="font-size:14px;font-weight:800;margin-bottom:4px;color:${flagTc[flagLevel]}">${flagTitle}</div><div style="font-size:12px;line-height:1.55;color:#2A4E4A">${flagDetail}</div></td>
+      </tr></table>
+    </td></tr></table>
+    ${_et(fcCard,bfCard)}
+    <div style="${FT}">RacquetX · Weekly Flash Report · Confidential &amp; Proprietary · Live: HubSpot + QuickBooks Online · ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div>
+  </div>
+</div>`;
+}
+
+async function copyForEmail(){
+  if(!_emailHTML){alert('Report is still loading, please wait a moment.');return;}
+  const btn=document.getElementById('copyEmailBtn');
+  const reset=()=>{if(btn){btn.textContent='📋 Copy for Email';btn.style.background='rgba(255,255,255,.12)';btn.style.color='#fff';}};
+  try{
+    await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([_emailHTML],{type:'text/html'}),'text/plain':new Blob(['Weekly Flash Report — RacquetX'],{type:'text/plain'})})]);
+    if(btn){btn.textContent='✓ Copied!';btn.style.background='#D4F0E8';btn.style.color='#1B6B55';}
+    setTimeout(reset,2500);
+  }catch(e){
+    // Fallback: render into a hidden div, select it, copy via execCommand
+    const wrap=document.createElement('div');
+    wrap.style.cssText='position:fixed;left:-9999px;top:0;opacity:0';
+    wrap.innerHTML=_emailHTML;
+    document.body.appendChild(wrap);
+    const r=document.createRange();r.selectNode(wrap);
+    const sel=window.getSelection();sel.removeAllRanges();sel.addRange(r);
+    try{document.execCommand('copy');}catch(e2){}
+    sel.removeAllRanges();document.body.removeChild(wrap);
+    if(btn){btn.textContent='✓ Copied!';btn.style.background='#D4F0E8';btn.style.color='#1B6B55';}
+    setTimeout(reset,2500);
+  }
+}
+
 // ── Inline style constants (survive email client <style> stripping) ──────────
 const C={
   CARD:  'background:#fff;border-radius:12px;padding:20px 22px;box-shadow:0 1px 6px rgba(27,77,74,.07)',
@@ -649,6 +805,16 @@ function render(deals27all, cfData, bsData, forecastData, hsTsLabel){
   h += `<div style="${C.FOOTER}">RacquetX · Weekly Flash Report · Confidential &amp; Proprietary · Live: HubSpot + QuickBooks Online · ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div>`;
 
   content.innerHTML = h;
+
+  // Build email-safe HTML for clipboard copy
+  _emailHTML = buildEmailHTML({
+    wonDeals, totSp, firms, rbCt, rbRev, nwCt, nwRev, monthly, ci, attCol, ytdPct, ytdQ,
+    pipeWtd, pipeRaw, openDeals, byStage,
+    curCash, beginCash, cashChange, avgBurn3, netChanges, lastActIdx,
+    cashBars, burnBars, runwayGoesNeg, runwayMonths,
+    projYearEnd, cashNeededYE, cashPos, forecastBurns,
+    MN, QBO_YEAR
+  });
 
   // Header
   document.getElementById('weekBadge').textContent = weekLabel();
