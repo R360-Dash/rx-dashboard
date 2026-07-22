@@ -110,22 +110,21 @@
 </head>
 <body>
 
-<div class="report-header">
-  <div class="left">
-    <div class="badge">⚡ Weekly Flash · Confidential</div>
-    <h1>Weekly Business Update</h1>
-    <div class="subtitle">RacquetX · SC2027 Sales · Cash &amp; Burn</div>
-    <div class="sync" id="syncLine">Loading live data…</div>
+<div style="background:linear-gradient(135deg,#0D2B29 0%,#1B4D4A 60%,#2A6B65 100%);color:#fff;padding:28px 48px 26px;display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px">
+  <div>
+    <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#A8D5CF;margin-bottom:10px">⚡ Weekly Flash · Confidential</div>
+    <h1 style="font-size:24px;font-weight:800;letter-spacing:-.02em;color:#fff;margin:0">Weekly Business Update</h1>
+    <div style="font-size:13px;color:#A8D5CF;margin-top:4px">RacquetX · SC2027 Sales · Cash &amp; Burn</div>
+    <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:14px" id="syncLine">Loading live data…</div>
   </div>
-  <div class="right">
-    <div class="week-badge" id="weekBadge">—</div>
-    <div class="week-sub">as of <span id="asOfDate">—</span></div>
+  <div style="text-align:right">
+    <div style="font-size:13px;font-weight:700;color:#fff;background:rgba(255,255,255,.12);border-radius:8px;padding:8px 16px" id="weekBadge">—</div>
+    <div style="font-size:11px;color:#A8D5CF;margin-top:6px">as of <span id="asOfDate">—</span></div>
   </div>
 </div>
 
-<div class="content" id="reportContent">
-  <div class="loading-state">
-    <div class="spinner"></div>
+<div style="max-width:1060px;margin:0 auto;padding:32px 24px 60px" id="reportContent">
+  <div style="background:#fff;border-radius:12px;padding:40px;text-align:center;margin-bottom:24px">
     <p style="font-size:13px;color:#7BA69E">Fetching live data from HubSpot &amp; QuickBooks…</p>
   </div>
 </div>
@@ -348,6 +347,45 @@ function svgBarsActVsForecast(data, opts={}){
 }
 
 // ── Main render ─────────────────────────────────────────────────────────────
+// ── Inline style constants (survive email client <style> stripping) ──────────
+const C={
+  CARD:  'background:#fff;border-radius:12px;padding:20px 22px;box-shadow:0 1px 6px rgba(27,77,74,.07)',
+  TITLE: 'font-size:13px;font-weight:700;color:#0D2B29;margin-bottom:14px;display:flex;align-items:center;gap:8px',
+  TWO:   'display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px',
+  G3:    'display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px',
+  G4:    'display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px',
+  KPI:   'background:#F6FAF9;border-radius:8px;padding:12px 14px',
+  KPI_A: 'background:linear-gradient(135deg,#1B4D4A,#3D9B8F);border-radius:8px;padding:12px 14px',
+  LBL:   'font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#7BA69E;margin-bottom:4px',
+  LBL_A: 'font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,.6);margin-bottom:4px',
+  VAL:   'font-size:20px;font-weight:800;color:#0D2B29;letter-spacing:-.02em',
+  VAL_A: 'font-size:20px;font-weight:800;color:#fff;letter-spacing:-.02em',
+  SUB:   'font-size:11px;color:#9BB5B1;margin-top:2px',
+  SUB_A: 'font-size:11px;color:rgba(255,255,255,.5);margin-top:2px',
+  STITLE:'font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#7BA69E;margin-bottom:10px;margin-top:0',
+  NOTE:  'font-size:10px;color:#9BB5B1;margin-top:6px;text-align:center',
+  FOOTER:'text-align:center;font-size:11px;color:#9BB5B1;padding-top:20px;border-top:1px solid #E0ECEB;margin-top:8px',
+  LIVE:  'background:#D4F0E8;color:#1B6B55;font-size:10px;font-weight:700;border-radius:4px;padding:2px 6px',
+  ATT_ROW: 'display:flex;align-items:center;gap:10px;margin-bottom:10px',
+  ATT_LBL: 'font-size:11px;font-weight:600;color:#2A4E4A;min-width:56px',
+  ATT_BG:  'flex:1;height:8px;background:#EDF2F1;border-radius:4px;overflow:hidden',
+  ATT_FILL:'height:100%;border-radius:4px',
+  ATT_NUM: 'font-size:11px;min-width:140px;text-align:right',
+  SL:    'display:flex;flex-direction:column',
+  SI:    'display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F0F6F4',
+  SDOT:  'width:8px;height:8px;border-radius:50%;flex-shrink:0',
+  SNAME: 'font-size:13px;font-weight:600;flex:1;color:#2A4E4A',
+  SCT:   'font-size:12px;color:#7BA69E;min-width:50px;text-align:right',
+  SRAW:  'font-size:13px;font-weight:700;color:#0D2B29;min-width:80px;text-align:right',
+  SWTD:  'font-size:12px;color:#3D9B8F;min-width:70px;text-align:right',
+  STOT:  'display:flex;align-items:center;gap:10px;padding:10px 0 0;border-top:2px solid #D4E2DD;margin-top:4px',
+};
+// KPI mini card with full inline styles (email-safe)
+function kmi(lbl,val,sub,accent,vs=''){
+  const b=accent?C.KPI_A:C.KPI, l=accent?C.LBL_A:C.LBL, v=accent?C.VAL_A:C.VAL, s=accent?C.SUB_A:C.SUB;
+  return `<div style="${b}"><div style="${l}">${lbl}</div><div style="${v};${vs}">${val}</div><div style="${s}">${sub}</div></div>`;
+}
+
 function render(deals27all, cfData, bsData, forecastData, hsTsLabel){
   const ci = curIdx();
   const content = document.getElementById('reportContent');
@@ -438,22 +476,21 @@ function render(deals27all, cfData, bsData, forecastData, hsTsLabel){
     cashBars.push({ label: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][i], v: Math.round(bankBals[i]) });
   }
 
-  // ── Build HTML ──────────────────────────────────────────────────────────
+  // ── Build HTML (all inline styles for email-safe copy-paste) ───────────────
   let h = '';
 
   // ─ Row 1: Sales KPIs + Pipeline ─
-  h += `<div class="two-col">`;
+  h += `<div style="${C.TWO}">`;
 
-  // Sales
-  h += `<div class="card">
-    <div class="card-title"><span>💰</span> SC2027 Closed Won <span class="tag-live">Live</span></div>
-    <div class="kpi-row">
-      <div class="kpi-mini accent"><div class="lbl">Total</div><div class="val">${fmt$(totSp)}</div><div class="sub">${wonDeals.length} deals · ${firms.size} firms</div></div>
-      <div class="kpi-mini"><div class="lbl">Rebooks</div><div class="val">${rbCt}</div><div class="sub">${fmt$(rbRev)}</div></div>
-      <div class="kpi-mini"><div class="lbl">New</div><div class="val">${nwCt}</div><div class="sub">${fmt$(nwRev)}</div></div>
+  // Sales card
+  h += `<div style="${C.CARD}">
+    <div style="${C.TITLE}"><span>💰</span> SC2027 Closed Won <span style="${C.LIVE}">Live</span></div>
+    <div style="${C.G3}">
+      ${kmi('Total',fmt$(totSp),`${wonDeals.length} deals · ${firms.size} firms`,true)}
+      ${kmi('Rebooks',rbCt,fmt$(rbRev))}
+      ${kmi('New',nwCt,fmt$(nwRev))}
     </div>`;
 
-  // Monthly attainment bars (all SC2027 months)
   h += `<div style="margin-top:4px">`;
   MO_LBL.forEach((lbl, i) => {
     const q   = Q_SHOW[i] + Q_CS[i];
@@ -462,30 +499,29 @@ function render(deals27all, cfData, bsData, forecastData, hsTsLabel){
     const p   = q > 0 ? Math.min(pct(act, q), 100) : 0;
     const c   = p >= 100 ? '#1B7A3D' : p >= 75 ? '#1B4D4A' : p >= 50 ? '#B8860B' : act > 0 ? '#C0392B' : '#D8E6E3';
     const attStr = !isFut && q > 0 ? `${p}% · ${act ? fmtFull(act) : '$0'} / ${fmtFull(q)}` : isFut ? `quota: ${fmtFull(q)}` : '—';
-    h += `<div class="att-row">
-      <div class="att-label" style="font-size:11px">${lbl}</div>
-      <div class="att-bar-bg"><div class="att-bar-fill" style="width:${isFut?0:p}%;background:${c};opacity:${isFut?.3:1}"></div></div>
-      <div class="att-nums" style="color:${isFut?'#9BB5B1':c}">${attStr}</div>
+    h += `<div style="${C.ATT_ROW}">
+      <div style="${C.ATT_LBL}">${lbl}</div>
+      <div style="${C.ATT_BG}"><div style="${C.ATT_FILL};width:${isFut?0:p}%;background:${c};opacity:${isFut?.3:1}"></div></div>
+      <div style="${C.ATT_NUM};color:${isFut?'#9BB5B1':c}">${attStr}</div>
     </div>`;
   });
   h += `</div>`;
 
-  // YTD summary
   h += `<div style="margin-top:14px;padding-top:12px;border-top:1px solid #EDF2F1;display:flex;justify-content:space-between;align-items:center">
     <span style="font-size:12px;color:#5A8A84">YTD Attainment through ${MO_LBL[ci]}</span>
     <span style="font-size:15px;font-weight:800;color:${attCol}">${ytdPct}% <span style="font-size:11px;font-weight:400;color:#9BB5B1">of ${fmt$(ytdQ)} YTD quota</span></span>
   </div>`;
   h += `</div>`; // end sales card
 
-  // Pipeline
-  h += `<div class="card">
-    <div class="card-title"><span>📋</span> SC2027 Pipeline</div>
-    <div class="kpi-row">
-      <div class="kpi-mini accent"><div class="lbl">Weighted</div><div class="val">${fmt$(pipeWtd)}</div><div class="sub">prob-adjusted</div></div>
-      <div class="kpi-mini"><div class="lbl">Raw</div><div class="val">${fmt$(pipeRaw)}</div><div class="sub">${openDeals.length} open deals</div></div>
-      <div class="kpi-mini"><div class="lbl">Projected</div><div class="val">${fmt$(totSp+pipeWtd)}</div><div class="sub">Won + weighted</div></div>
+  // Pipeline card
+  h += `<div style="${C.CARD}">
+    <div style="${C.TITLE}"><span>📋</span> SC2027 Pipeline</div>
+    <div style="${C.G3}">
+      ${kmi('Weighted',fmt$(pipeWtd),'prob-adjusted',true)}
+      ${kmi('Raw',fmt$(pipeRaw),`${openDeals.length} open deals`)}
+      ${kmi('Projected',fmt$(totSp+pipeWtd),'Won + weighted')}
     </div>
-    <div class="stage-list">`;
+    <div style="${C.SL}">`;
 
   const stageOrder = Object.keys(STAGE_CFG);
   const activeStages = stageOrder.filter(s=>byStage[s]).concat(Object.keys(byStage).filter(s=>!STAGE_CFG[s]));
@@ -493,58 +529,57 @@ function render(deals27all, cfData, bsData, forecastData, hsTsLabel){
     const s=byStage[sid], cfg=STAGE_CFG[sid]||{prob:0.05,label:sid,color:'#9BB5B1'};
     const p=Math.round(cfg.prob*100);
     const probCol=p>=80?'#1B7A3D':p>=50?'#3D9B8F':p>=25?'#B8860B':'#9BB5B1';
-    h+=`<div class="stage-item">
-      <div class="s-dot" style="background:${cfg.color}"></div>
-      <div class="s-name">${cfg.label}</div>
-      <div class="s-prob" style="background:${probCol}1A;color:${probCol}">${p}%</div>
-      <div class="s-ct">${s.ct} · ${s.firms.size}f</div>
-      <div class="s-raw">${s.raw?fmtFull(s.raw):'TBD'}</div>
-      <div class="s-wtd">${fmtFull(Math.round(s.wtd))}</div>
+    h+=`<div style="${C.SI}">
+      <div style="${C.SDOT};background:${cfg.color}"></div>
+      <div style="${C.SNAME}">${cfg.label}</div>
+      <div style="font-size:10px;font-weight:700;padding:2px 5px;border-radius:3px;min-width:30px;text-align:center;background:${probCol}1A;color:${probCol}">${p}%</div>
+      <div style="${C.SCT}">${s.ct} · ${s.firms.size}f</div>
+      <div style="${C.SRAW}">${s.raw?fmtFull(s.raw):'TBD'}</div>
+      <div style="${C.SWTD}">${fmtFull(Math.round(s.wtd))}</div>
     </div>`;
   });
   h+=`</div>
-    <div class="stage-total">
+    <div style="${C.STOT}">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#7BA69E;flex:1">Total</div>
-      <div class="s-ct" style="color:#0D2B29;font-weight:700">${openDeals.length}</div>
-      <div class="s-raw" style="font-weight:700">${fmt$(pipeRaw)}</div>
-      <div class="s-wtd" style="font-weight:700;color:#1B4D4A">${fmtFull(Math.round(pipeWtd))}</div>
+      <div style="${C.SCT};color:#0D2B29;font-weight:700">${openDeals.length}</div>
+      <div style="${C.SRAW};font-weight:700">${fmt$(pipeRaw)}</div>
+      <div style="${C.SWTD};font-weight:700;color:#1B4D4A">${fmtFull(Math.round(pipeWtd))}</div>
     </div>
   </div>`; // end pipeline card
 
   h += `</div>`; // end two-col
 
   // ─ Row 2: Cash Position + Burn Rate ─
-  h += `<div class="sec-title">Cash &amp; Burn — FY${QBO_YEAR}</div>`;
-  h += `<div class="two-col">`;
+  h += `<div style="${C.STITLE}">Cash &amp; Burn — FY${QBO_YEAR}</div>`;
+  h += `<div style="${C.TWO}">`;
 
-  // Cash position
-  const cashCol = curCash >= 0 ? '#1B7A3D' : '#C0392B';
-  h += `<div class="card">
-    <div class="card-title"><span>🏦</span> Cash Position</div>
-    <div class="cash-kpis">
-      <div class="kpi-mini accent"><div class="lbl">Current Balance</div><div class="val">${fmt$(curCash)}</div><div class="sub">${lastActIdx>=0?`End of ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][lastActIdx]} ${QBO_YEAR}`:'No data'}</div></div>
-      <div class="kpi-mini"><div class="lbl">Jan 1 Balance</div><div class="val">${fmt$(beginCash)}</div><div class="sub">Beginning ${QBO_YEAR}</div></div>
-      <div class="kpi-mini"><div class="lbl">YTD Change</div><div class="val" style="color:${cashChange>=0?'#1B7A3D':'#C0392B'}">${cashChange>=0?'+':''}${fmt$(cashChange)}</div><div class="sub">vs Jan 1</div></div>
+  // Cash position card
+  h += `<div style="${C.CARD}">
+    <div style="${C.TITLE}"><span>🏦</span> Cash Position</div>
+    <div style="${C.G3}">
+      ${kmi('Current Balance',fmt$(curCash),lastActIdx>=0?`End of ${MN[lastActIdx]} ${QBO_YEAR}`:'No data',true)}
+      ${kmi('Jan 1 Balance',fmt$(beginCash),`Beginning ${QBO_YEAR}`)}
+      ${kmi('YTD Change',`${cashChange>=0?'+':''}${fmt$(cashChange)}`,'vs Jan 1',false,`color:${cashChange>=0?'#1B7A3D':'#C0392B'}`)}
     </div>`;
 
   if(cashBars.length > 0){
-    h += `<div class="chart-wrap">${svgBars(cashBars, {h:100, posColor:'#3D9B8F', negColor:'#C0392B'})}</div>`;
-    h += `<div class="chart-note">Monthly ending cash balance (bank accounts)</div>`;
+    h += `<div style="width:100%;overflow:hidden">${svgBars(cashBars, {h:100, posColor:'#3D9B8F', negColor:'#C0392B'})}</div>`;
+    h += `<div style="${C.NOTE}">Monthly ending cash balance (bank accounts)</div>`;
   }
   h += `</div>`; // end cash card
 
-  // Burn rate
-  h += `<div class="card">
-    <div class="card-title"><span>🔥</span> Monthly Net Cash Flow</div>
-    <div class="cash-kpis">
-      <div class="kpi-mini accent"><div class="lbl">Latest Month</div><div class="val" style="${lastActIdx>=0&&netChanges[lastActIdx]<0?'color:#ff8a7a':''}">${lastActIdx>=0?fmt$(netChanges[lastActIdx]):'—'}</div><div class="sub">${lastActIdx>=0?['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][lastActIdx]+' '+QBO_YEAR:'—'}</div></div>
-      <div class="kpi-mini"><div class="lbl">3-mo Avg</div><div class="val" style="color:${avgBurn3>=0?'#1B7A3D':'#C0392B'}">${avgBurn3>=0?'+':''}${fmt$(avgBurn3)}</div><div class="sub">trailing average</div></div>
-      <div class="kpi-mini"><div class="lbl">Trend</div><div class="val">${avgBurn3>=0?'📈 Positive':'📉 Negative'}</div><div class="sub">${avgBurn3>=0?'Cash generating':'Cash consuming'}</div></div>
+  // Burn rate card
+  h += `<div style="${C.CARD}">
+    <div style="${C.TITLE}"><span>🔥</span> Monthly Net Cash Flow</div>
+    <div style="${C.G3}">
+      ${kmi('Latest Month',lastActIdx>=0?fmt$(netChanges[lastActIdx]):'—',lastActIdx>=0?MN[lastActIdx]+' '+QBO_YEAR:'—',true,lastActIdx>=0&&netChanges[lastActIdx]<0?'color:#ff8a7a':'')}
+      ${kmi('3-mo Avg',`${avgBurn3>=0?'+':''}${fmt$(avgBurn3)}`,'trailing average',false,`color:${avgBurn3>=0?'#1B7A3D':'#C0392B'}`)}
+      ${kmi('Trend',avgBurn3>=0?'📈 Positive':'📉 Negative',avgBurn3>=0?'Cash generating':'Cash consuming')}
     </div>`;
 
   if(burnBars.length > 0){
-    h += `<div class="chart-wrap">${svgBars(burnBars, {h:100})}</div>`;
-    h += `<div class="chart-note">Net cash in/out per month — green = inflow, red = outflow</div>`;
+    h += `<div style="width:100%;overflow:hidden">${svgBars(burnBars, {h:100})}</div>`;
+    h += `<div style="${C.NOTE}">Net cash in/out per month — green = inflow, red = outflow</div>`;
   } else {
     h += `<div style="text-align:center;padding:20px;font-size:13px;color:#9BB5B1">No cash flow data available</div>`;
   }
@@ -552,11 +587,13 @@ function render(deals27all, cfData, bsData, forecastData, hsTsLabel){
   h += `</div>`; // end two-col
 
   // ─ Cash Forecast & Runway ─
-  h += `<div class="sec-title">Cash Forecast &amp; Runway — FY${QBO_YEAR}</div>`;
+  h += `<div style="${C.STITLE};margin-top:24px">Cash Forecast &amp; Runway — FY${QBO_YEAR}</div>`;
 
-  // ── Flag banner ──
+  // Flag banner
   const flagLevel = runwayGoesNeg ? 'red' : (projYearEnd < curCash * 0.25 ? 'amber' : 'green');
   const flagIcon  = runwayGoesNeg ? '🚨' : (flagLevel==='amber' ? '⚠️' : '✅');
+  const flagBg    = {red:'background:#FFF0EE;border:2px solid #E74C3C', amber:'background:#FFFBF0;border:2px solid #F39C12', green:'background:#F0FAF4;border:2px solid #1B7A3D'};
+  const flagTc    = {red:'#C0392B', amber:'#B8860B', green:'#1B7A3D'};
   let flagTitle, flagDetail;
   if(runwayGoesNeg){
     flagTitle  = `Cash Runway Alert — projected shortfall in ${runwayMonths} month${runwayMonths!==1?'s':''}`;
@@ -571,55 +608,45 @@ function render(deals27all, cfData, bsData, forecastData, hsTsLabel){
     flagTitle  = `Cash Position Healthy Through Year-End`;
     flagDetail = `Projected year-end balance: <strong>${fmtFull(projYearEnd)}</strong>. No cash shortfall expected through Dec 31, ${QBO_YEAR}.`;
   }
-  h += `<div class="flag-banner ${flagLevel}">
-    <div class="flag-icon">${flagIcon}</div>
-    <div class="flag-body">
-      <div class="flag-title">${flagTitle}</div>
-      <div class="flag-detail">${flagDetail}</div>
+  h += `<div style="border-radius:12px;padding:18px 22px;margin-bottom:24px;display:flex;align-items:flex-start;gap:16px;${flagBg[flagLevel]}">
+    <div style="font-size:28px;flex-shrink:0;line-height:1">${flagIcon}</div>
+    <div>
+      <div style="font-size:15px;font-weight:800;margin-bottom:4px;color:${flagTc[flagLevel]}">${flagTitle}</div>
+      <div style="font-size:13px;line-height:1.55;color:#2A4E4A">${flagDetail}</div>
     </div>
   </div>`;
 
-  // ── Forecast KPIs ──
-  h += `<div class="two-col">`;
-  h += `<div class="card">
-    <div class="card-title"><span>📈</span> Full-Year Cash Position Forecast</div>
-    <div class="cash-kpis" style="grid-template-columns:repeat(4,1fr)">
-      <div class="kpi-mini accent"><div class="lbl">Current</div><div class="val">${fmt$(curCash)}</div><div class="sub">End of ${MN[lastActIdx]}</div></div>
-      <div class="kpi-mini"><div class="lbl">Projected YE</div><div class="val" style="color:${projYearEnd>=0?'#1B7A3D':'#C0392B'}">${fmt$(projYearEnd)}</div><div class="sub">Dec 31, ${QBO_YEAR}</div></div>
-      <div class="kpi-mini"><div class="lbl">Cash Needed</div><div class="val" style="color:${cashNeededYE>0?'#C0392B':'#1B7A3D'}">${cashNeededYE>0?fmtFull(cashNeededYE):'None'}</div><div class="sub">to stay positive</div></div>
-      <div class="kpi-mini"><div class="lbl">Runway</div><div class="val" style="color:${runwayGoesNeg?'#C0392B':'#1B7A3D'}">${runwayGoesNeg?runwayMonths+'mo':'> YE'}</div><div class="sub">${runwayGoesNeg?'until $0':'through Dec'}</div></div>
+  // Forecast KPIs + charts
+  h += `<div style="${C.TWO}">`;
+  h += `<div style="${C.CARD}">
+    <div style="${C.TITLE}"><span>📈</span> Full-Year Cash Position Forecast</div>
+    <div style="${C.G4}">
+      ${kmi('Current',fmt$(curCash),`End of ${MN[lastActIdx]}`,true)}
+      ${kmi('Projected YE',fmt$(projYearEnd),`Dec 31, ${QBO_YEAR}`,false,`color:${projYearEnd>=0?'#1B7A3D':'#C0392B'}`)}
+      ${kmi('Cash Needed',cashNeededYE>0?fmtFull(cashNeededYE):'None','to stay positive',false,`color:${cashNeededYE>0?'#C0392B':'#1B7A3D'}`)}
+      ${kmi('Runway',runwayGoesNeg?runwayMonths+'mo':'> YE',runwayGoesNeg?'until $0':'through Dec',false,`color:${runwayGoesNeg?'#C0392B':'#1B7A3D'}`)}
     </div>`;
 
-  // Cash position chart: actuals (solid) + forecast (lighter)
-  const cashPosBars = cashPos.map((v,i)=>({
-    label: MN[i].slice(0,3),
-    v: Math.round(v),
-    forecast: i > lastActIdx
-  }));
-  h += `<div class="chart-wrap">${svgBarsActVsForecast(cashPosBars, {h:110, lastActIdx})}</div>`;
-  h += `<div class="chart-note">Monthly ending cash balance — solid = actuals, hatched = forecast</div>`;
+  const cashPosBars = cashPos.map((v,i)=>({ label:MN[i].slice(0,3), v:Math.round(v), forecast:i>lastActIdx }));
+  h += `<div style="width:100%;overflow:hidden">${svgBarsActVsForecast(cashPosBars, {h:110, lastActIdx})}</div>`;
+  h += `<div style="${C.NOTE}">Monthly ending cash balance — solid = actuals, hatched = forecast</div>`;
   h += `</div>`; // end card
 
-  // Forecast burn chart
-  h += `<div class="card">
-    <div class="card-title"><span>🔥</span> Monthly Burn Rate — Actuals &amp; Forecast</div>
-    <div class="cash-kpis" style="grid-template-columns:repeat(3,1fr)">
-      <div class="kpi-mini accent"><div class="lbl">3-mo Avg Burn</div><div class="val" style="${avgBurn3<0?'color:#ff8a7a':''}">${avgBurn3>=0?'+':''}${fmt$(avgBurn3)}</div><div class="sub">trailing actual</div></div>
-      <div class="kpi-mini"><div class="lbl">Remaining Mos</div><div class="val">${12-lastActIdx-1}</div><div class="sub">to forecast</div></div>
-      <div class="kpi-mini"><div class="lbl">Forecast YTD-YE</div><div class="val" style="color:${forecastBurns.slice(lastActIdx+1).reduce((s,v)=>s+v,0)>=0?'#1B7A3D':'#C0392B'}">${fmt$(forecastBurns.slice(lastActIdx+1).reduce((s,v)=>s+v,0))}</div><div class="sub">net change Jun–Dec</div></div>
+  h += `<div style="${C.CARD}">
+    <div style="${C.TITLE}"><span>🔥</span> Monthly Burn Rate — Actuals &amp; Forecast</div>
+    <div style="${C.G3}">
+      ${kmi('3-mo Avg Burn',`${avgBurn3>=0?'+':''}${fmt$(avgBurn3)}`,'trailing actual',true,avgBurn3<0?'color:#ff8a7a':'')}
+      ${kmi('Remaining Mos',12-lastActIdx-1,'to forecast')}
+      ${(()=>{const fSum=forecastBurns.slice(lastActIdx+1).reduce((s,v)=>s+v,0);return kmi('Forecast YTD-YE',fmt$(fSum),'net change thru Dec',false,`color:${fSum>=0?'#1B7A3D':'#C0392B'}`);})()}
     </div>`;
 
-  const burnForecastBars = forecastBurns.map((v,i)=>({
-    label: MN[i].slice(0,3),
-    v: Math.round(v),
-    forecast: i > lastActIdx
-  }));
-  h += `<div class="chart-wrap">${svgBarsActVsForecast(burnForecastBars, {h:110, lastActIdx, zeroBased:true})}</div>`;
-  h += `<div class="chart-note">Net cash in/out per month — solid = actuals, hatched = forecast</div>`;
+  const burnForecastBars = forecastBurns.map((v,i)=>({ label:MN[i].slice(0,3), v:Math.round(v), forecast:i>lastActIdx }));
+  h += `<div style="width:100%;overflow:hidden">${svgBarsActVsForecast(burnForecastBars, {h:110, lastActIdx, zeroBased:true})}</div>`;
+  h += `<div style="${C.NOTE}">Net cash in/out per month — solid = actuals, hatched = forecast</div>`;
   h += `</div>`; // end card
   h += `</div>`; // end two-col
 
-  h += `<div class="report-footer">RacquetX · Weekly Flash Report · Confidential &amp; Proprietary · Live: HubSpot + QuickBooks Online · ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div>`;
+  h += `<div style="${C.FOOTER}">RacquetX · Weekly Flash Report · Confidential &amp; Proprietary · Live: HubSpot + QuickBooks Online · ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div>`;
 
   content.innerHTML = h;
 
