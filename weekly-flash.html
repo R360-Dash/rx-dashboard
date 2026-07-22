@@ -187,13 +187,15 @@ function weekLabel(){
 
 // ── CF Lines (must match dashboard schema) ────────────────────────────────
 const CF_LINES = [
-  { key:'showColl',  sign:+1 },
-  { key:'csColl',    sign:+1 },
-  { key:'showCosts', sign:-1 },
-  { key:'cityCosts', sign:-1 },
-  { key:'marketing', sign:-1 },
-  { key:'sga',       sign:-1 },
-  { key:'salesComm', sign:-1 },
+  { key:'showColl',     sign:+1 },
+  { key:'csColl',       sign:+1 },
+  { key:'ancillaryRev', sign:+1 },
+  { key:'showCosts',    sign:-1 },
+  { key:'cityCosts',    sign:-1 },
+  { key:'marketing',    sign:-1 },
+  { key:'sga',          sign:-1 },
+  { key:'contingencies',sign:-1 },
+  { key:'salesComm',    sign:-1 },
 ];
 function computeNetBurn(lineMap){
   return Array.from({length:12}, (_,i) => {
