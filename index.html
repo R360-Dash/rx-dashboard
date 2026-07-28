@@ -359,6 +359,7 @@ tr:hover td{background:#E8F0ED}
       <button data-yr="2024">2024</button>
       <button data-yr="2025">2025</button>
       <button class="active" data-yr="2026">2026</button>
+      <button data-yr="2027">2027</button>
     </div>
     <div class="toggle" id="cfYearToggle" style="display:none">
       <button data-yr="2023">2023</button>
@@ -5859,8 +5860,8 @@ let _plYear = 2026;
 let _plView = 'yoy';  // 'yoy' | 'yearly' | 'monthly'
 let _plCycleMode = 'fiscal'; // 'fiscal' | 'show'
 let _plProduct = 'all'; // 'all' | 'show' | 'cs'
-const PL_YEARS = [2023, 2024, 2025, 2026];
-const SC_YEARS  = [2024, 2025, 2026]; // Show Cycle years (need Y-1 data, so 2023 start = SC2024)
+const PL_YEARS = [2023, 2024, 2025, 2026, 2027];
+const SC_YEARS  = [2024, 2025, 2026, 2027]; // Show Cycle years (need Y-1 data, so 2023 start = SC2024)
 
 // Build a complete P&L breakdown from a parsed QBO report
 function _buildPLBreakdown(parsed){
