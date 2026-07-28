@@ -6180,7 +6180,11 @@ async function renderPL(){
 
     // Render all three tables — only one is visible at a time
     renderPLYoYTable('plYoyTable', cur, prior, _plYear, priorYear);
-    renderPLYearlyTable('plYearlyTable', displayBreakdowns, [...activeYears, '2026est']);
+    // Fiscal: insert 2026est before 2027 so 2027 stays last; show cycle: no 2026est
+    const plTableYears = _plCycleMode === 'fiscal'
+      ? [...activeYears.filter(y => y !== 2027), '2026est', ...(activeYears.includes(2027) ? [2027] : [])]
+      : activeYears;
+    renderPLYearlyTable('plYearlyTable', displayBreakdowns, plTableYears);
     renderCondensedPL('plTable', cur, prior, priorYear);
 
     // Sync product toggle active state
@@ -6438,9 +6442,14 @@ function renderPLYearlyTable(tableId, allBreakdowns, yearsOverride){
   const years = (yearsOverride || PL_YEARS).filter(y => allBreakdowns[y]);
   if(years.length === 0){ table.innerHTML = ''; return; }
 
-  // Use the last numeric year as reference for line definitions and drill-down sorting
+  // Use the latest year with actual revenue data as the reference for line/category definitions.
+  // Avoids picking a future year (e.g. 2027) that has no QBO data yet, which would produce no rows.
   const numericYears = years.filter(y => typeof y === 'number');
-  const refYear = numericYears.length > 0 ? numericYears[numericYears.length-1] : years[years.length-1];
+  let refYear = numericYears.length > 0 ? numericYears[numericYears.length-1] : years[years.length-1];
+  for(let i = numericYears.length - 1; i >= 0; i--){
+    const bk = allBreakdowns[numericYears[i]];
+    if(bk && bk.revTot.total !== 0){ refYear = numericYears[i]; break; }
+  }
   const lines = _plBuildLines(allBreakdowns[refYear]);
 
   const cs = 'text-align:right;padding:5px 10px;font-size:12px;font-family:\'Source Sans 3\',monospace';
