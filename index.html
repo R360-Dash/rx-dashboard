@@ -6953,13 +6953,14 @@ async function renderCashFlow(){
       _qboCache[cacheBucket][year]
         ? Promise.resolve(_qboCache[cacheBucket][year])
         : fetchQbo(path).then(d => { _qboCache[cacheBucket][year] = d; return d; });
-    const [cfData, bsData, plData, glData, glDataPrior, bsDataPrior] = await Promise.all([
+    const [cfData, bsData, plData, glData, glDataPrior, bsDataPrior, cfDataPrior] = await Promise.all([
       fetchOrCached('cf', _cfYear, `/api/cashflow?year=${_cfYear}`),
       fetchOrCached('bs', _cfYear, `/api/balancesheet?year=${_cfYear}`),
       fetchOrCached('pl', _cfYear, `/api/pl?year=${_cfYear}`).catch(e => { console.warn('P&L fetch for cash flow failed:', e); return null; }),
       fetchOrCached('gl', _cfYear,   `/api/gl?year=${_cfYear}`).catch(e => null),
       fetchOrCached('gl', _cfYear-1, `/api/gl?year=${_cfYear-1}`).catch(e => null),
-      fetchOrCached('bs', _cfYear-1, `/api/balancesheet?year=${_cfYear-1}`).catch(e => null)
+      fetchOrCached('bs', _cfYear-1, `/api/balancesheet?year=${_cfYear-1}`).catch(e => null),
+      fetchOrCached('cf', _cfYear-1, `/api/cashflow?year=${_cfYear-1}`).catch(e => null)
     ]);
     if(updEl) updEl.textContent = 'Last synced: ' + new Date(cfData.ts).toLocaleString();
 
@@ -6985,9 +6986,43 @@ async function renderCashFlow(){
     if(_cfYear < now.getFullYear()) lastActualIdx = 11;
 
     let beginCash = bankBalances[0] - actualBurns[0];
-    if(lastActualIdx === -1 && bsDataPrior){
-      const priorBal = _cfExtractBankBalances(bsDataPrior.report);
-      if(priorBal) beginCash = priorBal[11] ?? 0;
+    if(lastActualIdx === -1){
+      // Fully future year: seed beginCash from prior year's projected December cash position,
+      // chaining actuals through last known month then forecast forward — same logic as the CF view.
+      try {
+        const priorParsed = cfDataPrior ? parseQboReport(cfDataPrior.report) : null;
+        const priorActualBurns = priorParsed
+          ? (priorParsed.summaries.find(s => /Net cash|Net Increase|Ending Cash|Net change/i.test(s.label))?.monthly.slice() || Array(12).fill(0))
+          : Array(12).fill(0);
+        const priorBankBals = _cfExtractBankBalances(bsDataPrior?.report) || Array(12).fill(0);
+
+        let priorLastIdx = -1;
+        for(let i = priorActualBurns.length - 1; i >= 0; i--){
+          if(Math.abs(priorActualBurns[i]) > 0.01){ priorLastIdx = i; break; }
+        }
+
+        if(priorLastIdx >= 0 || priorBankBals.some(v => v > 0)){
+          const priorSaved = await _cfLoadForecast(_cfYear - 1);
+          const priorFcLines = {};
+          _CF_LINES.forEach(l => {
+            priorFcLines[l.key] = Array(12).fill(0);
+            for(let i = Math.max(0, priorLastIdx + 1); i < 12; i++){
+              priorFcLines[l.key][i] = priorSaved?.[l.key]?.[i] ?? 0;
+            }
+          });
+          const priorFutBurns = _cfComputeNetBurn(priorFcLines);
+          const priorForecastBurns = priorActualBurns.slice();
+          for(let i = Math.max(0, priorLastIdx + 1); i < 12; i++) priorForecastBurns[i] = priorFutBurns[i];
+
+          const priorBeginCash = priorBankBals[0] - priorActualBurns[0];
+          const priorCashPos = Array(12).fill(0);
+          for(let i = 0; i < 12; i++){
+            if(i <= priorLastIdx) priorCashPos[i] = priorBankBals[i];
+            else priorCashPos[i] = (i === 0 ? priorBeginCash : priorCashPos[i-1]) + priorForecastBurns[i];
+          }
+          beginCash = priorCashPos[11];
+        }
+      } catch(e){ console.warn('Prior-year December cash computation failed:', e); }
     }
     const latestActualCash = lastActualIdx >= 0 ? bankBalances[lastActualIdx] : beginCash;
 
