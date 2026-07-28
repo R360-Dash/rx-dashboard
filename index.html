@@ -6035,8 +6035,8 @@ function _plApplyProductFilter(bk, product){
 //   closed months (0 .. curMo-1) = actuals from bk2026
 //   current + future months (curMo .. 11) = budget values
 // Returns a breakdown object compatible with _plBuildLines / _plApplyProductFilter.
-function _buildBVAEstBreakdown(bk2026, budget) {
-  const curMo = new Date().getMonth(); // 0-based: 0=Jan … 11=Dec
+function _buildBVAEstBreakdown(bk2026, budget, actUntilMo) {
+  const curMo = actUntilMo !== undefined ? actUntilMo : new Date().getMonth(); // 0-based: 0=Jan … 11=Dec
   const N = 12;
   const pad = arr => { const r=Array(N).fill(0); (arr||[]).forEach((v,i)=>{if(i<N)r[i]=v;}); return r; };
 
@@ -6139,6 +6139,15 @@ async function renderPL(){
       } catch(e) { console.warn('BVA 2026 estimate failed:', e); }
     }
 
+    // Build 2027 Budget breakdown — actUntilMo=0 so all 12 months use budget (no actuals yet)
+    if(_plCycleMode === 'fiscal') {
+      try {
+        const budget2027 = await _bvaLoad(2027);
+        const bdgBk = _buildBVAEstBreakdown(allBreakdowns[2027] || displayBreakdowns[2027], budget2027, 0);
+        displayBreakdowns['2027budget'] = _plApplyProductFilter(bdgBk, _plProduct);
+      } catch(e) { console.warn('BVA 2027 budget failed:', e); }
+    }
+
     const cur = displayBreakdowns[_plYear];
     if(!cur){
       document.getElementById('plKpis').innerHTML = '<div style="color:#C0392B;padding:16px">No data returned for '+_plYear+'</div>';
@@ -6182,7 +6191,7 @@ async function renderPL(){
     renderPLYoYTable('plYoyTable', cur, prior, _plYear, priorYear);
     // Fiscal: insert 2026est before 2027 so 2027 stays last; show cycle: no 2026est
     const plTableYears = _plCycleMode === 'fiscal'
-      ? [...activeYears.filter(y => y !== 2027), '2026est', ...(activeYears.includes(2027) ? [2027] : [])]
+      ? [...activeYears.filter(y => y !== 2027), '2026est', ...(activeYears.includes(2027) ? ['2027budget'] : [])]
       : activeYears;
     renderPLYearlyTable('plYearlyTable', displayBreakdowns, plTableYears);
     renderCondensedPL('plTable', cur, prior, priorYear);
@@ -6461,8 +6470,9 @@ function renderPLYearlyTable(tableId, allBreakdowns, yearsOverride){
   let html = `<thead><tr><th style="${stickyHdr}">Line</th>`;
   years.forEach(y => {
     const isEst = y === '2026est';
-    const hdrExtra = isEst ? ';color:#6B3FA0;font-style:italic' : '';
-    const hdrLabel = isEst ? '2026 Est ($)' : `${y} ($)`;
+    const isBdg = y === '2027budget';
+    const hdrExtra = isEst ? ';color:#6B3FA0;font-style:italic' : isBdg ? ';color:#1A6B4A;font-style:italic' : '';
+    const hdrLabel = isEst ? '2026 Est ($)' : isBdg ? '2027 Bdg ($)' : `${y} ($)`;
     html += `<th style="${hdrCs}${hdrExtra}">${hdrLabel}</th><th style="${hdrCs}${hdrExtra}">% sales</th>`;
   });
   html += `</tr></thead><tbody>`;
@@ -6502,9 +6512,10 @@ function renderPLYearlyTable(tableId, allBreakdowns, yearsOverride){
       const val = line.get(b);
       const yrRev = b.revTot.total;
       const isEst = y === '2026est';
-      const valColor = line.kind === 'summary' ? ((val||0) >= 0 ? '#1B7A3D' : '#C0392B') : (isEst ? '#4A3070' : (line.kind === 'category' ? '#0D2B29' : 'inherit'));
+      const isBdg = y === '2027budget';
+      const valColor = line.kind === 'summary' ? ((val||0) >= 0 ? '#1B7A3D' : '#C0392B') : (isEst ? '#4A3070' : isBdg ? '#1A6B4A' : (line.kind === 'category' ? '#0D2B29' : 'inherit'));
       const pct = (val != null && yrRev > 0) ? (val/yrRev*100).toFixed(1)+'%' : '—';
-      const estBg = isEst ? ';background:#FAF7FF' : '';
+      const estBg = isEst ? ';background:#FAF7FF' : isBdg ? ';background:#F0FAF5' : '';
       html += `<td style="${sty.cs};color:${valColor}${estBg}">${_plFmt$(val)}</td><td style="${sty.cs};color:#A8C5BE;font-size:10px${estBg}">${pct}</td>`;
     });
     html += `</tr>`;
