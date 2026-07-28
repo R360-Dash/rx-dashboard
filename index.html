@@ -6754,12 +6754,13 @@ let _cfYear = 2026;
 let _cfState = null;
 
 // Forecast lines (7 categories that compose the monthly burn)
-// Net Burn = showColl + csColl - showCosts - cityCosts - marketing - sga - salesComm
+// Net Burn = showColl + csColl + ancillaryRev - ancillaryCosts - showCosts - cityCosts - marketing - sga - salesComm
 const _CF_LINES = [
-  { key: 'showColl',     label: 'Show Collections',    sign: +1, color: '#1B7A3D' },
-  { key: 'csColl',       label: 'City Series Revenues',sign: +1, color: '#1683A4' },
-  { key: 'ancillaryRev', label: 'Ancillary Revenue',   sign: +1, color: '#16A085' },
-  { key: 'showCosts',    label: 'Show Costs',          sign: -1, color: '#C0392B' },
+  { key: 'showColl',      label: 'Show Collections',    sign: +1, color: '#1B7A3D' },
+  { key: 'csColl',        label: 'City Series Revenues',sign: +1, color: '#1683A4' },
+  { key: 'ancillaryRev',  label: 'Ancillary Revenue',   sign: +1, color: '#16A085' },
+  { key: 'ancillaryCosts',label: 'Ancillary Costs',     sign: -1, color: '#5D6D7E' },
+  { key: 'showCosts',     label: 'Show Costs',          sign: -1, color: '#C0392B' },
   { key: 'cityCosts',    label: 'City Series Costs',   sign: -1, color: '#E67E22' },
   { key: 'marketing',    label: 'Marketing Costs',     sign: -1, color: '#8E44AD' },
   { key: 'sga',          label: 'SG&A',                sign: -1, color: '#B8860B' },
@@ -6864,7 +6865,8 @@ function _cfBuildLineActuals(plBreakdown){
   return {
     showColl:     empty.slice(), // Show revenue — user-entered; no reliable monthly split from QBO P&L
     csColl:       empty.slice(), // City Series revenue — user-entered
-    ancillaryRev: empty.slice(), // Ancillary revenue — user-entered
+    ancillaryRev:  empty.slice(), // Ancillary revenue — user-entered
+    ancillaryCosts: empty.slice(), // Ancillary costs — user-entered
     showCosts:    (plBreakdown.dcByCat['Show Costs']?.monthly || empty).slice(),
     cityCosts:    (plBreakdown.dcByCat['City Series Costs']?.monthly || empty).slice(),
     marketing:    (plBreakdown.dcByCat['Marketing Costs']?.monthly || empty).slice(),
