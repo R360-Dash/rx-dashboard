@@ -6303,8 +6303,10 @@ document.querySelectorAll('#plViewToggle button').forEach(b => {
 //  Shared helpers for the P&L tables (compact rows, no borders)
 // ─────────────────────────────────────────────────────────────────
 
-const _PL_REV_ORDER = ['Show Tickets','Show Sponsors','City Series Sponsors','City Series Tickets','Merch','Uncategorized'];
-const _PL_DC_ORDER = ['Show Costs','City Series Costs','Marketing Costs'];
+// Derived at render time from _BVA_LINES (defined later in this script).
+// Adding a line to _BVA_LINES with a qboCat automatically adds it here.
+const _plRevOrder = () => [..._BVA_LINES.filter(l=>l.section==='rev'&&l.qboCat).map(l=>l.qboCat),'Uncategorized'];
+const _plDcOrder  = () =>   _BVA_LINES.filter(l=>l.section==='dc' &&l.qboCat).map(l=>l.qboCat);
 
 const _plFmt$ = v => v == null ? '<span style="color:#D4E2DD">—</span>' : (v < 0 ? `<span style="color:#C0392B">(${_$Knd(Math.abs(v))})</span>` : _$Knd(v));
 const _plFmtPctOfSales = (val, totalRev) => {
@@ -6336,13 +6338,14 @@ function _plBuildLines(b){
   const lines = [];
   // Revenues
   lines.push({ kind: 'section', label: 'Revenues' });
-  _PL_REV_ORDER.forEach(name => {
+  const _ro = _plRevOrder(), _do = _plDcOrder();
+  _ro.forEach(name => {
     const c = b.revByCat[name];
     if(c && c.total !== 0) lines.push({ kind: 'category', label: name,
       get:(bk)=>bk?.revByCat?.[name]?.total ?? null,
       getLeafs:(bk)=>bk?.revByCat?.[name]?.leafs ?? [] });
   });
-  Object.keys(b.revByCat).filter(k => !_PL_REV_ORDER.includes(k)).forEach(k => {
+  Object.keys(b.revByCat).filter(k => !_ro.includes(k)).forEach(k => {
     const c = b.revByCat[k];
     if(c.total !== 0) lines.push({ kind: 'category', label: k,
       get:(bk)=>bk?.revByCat?.[k]?.total ?? null,
@@ -6352,7 +6355,7 @@ function _plBuildLines(b){
 
   // Direct Costs
   lines.push({ kind: 'section', label: 'Direct Costs' });
-  _PL_DC_ORDER.forEach(name => {
+  _do.forEach(name => {
     const c = b.dcByCat[name];
     if(c && c.total !== 0) lines.push({ kind: 'category', label: name,
       get:(bk)=>bk?.dcByCat?.[name]?.total ?? null,
@@ -6714,8 +6717,8 @@ function renderCondensedPL(tableId, cur, prior, priorYear){
     return priorObj[key]?.total ?? null;
   };
 
-  const REV_ORDER = ['Show Tickets','Show Sponsors','City Series Sponsors','City Series Tickets','Merch','Uncategorized'];
-  const DC_ORDER = ['Show Costs','City Series Costs','Marketing Costs'];
+  const REV_ORDER = _plRevOrder();
+  const DC_ORDER  = _plDcOrder();
 
   // ── REVENUES ──
   html += sectionHeader('Revenues', '#1B4D4A');
@@ -7587,17 +7590,20 @@ let _bvaCycleMode = 'fiscal'; // 'fiscal' | 'show'
 let _bvaProduct   = 'all';   // 'all' | 'show' | 'cs'
 const BVA_SC_YEARS = [2024, 2025, 2026];
 
+// _BVA_LINES is the single source of truth for both BVA and P&L ordering.
+// qboCat = the QBO breakdown category name for that line.
+// Adding a new line here automatically propagates to P&L column ordering.
 const _BVA_LINES = [
-  {key:'showSponsors',       label:'Show Sponsors',                section:'rev'},
-  {key:'showTickets',        label:'Show Tickets',                 section:'rev'},
-  {key:'citySeriesSponsors', label:'City Series Sponsors',         section:'rev'},
-  {key:'citySeriesTickets',  label:'City Series Tickets',          section:'rev'},
-  {key:'ancillaryRev',       label:'Ancillary Revenues',           section:'rev'},
-  {key:'merch',              label:'Merch',                        section:'rev'},
-  {key:'showCosts',          label:'Show Costs',                   section:'dc' },
-  {key:'citySeriesCosts',    label:'City Series Costs',            section:'dc' },
-  {key:'marketingCosts',     label:'Marketing Costs',              section:'dc' },
-  {key:'ancillaryCosts',     label:'Ancillary Costs',              section:'dc' },
+  {key:'showSponsors',       label:'Show Sponsors',                section:'rev', qboCat:'Show Sponsors'},
+  {key:'showTickets',        label:'Show Tickets',                 section:'rev', qboCat:'Show Tickets'},
+  {key:'citySeriesSponsors', label:'City Series Sponsors',         section:'rev', qboCat:'City Series Sponsors'},
+  {key:'citySeriesTickets',  label:'City Series Tickets',          section:'rev', qboCat:'City Series Tickets'},
+  {key:'ancillaryRev',       label:'Ancillary Revenues',           section:'rev', qboCat:'Ancillary Revenue'},
+  {key:'merch',              label:'Merch',                        section:'rev', qboCat:'Merch'},
+  {key:'showCosts',          label:'Show Costs',                   section:'dc',  qboCat:'Show Costs'},
+  {key:'citySeriesCosts',    label:'City Series Costs',            section:'dc',  qboCat:'City Series Costs'},
+  {key:'marketingCosts',     label:'Marketing Costs',              section:'dc',  qboCat:'Marketing Costs'},
+  {key:'ancillaryCosts',     label:'Ancillary Costs',              section:'dc',  qboCat:'Ancillary Costs'},
   {key:'sga',                label:'SG&A',                         section:'sga'},
   {key:'cea',                label:'Corporate Expense Allocation', section:'cea'},
 ];
@@ -7607,19 +7613,12 @@ const _bvaAbsArr = arr => _bvaPad(arr).map(v=>Math.abs(v));
 
 function _bvaActualMonthly(bk, key){
   if(!bk) return Array(12).fill(0);
+  const line = _BVA_LINES.find(l => l.key === key);
+  if(line?.section === 'rev' && line.qboCat) return _bvaPad(bk.revByCat?.[line.qboCat]?.monthly);
+  if(line?.section === 'dc'  && line.qboCat) return _bvaAbsArr(bk.dcByCat?.[line.qboCat]?.monthly);
   switch(key){
-    case 'showSponsors':       return _bvaPad(bk.revByCat?.['Show Sponsors']?.monthly);
-    case 'showTickets':        return _bvaPad(bk.revByCat?.['Show Tickets']?.monthly);
-    case 'citySeriesSponsors': return _bvaPad(bk.revByCat?.['City Series Sponsors']?.monthly);
-    case 'citySeriesTickets':  return _bvaPad(bk.revByCat?.['City Series Tickets']?.monthly);
-    case 'ancillaryRev':       return _bvaPad(bk.revByCat?.['Ancillary Revenue']?.monthly);
-    case 'merch':              return _bvaPad(bk.revByCat?.['Merch']?.monthly);
-    case 'showCosts':          return _bvaAbsArr(bk.dcByCat?.['Show Costs']?.monthly);
-    case 'citySeriesCosts':    return _bvaAbsArr(bk.dcByCat?.['City Series Costs']?.monthly);
-    case 'marketingCosts':     return _bvaAbsArr(bk.dcByCat?.['Marketing Costs']?.monthly);
-    case 'ancillaryCosts':     return _bvaAbsArr(bk.dcByCat?.['Ancillary Costs']?.monthly);
-    case 'sga':                return _bvaAbsArr(bk.sgaTot?.monthly);
-    case 'cea':                return _bvaAbsArr(bk.ceaTot?.monthly);
+    case 'sga': return _bvaAbsArr(bk.sgaTot?.monthly);
+    case 'cea': return _bvaAbsArr(bk.ceaTot?.monthly);
     default: return Array(12).fill(0);
   }
 }
