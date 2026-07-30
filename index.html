@@ -195,6 +195,8 @@ tr:hover td{background:#E8F0ED}
 .nav-group-hidden{display:none!important}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 
@@ -254,6 +256,12 @@ tr:hover td{background:#E8F0ED}
     <div class="nav-group-title">Partners</div>
     <div class="nav-links">
     <a class="nav-item" data-nav="sec-partners">Partner Directory</a>
+    </div>
+  </div>
+  <div class="nav-group">
+    <div class="nav-group-title">City Series</div>
+    <div class="nav-links">
+    <a class="nav-item" data-nav="sec-csmap">City Event Map</a>
     </div>
   </div>
   <!-- Sponsorship (hidden) -->
@@ -968,6 +976,43 @@ tr:hover td{background:#E8F0ED}
 </div>
 
 <div class="hs-updated" style="margin-top:12px">Source: HubSpot CRM · Closed Won deals with $0 amount · Partners, IAPPF, Chinese Agent & other non-revenue relationships</div>
+</div>
+
+<!-- ═══ CITY SERIES MAP ═══ -->
+<div id="sec-csmap" class="page">
+<div class="section">
+  <div class="section-header">
+    <div class="section-bar"></div>
+    <div class="section-title">City Series — Event Map</div>
+  </div>
+  <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+    <!-- Map card -->
+    <div class="card" style="flex:1;min-width:320px;padding:0;overflow:hidden">
+      <div style="padding:14px 18px 12px;border-bottom:1px solid #EDF3F2;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:12px;font-weight:700;color:#0D2B29;text-transform:uppercase;letter-spacing:.06em">Show Cycle</span>
+        <div style="display:flex;gap:6px" id="csmapYearToggle">
+          <button onclick="renderCitySeriesMap('2026')" data-csyr="2026" class="cs-map-yr-btn" style="padding:4px 12px;font-size:12px;font-weight:700;border-radius:6px;border:1px solid #1B4D4A;background:#1B4D4A;color:#fff;cursor:pointer">SC2026</button>
+          <button onclick="renderCitySeriesMap('2027')" data-csyr="2027" class="cs-map-yr-btn" style="padding:4px 12px;font-size:12px;font-weight:700;border-radius:6px;border:1px solid #D4E2DD;background:transparent;color:#7BA69E;cursor:pointer">SC2027</button>
+        </div>
+        <span id="csmapSubtitle" style="font-size:11px;color:#9BB5B1;margin-left:4px"></span>
+      </div>
+      <div id="csmap" style="height:460px;width:100%"></div>
+    </div>
+    <!-- City detail panel -->
+    <div class="card" id="csmapDetail" style="width:280px;min-width:260px;display:none;padding:20px 22px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#7BA69E;margin-bottom:4px" id="csmapDetailState"></div>
+      <div style="font-size:20px;font-weight:800;color:#0D2B29;margin-bottom:16px" id="csmapDetailCity"></div>
+      <div id="csmapDetailKpis" style="display:flex;flex-direction:column;gap:10px"></div>
+      <div style="margin-top:16px;font-size:10px;color:#B0C9C5;line-height:1.5" id="csmapDetailNote"></div>
+    </div>
+  </div>
+  <!-- Legend -->
+  <div style="display:flex;gap:18px;margin-top:12px;flex-wrap:wrap" id="csmapLegend">
+    <span style="font-size:11px;color:#7BA69E;display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:#1B4D4A;display:inline-block"></span> Completed</span>
+    <span style="font-size:11px;color:#7BA69E;display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:#3D9B8F;display:inline-block"></span> Upcoming</span>
+    <span style="font-size:11px;color:#7BA69E;display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:#D4E2DD;border:2px solid #1B4D4A;display:inline-block"></span> Planned</span>
+  </div>
+</div>
 </div>
 
 <!-- ═══ MARKETING ═══ -->
@@ -2878,7 +2923,7 @@ function showPage(id){
   document.querySelectorAll('.nav-group').forEach(g=>{
     if(g.querySelector(`.nav-item[data-nav="${id}"]`))g.classList.remove('collapsed');
   });
-  document.getElementById('tog').style.display=(id==='sec-mkt'||id==='sec-cumfirm'||id==='sec-cumsp'||id==='sec-settings'||id==='sec-board'||id==='sec-sales-report'||id==='sec-hsoverview'||id==='sec-hsdeals'||id==='sec-grip'||id==='sec-hsmix'||id==='sec-hsnew'||id==='sec-hsrebooks'||id==='sec-hsmom'||id==='sec-hscumsp'||id==='sec-hscumfirm'||id==='sec-partners'||id==='sec-linkedin'||id==='sec-ga4'||id==='sec-pl'||id==='sec-bva'||id==='sec-cashflow'||id==='sec-revproj'||id==='sec-scenario'||id==='sec-expenses')?'none':'flex';
+  document.getElementById('tog').style.display=(id==='sec-mkt'||id==='sec-cumfirm'||id==='sec-cumsp'||id==='sec-settings'||id==='sec-board'||id==='sec-sales-report'||id==='sec-hsoverview'||id==='sec-hsdeals'||id==='sec-grip'||id==='sec-hsmix'||id==='sec-hsnew'||id==='sec-hsrebooks'||id==='sec-hsmom'||id==='sec-hscumsp'||id==='sec-hscumfirm'||id==='sec-partners'||id==='sec-linkedin'||id==='sec-ga4'||id==='sec-pl'||id==='sec-bva'||id==='sec-cashflow'||id==='sec-revproj'||id==='sec-scenario'||id==='sec-expenses'||id==='sec-csmap')?'none':'flex';
   // Show page-specific year toggle in header
   ['expCycleToggle','expYearToggle','plProductToggle','plCycleToggle','plYearToggle','cfYearToggle','bvaYearToggle1','bvaViewToggle'].forEach(t=>{const el=document.getElementById(t);if(el)el.style.display='none';});
   if(id==='sec-expenses'){
@@ -2919,6 +2964,7 @@ function showPage(id){
   if(id==='sec-bva')setTimeout(renderBVA,80);
   if(id==='sec-cashflow')setTimeout(renderCashFlow,80);
   if(id==='sec-arcl'||id==='sec-arinv')setTimeout(renderAR,80);
+  if(id==='sec-csmap')setTimeout(()=>{ if(typeof renderCitySeriesMap==='function') renderCitySeriesMap(); },120);
 }
 document.querySelectorAll('.nav-item').forEach(item=>{
   item.addEventListener('click',()=>showPage(item.dataset.nav));
@@ -8320,6 +8366,186 @@ document.getElementById('expTable').addEventListener('click', e=>{
   btn.style.transform = isOpen ? '' : 'rotate(90deg)';
   btn.title = isOpen ? 'Show vendors' : 'Hide vendors';
 });
+
+})();
+</script>
+
+<!-- ═══ CITY SERIES MAP SCRIPT ═══ -->
+<script>
+(function(){
+
+// ── Static city metadata ─────────────────────────────────────────────────────
+// lat/lng, state, status, plus per-event metrics the user fills in.
+// status: 'done' | 'upcoming' | 'planned'
+// revenue is pulled live from HubSpot; other fields are manually maintained here.
+const CS_CITY_STATIC = {
+  'Orlando':      { lat:28.5383, lng:-81.3792, state:'FL', status:'done',     tickets:0, attendees:0, ebitda:0 },
+  'Philadelphia': { lat:39.9526, lng:-75.1652, state:'PA', status:'done',     tickets:0, attendees:0, ebitda:0 },
+  'Austin':       { lat:30.2672, lng:-97.7431, state:'TX', status:'done',     tickets:0, attendees:0, ebitda:0 },
+  'San Diego':    { lat:32.7157, lng:-117.161, state:'CA', status:'upcoming',  tickets:0, attendees:0, ebitda:0 },
+  'Chicago':      { lat:41.8781, lng:-87.6298, state:'IL', status:'planned',  tickets:0, attendees:0, ebitda:0 },
+  'Dallas':       { lat:32.7767, lng:-96.7970, state:'TX', status:'planned',  tickets:0, attendees:0, ebitda:0 },
+  'Nashville':    { lat:36.1627, lng:-86.7816, state:'TN', status:'planned',  tickets:0, attendees:0, ebitda:0 },
+  'Miami':        { lat:25.7617, lng:-80.1918, state:'FL', status:'planned',  tickets:0, attendees:0, ebitda:0 },
+};
+
+const STATUS_COLOR = { done:'#1B4D4A', upcoming:'#3D9B8F', planned:'#A8C5BE' };
+const STATUS_LABEL = { done:'Completed', upcoming:'Upcoming', planned:'Planned' };
+
+let _csMap = null;       // Leaflet map instance (singleton)
+let _csMarkers = [];     // current markers layer
+let _csActiveYear = '2026';
+
+// ── Compute per-city revenue from live HubSpot data ───────────────────────────
+function _csCityRevenue(yr){
+  const out = {};
+  if(!window._allPaidWon) return out;
+  const is27 = yr === '2027';
+  for(const d of window._allPaidWon){
+    if(is27){
+      if(d.li && d.li.length){
+        for(const li of d.li){
+          if(!window._isCsDeal || !_isCsDeal(li.n)) continue;
+          const city = _parseCityFromLI(li.n);
+          out[city] = (out[city]||0) + li.a;
+        }
+      }
+    } else {
+      if(_isCsDeal(d.n)){
+        const city = _parseCityFromLI(d.n) || 'City Series';
+        out[city] = (out[city]||0) + d.a;
+      }
+    }
+  }
+  return out;
+}
+
+// ── Marker icon factory ───────────────────────────────────────────────────────
+function _csIcon(status, rev){
+  const col = STATUS_COLOR[status] || '#A8C5BE';
+  // Radius scales from 14px (no rev) to 26px at $150k+
+  const r = rev > 0 ? Math.min(26, 14 + Math.round(rev / 10000)) : 14;
+  const d = r * 2;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${d}" height="${d}">
+    <circle cx="${r}" cy="${r}" r="${r-2}" fill="${col}" fill-opacity=".85" stroke="#fff" stroke-width="2"/>
+  </svg>`;
+  return L.divIcon({
+    className: '',
+    html: `<div style="filter:drop-shadow(0 2px 4px rgba(0,0,0,.25))">${svg}</div>`,
+    iconSize: [d, d],
+    iconAnchor: [r, r],
+  });
+}
+
+// ── Detail panel ─────────────────────────────────────────────────────────────
+function _csShowDetail(city, meta, rev){
+  const panel = document.getElementById('csmapDetail');
+  if(!panel) return;
+  document.getElementById('csmapDetailCity').textContent  = city;
+  document.getElementById('csmapDetailState').textContent = `${meta.state} · ${STATUS_LABEL[meta.status]||meta.status}`;
+
+  const fmt$ = v => v > 0 ? '$'+Math.round(v).toLocaleString() : '—';
+  const fmtN = v => v > 0 ? v.toLocaleString() : '—';
+
+  const kpis = [
+    { icon:'💰', label:'Sponsor Revenue',  value: fmt$(rev) },
+    { icon:'🎫', label:'Tickets Sold',     value: fmtN(meta.tickets) },
+    { icon:'👥', label:'Attendees',        value: fmtN(meta.attendees) },
+    { icon:'📊', label:'EBITDA',           value: meta.ebitda !== 0 ? fmt$(meta.ebitda) : '—', color: meta.ebitda >= 0 ? '#1B7A3D' : '#C0392B' },
+  ];
+
+  document.getElementById('csmapDetailKpis').innerHTML = kpis.map(k => `
+    <div style="background:#F6FAF9;border-radius:8px;padding:10px 12px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#7BA69E;margin-bottom:3px">${k.icon} ${k.label}</div>
+      <div style="font-size:18px;font-weight:800;color:${k.color||'#0D2B29'}">${k.value}</div>
+    </div>`).join('');
+
+  const hasData = meta.tickets > 0 || meta.attendees > 0 || meta.ebitda !== 0;
+  document.getElementById('csmapDetailNote').textContent = hasData
+    ? 'Sponsor revenue live from HubSpot. Other metrics manually maintained.'
+    : 'Sponsor revenue live from HubSpot. Tickets, attendees, and EBITDA will appear here once data is entered in CS_CITY_STATIC.';
+
+  panel.style.display = 'block';
+}
+
+// ── Main render function ──────────────────────────────────────────────────────
+window.renderCitySeriesMap = function(yr){
+  yr = yr || _csActiveYear;
+  _csActiveYear = yr;
+
+  // Update toggle button active state
+  document.querySelectorAll('.cs-map-yr-btn').forEach(b => {
+    const active = b.dataset.csyr === yr;
+    b.style.background = active ? '#1B4D4A' : 'transparent';
+    b.style.color      = active ? '#fff' : '#7BA69E';
+    b.style.borderColor= active ? '#1B4D4A' : '#D4E2DD';
+  });
+
+  const subtitle = document.getElementById('csmapSubtitle');
+  if(subtitle) subtitle.textContent = yr === '2027'
+    ? 'Apr 2026 – Mar 2027'
+    : 'Apr 2025 – Mar 2026';
+
+  // Init Leaflet map only once
+  const container = document.getElementById('csmap');
+  if(!container) return;
+
+  if(!_csMap){
+    _csMap = L.map('csmap', { zoomControl:true, scrollWheelZoom:false }).setView([38.5, -96.5], 4);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution:'&copy; <a href="https://carto.com/">CARTO</a>',
+      subdomains:'abcd', maxZoom:18
+    }).addTo(_csMap);
+  } else {
+    _csMap.invalidateSize();
+  }
+
+  // Remove old markers
+  _csMarkers.forEach(m => m.remove());
+  _csMarkers = [];
+
+  // Hide detail panel on re-render
+  const panel = document.getElementById('csmapDetail');
+  if(panel) panel.style.display = 'none';
+
+  // Get live revenue per city
+  const liveRev = _csCityRevenue(yr);
+
+  // Merge static + live: show all static cities + any HubSpot-only cities
+  const allCities = { ...CS_CITY_STATIC };
+  Object.keys(liveRev).forEach(c => {
+    if(!allCities[c]) allCities[c] = { lat:null, lng:null, state:'', status:'done', tickets:0, attendees:0, ebitda:0 };
+  });
+
+  let placed = 0;
+  Object.entries(allCities).forEach(([city, meta]) => {
+    if(!meta.lat || !meta.lng) return; // no coords for HubSpot-only cities
+    const rev = liveRev[city] || 0;
+    const marker = L.marker([meta.lat, meta.lng], { icon: _csIcon(meta.status, rev) });
+
+    // Popup
+    const fmt$ = v => v > 0 ? '$'+Math.round(v).toLocaleString() : '—';
+    const fmtN = v => v > 0 ? v.toLocaleString() : '—';
+    const row = (lbl, val) => `<div style="display:flex;justify-content:space-between;gap:16px;font-size:12px;padding:3px 0;border-bottom:1px solid #F0F6F4"><span style="color:#7BA69E">${lbl}</span><strong style="color:#0D2B29">${val}</strong></div>`;
+    marker.bindPopup(`
+      <div style="font-family:inherit;min-width:190px">
+        <div style="font-size:13px;font-weight:800;color:#0D2B29;margin-bottom:2px">${city}, ${meta.state}</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:${STATUS_COLOR[meta.status]||'#A8C5BE'};margin-bottom:10px">${STATUS_LABEL[meta.status]||meta.status}</div>
+        ${row('Sponsor Revenue', fmt$(rev))}
+        ${row('Tickets Sold', fmtN(meta.tickets))}
+        ${row('Attendees', fmtN(meta.attendees))}
+        ${row('EBITDA', meta.ebitda !== 0 ? fmt$(meta.ebitda) : '—')}
+      </div>`, { maxWidth:240 });
+
+    marker.on('click', () => _csShowDetail(city, meta, rev));
+    marker.addTo(_csMap);
+    _csMarkers.push(marker);
+    placed++;
+  });
+
+  const sub = document.getElementById('csmapSubtitle');
+  if(sub) sub.textContent += `  ·  ${placed} cities`;
+};
 
 })();
 </script>
