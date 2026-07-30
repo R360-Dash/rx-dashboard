@@ -8379,14 +8379,11 @@ document.getElementById('expTable').addEventListener('click', e=>{
 // status: 'done' | 'upcoming' | 'planned'
 // revenue is pulled live from HubSpot; other fields are manually maintained here.
 const CS_CITY_STATIC = {
-  'Orlando':      { lat:28.5383, lng:-81.3792, state:'FL', status:'done',     tickets:0, attendees:0, ebitda:0 },
-  'Philadelphia': { lat:39.9526, lng:-75.1652, state:'PA', status:'done',     tickets:0, attendees:0, ebitda:0 },
-  'Austin':       { lat:30.2672, lng:-97.7431, state:'TX', status:'done',     tickets:0, attendees:0, ebitda:0 },
-  'San Diego':    { lat:32.7157, lng:-117.161, state:'CA', status:'upcoming',  tickets:0, attendees:0, ebitda:0 },
-  'Chicago':      { lat:41.8781, lng:-87.6298, state:'IL', status:'planned',  tickets:0, attendees:0, ebitda:0 },
-  'Dallas':       { lat:32.7767, lng:-96.7970, state:'TX', status:'planned',  tickets:0, attendees:0, ebitda:0 },
-  'Nashville':    { lat:36.1627, lng:-86.7816, state:'TN', status:'planned',  tickets:0, attendees:0, ebitda:0 },
-  'Miami':        { lat:25.7617, lng:-80.1918, state:'FL', status:'planned',  tickets:0, attendees:0, ebitda:0 },
+  'New York':  { lat:40.7128, lng:-74.0060, state:'NY', status:'upcoming', tickets:0, attendees:0, ebitda:0 },
+  'San Diego': { lat:32.7157, lng:-117.161, state:'CA', status:'upcoming', tickets:0, attendees:0, ebitda:0 },
+  'Phoenix':   { lat:33.4484, lng:-112.074, state:'AZ', status:'upcoming', tickets:0, attendees:0, ebitda:0 },
+  'Chicago':   { lat:41.8781, lng:-87.6298, state:'IL', status:'upcoming', tickets:0, attendees:0, ebitda:0 },
+  'London':    { lat:51.5074, lng:-0.1278,  state:'UK', status:'planned',  tickets:0, attendees:0, ebitda:0 },
 };
 
 const STATUS_COLOR = { done:'#1B4D4A', upcoming:'#3D9B8F', planned:'#A8C5BE' };
