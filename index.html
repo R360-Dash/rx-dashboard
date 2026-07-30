@@ -6339,9 +6339,12 @@ function _plBuildLines(b){
   // Revenues
   lines.push({ kind: 'section', label: 'Revenues' });
   const _ro = _plRevOrder(), _do = _plDcOrder();
+  // BVA-declared lines always show (even when ref year has no QBO data yet)
+  const _bvaRevCats = new Set(_BVA_LINES.filter(l=>l.section==='rev'&&l.qboCat).map(l=>l.qboCat));
+  const _bvaDcCats  = new Set(_BVA_LINES.filter(l=>l.section==='dc' &&l.qboCat).map(l=>l.qboCat));
   _ro.forEach(name => {
     const c = b.revByCat[name];
-    if(c && c.total !== 0) lines.push({ kind: 'category', label: name,
+    if(_bvaRevCats.has(name) || (c && c.total !== 0)) lines.push({ kind: 'category', label: name,
       get:(bk)=>bk?.revByCat?.[name]?.total ?? null,
       getLeafs:(bk)=>bk?.revByCat?.[name]?.leafs ?? [] });
   });
@@ -6357,7 +6360,7 @@ function _plBuildLines(b){
   lines.push({ kind: 'section', label: 'Direct Costs' });
   _do.forEach(name => {
     const c = b.dcByCat[name];
-    if(c && c.total !== 0) lines.push({ kind: 'category', label: name,
+    if(_bvaDcCats.has(name) || (c && c.total !== 0)) lines.push({ kind: 'category', label: name,
       get:(bk)=>bk?.dcByCat?.[name]?.total ?? null,
       getLeafs:(bk)=>bk?.dcByCat?.[name]?.leafs ?? [] });
   });
