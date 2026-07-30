@@ -8376,14 +8376,27 @@ document.getElementById('expTable').addEventListener('click', e=>{
 
 // ── Static city metadata ─────────────────────────────────────────────────────
 // lat/lng, state, status, plus per-event metrics the user fills in.
-// status: 'done' | 'upcoming' | 'planned'
-// revenue is pulled live from HubSpot; other fields are manually maintained here.
+// Coordinate + metadata lookup — city list is driven by HubSpot data automatically.
+// Add a row here when a new city needs coordinates or event metrics (tickets/attendees/ebitda).
+// Revenue is always live from HubSpot; status/tickets/attendees/ebitda are manually maintained.
 const CS_CITY_STATIC = {
-  'New York':  { lat:40.7128, lng:-74.0060, state:'NY', status:'upcoming', tickets:0, attendees:0, ebitda:0 },
-  'San Diego': { lat:32.7157, lng:-117.161, state:'CA', status:'upcoming', tickets:0, attendees:0, ebitda:0 },
-  'Phoenix':   { lat:33.4484, lng:-112.074, state:'AZ', status:'upcoming', tickets:0, attendees:0, ebitda:0 },
-  'Chicago':   { lat:41.8781, lng:-87.6298, state:'IL', status:'upcoming', tickets:0, attendees:0, ebitda:0 },
-  'London':    { lat:51.5074, lng:-0.1278,  state:'UK', status:'planned',  tickets:0, attendees:0, ebitda:0 },
+  'New York':      { lat:40.7128, lng:-74.0060, state:'NY', status:'upcoming', tickets:0, attendees:0, ebitda:0 },
+  'San Diego':     { lat:32.7157, lng:-117.161, state:'CA', status:'upcoming', tickets:0, attendees:0, ebitda:0 },
+  'Phoenix':       { lat:33.4484, lng:-112.074, state:'AZ', status:'upcoming', tickets:0, attendees:0, ebitda:0 },
+  'Chicago':       { lat:41.8781, lng:-87.6298, state:'IL', status:'upcoming', tickets:0, attendees:0, ebitda:0 },
+  'London':        { lat:51.5074, lng:-0.1278,  state:'UK', status:'planned',  tickets:0, attendees:0, ebitda:0 },
+  'Austin':        { lat:30.2672, lng:-97.7431, state:'TX', status:'planned',  tickets:0, attendees:0, ebitda:0 },
+  'Atlanta':       { lat:33.7490, lng:-84.3880, state:'GA', status:'planned',  tickets:0, attendees:0, ebitda:0 },
+  'Philadelphia':  { lat:39.9526, lng:-75.1652, state:'PA', status:'planned',  tickets:0, attendees:0, ebitda:0 },
+  'Miami':         { lat:25.7617, lng:-80.1918, state:'FL', status:'planned',  tickets:0, attendees:0, ebitda:0 },
+  'Dallas':        { lat:32.7767, lng:-96.7970, state:'TX', status:'planned',  tickets:0, attendees:0, ebitda:0 },
+  'Los Angeles':   { lat:34.0522, lng:-118.244, state:'CA', status:'planned',  tickets:0, attendees:0, ebitda:0 },
+  'Nashville':     { lat:36.1627, lng:-86.7816, state:'TN', status:'planned',  tickets:0, attendees:0, ebitda:0 },
+  'Denver':        { lat:39.7392, lng:-104.990, state:'CO', status:'planned',  tickets:0, attendees:0, ebitda:0 },
+  'Seattle':       { lat:47.6062, lng:-122.332, state:'WA', status:'planned',  tickets:0, attendees:0, ebitda:0 },
+  'Boston':        { lat:42.3601, lng:-71.0589, state:'MA', status:'planned',  tickets:0, attendees:0, ebitda:0 },
+  'Houston':       { lat:29.7604, lng:-95.3698, state:'TX', status:'planned',  tickets:0, attendees:0, ebitda:0 },
+  'Orlando':       { lat:28.5383, lng:-81.3792, state:'FL', status:'planned',  tickets:0, attendees:0, ebitda:0 },
 };
 
 const STATUS_COLOR = { done:'#1B4D4A', upcoming:'#3D9B8F', planned:'#A8C5BE' };
@@ -8515,19 +8528,13 @@ window.renderCitySeriesMap = function(yr){
   const panel = document.getElementById('csmapDetail');
   if(panel) panel.style.display = 'none';
 
-  // Get live revenue per city
+  // Get live revenue per city — this is the authoritative city list
   const liveRev = _csCityRevenue(yr);
 
-  // Merge static + live: show all static cities + any HubSpot-only cities
-  const allCities = { ...CS_CITY_STATIC };
-  Object.keys(liveRev).forEach(c => {
-    if(!allCities[c]) allCities[c] = { lat:null, lng:null, state:'', status:'done', tickets:0, attendees:0, ebitda:0 };
-  });
-
   let placed = 0;
-  Object.entries(allCities).forEach(([city, meta]) => {
-    if(!meta.lat || !meta.lng) return; // no coords for HubSpot-only cities
-    const rev = liveRev[city] || 0;
+  Object.entries(liveRev).forEach(([city, rev]) => {
+    const meta = CS_CITY_STATIC[city] || { lat:null, lng:null, state:'', status:'upcoming', tickets:0, attendees:0, ebitda:0 };
+    if(!meta.lat || !meta.lng) return; // city not yet in coord lookup
     const marker = L.marker([meta.lat, meta.lng], { icon: _csIcon(meta.status, rev, city) });
 
     // Popup
