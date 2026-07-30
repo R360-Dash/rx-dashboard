@@ -6102,19 +6102,16 @@ function _buildBVAEstBreakdown(bk2026, budget, actUntilMo) {
     return {total,monthly};
   }
 
-  // Revenue
+  // Revenue — driven by _BVA_LINES so new lines propagate automatically
   const revByCat = {};
-  [{key:'showSponsors',name:'Show Sponsors'},{key:'showTickets',name:'Show Tickets'},
-   {key:'citySeriesSponsors',name:'City Series Sponsors'},{key:'citySeriesTickets',name:'City Series Tickets'},
-   {key:'merch',name:'Merch'}].forEach(({key,name}) => {
-    const m=estArr(key); if(m.some(v=>v!==0)) revByCat[name]=entry(name,m);
+  _BVA_LINES.filter(l=>l.section==='rev'&&l.qboCat).forEach(({key,qboCat}) => {
+    const m=estArr(key); if(m.some(v=>v!==0)) revByCat[qboCat]=entry(qboCat,m);
   });
 
-  // Direct costs
+  // Direct costs — driven by _BVA_LINES
   const dcByCat = {};
-  [{key:'showCosts',name:'Show Costs'},{key:'citySeriesCosts',name:'City Series Costs'},
-   {key:'marketingCosts',name:'Marketing Costs'}].forEach(({key,name}) => {
-    const m=estArr(key); if(m.some(v=>v!==0)) dcByCat[name]=entry(name,m);
+  _BVA_LINES.filter(l=>l.section==='dc'&&l.qboCat).forEach(({key,qboCat}) => {
+    const m=estArr(key); if(m.some(v=>v!==0)) dcByCat[qboCat]=entry(qboCat,m);
   });
 
   const revTot = sumMap(revByCat);
