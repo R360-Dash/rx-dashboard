@@ -8426,7 +8426,7 @@ function _csCityRevenue(yr){
 function _csIcon(status, rev, city){
   const col = STATUS_COLOR[status] || '#A8C5BE';
   // Radius: 18px base, scales up with revenue
-  const r = rev > 0 ? Math.min(28, 18 + Math.round(rev / 8000)) : 18;
+  const r = rev > 0 ? Math.min(18, 10 + Math.round(rev / 8000)) : 10;
   const d = r * 2;
   const html = `<div style="position:relative;display:inline-block">
     <div style="width:${d}px;height:${d}px;border-radius:50%;background:${col};border:3px solid #fff;
