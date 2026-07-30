@@ -8418,18 +8418,24 @@ function _csCityRevenue(yr){
 }
 
 // ── Marker icon factory ───────────────────────────────────────────────────────
-function _csIcon(status, rev){
+function _csIcon(status, rev, city){
   const col = STATUS_COLOR[status] || '#A8C5BE';
-  // Radius scales from 14px (no rev) to 26px at $150k+
-  const r = rev > 0 ? Math.min(26, 14 + Math.round(rev / 10000)) : 14;
+  // Radius: 18px base, scales up with revenue
+  const r = rev > 0 ? Math.min(28, 18 + Math.round(rev / 8000)) : 18;
   const d = r * 2;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${d}" height="${d}">
-    <circle cx="${r}" cy="${r}" r="${r-2}" fill="${col}" fill-opacity=".85" stroke="#fff" stroke-width="2"/>
-  </svg>`;
+  const label = city || '';
+  const html = `<div style="position:relative;display:inline-block">
+    <div style="width:${d}px;height:${d}px;border-radius:50%;background:${col};border:3px solid #fff;
+      box-shadow:0 2px 8px rgba(0,0,0,.35);opacity:.92"></div>
+    <div style="position:absolute;top:${d+4}px;left:50%;transform:translateX(-50%);
+      white-space:nowrap;background:rgba(15,40,35,.78);color:#fff;font-size:11px;
+      font-weight:700;padding:2px 7px;border-radius:4px;pointer-events:none;
+      box-shadow:0 1px 4px rgba(0,0,0,.3)">${label}</div>
+  </div>`;
   return L.divIcon({
     className: '',
-    html: `<div style="filter:drop-shadow(0 2px 4px rgba(0,0,0,.25))">${svg}</div>`,
-    iconSize: [d, d],
+    html,
+    iconSize: [d, d + 24],
     iconAnchor: [r, r],
   });
 }
@@ -8518,7 +8524,7 @@ window.renderCitySeriesMap = function(yr){
   Object.entries(allCities).forEach(([city, meta]) => {
     if(!meta.lat || !meta.lng) return; // no coords for HubSpot-only cities
     const rev = liveRev[city] || 0;
-    const marker = L.marker([meta.lat, meta.lng], { icon: _csIcon(meta.status, rev) });
+    const marker = L.marker([meta.lat, meta.lng], { icon: _csIcon(meta.status, rev, city) });
 
     // Popup
     const fmt$ = v => v > 0 ? '$'+Math.round(v).toLocaleString() : '—';
