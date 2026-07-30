@@ -8396,19 +8396,24 @@ let _csActiveYear = '2027';
 // ── Compute per-city revenue from live HubSpot data ───────────────────────────
 function _csCityRevenue(yr){
   const out = {};
-  if(!window._allPaidWon) return out;
+  const deals = (window.HS && window.HS.d) ? window.HS.d : (window._allPaidWon || []);
+  if(!deals.length) return out;
   const is27 = yr === '2027';
-  for(const d of window._allPaidWon){
+  const pipeYr = is27 ? 27 : 26;
+  for(const d of deals){
     if(is27){
+      // Filter to SC2027 paid closed-won directly from HS.d
+      if(d.p !== pipeYr || d.s !== 'closedwon' || !(d.a > 0)) continue;
       if(d.li && d.li.length){
         for(const li of d.li){
-          if(!window._isCsDeal || !_isCsDeal(li.n)) continue;
+          if(!li.n || !li.n.toLowerCase().includes('city series')) continue;
           const city = _parseCityFromLI(li.n);
-          out[city] = (out[city]||0) + li.a;
+          if(city) out[city] = (out[city]||0) + li.a;
         }
       }
     } else {
-      if(_isCsDeal(d.n)){
+      if(d.p !== pipeYr || d.s !== 'closedwon' || !(d.a > 0)) continue;
+      if(d.n && d.n.toLowerCase().includes('city series')){
         const city = _parseCityFromLI(d.n) || 'City Series';
         out[city] = (out[city]||0) + d.a;
       }
