@@ -8391,7 +8391,7 @@ const STATUS_LABEL = { done:'Completed', upcoming:'Upcoming', planned:'Planned' 
 
 let _csMap = null;       // Leaflet map instance (singleton)
 let _csMarkers = [];     // current markers layer
-let _csActiveYear = '2026';
+let _csActiveYear = '2027';
 
 // ── Compute per-city revenue from live HubSpot data ───────────────────────────
 function _csCityRevenue(yr){
@@ -8423,14 +8423,13 @@ function _csIcon(status, rev, city){
   // Radius: 18px base, scales up with revenue
   const r = rev > 0 ? Math.min(28, 18 + Math.round(rev / 8000)) : 18;
   const d = r * 2;
-  const label = city || '';
   const html = `<div style="position:relative;display:inline-block">
     <div style="width:${d}px;height:${d}px;border-radius:50%;background:${col};border:3px solid #fff;
       box-shadow:0 2px 8px rgba(0,0,0,.35);opacity:.92"></div>
     <div style="position:absolute;top:${d+4}px;left:50%;transform:translateX(-50%);
-      white-space:nowrap;background:rgba(15,40,35,.78);color:#fff;font-size:11px;
+      white-space:nowrap;background:rgba(15,40,35,.82);color:#fff;font-size:11px;
       font-weight:700;padding:2px 7px;border-radius:4px;pointer-events:none;
-      box-shadow:0 1px 4px rgba(0,0,0,.3)">${label}</div>
+      box-shadow:0 1px 4px rgba(0,0,0,.3)">${city || ''}</div>
   </div>`;
   return L.divIcon({
     className: '',
