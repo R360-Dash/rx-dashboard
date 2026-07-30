@@ -1910,7 +1910,7 @@ function render(){
     const wonStage=_wonStages[pipeYr];
     const allWon=window.HS.d.filter(d=>d.p===pipeYr&&d.s===wonStage);
     const paidWonAll=allWon.filter(d=>d.a>0);
-    _allPaidWon=paidWonAll; // hoist to outer scope for city-series breakdown
+    _allPaidWon=paidWonAll; window._allPaidWon=paidWonAll; // expose globally for map
     const qualifiedZero=allWon.filter(d=>d.a===0&&(['iappf','chinese'].includes(_catP(d.n))));
     // Apply revenue filter with line-item-aware splits for 2027
     let _rfPaid,_rfZero;
