@@ -1171,6 +1171,15 @@ tr:hover td{background:#E8F0ED}
   </a>
 </div>
 
+<!-- City Series breakdown -->
+<div class="card" style="margin-top:20px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div style="font-size:14px;font-weight:700;color:#0D2B29">🗺️ City Series — Sponsorship Revenue by City</div>
+    <div style="font-size:11px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:.06em">SC2027 · Live</div>
+  </div>
+  <div id="srCsCity"><div style="color:#7BA69E;font-size:12px">Loading…</div></div>
+</div>
+
 <!-- SC2027 Weekly Sales Archive -->
 <div class="card" style="margin-top:20px">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -2967,6 +2976,7 @@ function showPage(id){
   if(id==='sec-cashflow')setTimeout(renderCashFlow,80);
   if(id==='sec-arcl'||id==='sec-arinv')setTimeout(renderAR,80);
   if(id==='sec-csmap')setTimeout(()=>{ if(typeof renderCitySeriesMap==='function') renderCitySeriesMap(); },120);
+  if(id==='sec-sales-report')setTimeout(renderSalesReportCsCity,80);
 }
 document.querySelectorAll('.nav-item').forEach(item=>{
   item.addEventListener('click',()=>showPage(item.dataset.nav));
@@ -4225,6 +4235,45 @@ function renderHsMoM(){
       `<div class="tip-r"><span style="color:#A8C5BE">2027 Cumulative</span><b>${$$(cum.y27[i])}</b></div>`}});
 
   leg('hsLMoMCum',[{n:'2024 Show',c:COL24,v:$f(s24)},{n:'2025 Show',c:COL25,v:$f(s25)},{n:'2026 Show',c:COL26,v:$f(s26)},{n:'2027 Show',c:COL27,v:$f(s27)}]);
+}
+
+function renderSalesReportCsCity(){
+  const el=document.getElementById('srCsCity');
+  if(!el)return;
+  const rev=_csCityRevenue('2027');
+  const entries=Object.entries(rev).sort((a,b)=>b[1]-a[1]);
+  if(!entries.length){el.innerHTML='<div style="color:#7BA69E;font-size:12px;padding:8px 0">No City Series data found for SC2027 yet.</div>';return;}
+  const total=entries.reduce((s,[,v])=>s+v,0);
+  const $f=v=>v>=1e6?'$'+(v/1e6).toFixed(2)+'M':v>=1e3?'$'+(v/1e3).toFixed(1)+'K':'$'+Math.round(v);
+  const rows=entries.map(([city,r])=>{
+    const pct=(r/total*100).toFixed(1);
+    const barW=Math.round(r/total*100);
+    return`<tr style="border-bottom:1px solid #F0F5F3">
+      <td style="padding:10px 0;font-weight:600;color:#0D2B29;min-width:120px">${city}</td>
+      <td style="padding:10px 16px 10px 8px;text-align:right;color:#1B4D4A;font-weight:700;white-space:nowrap">${$f(r)}</td>
+      <td style="padding:10px 0;width:160px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;background:#E8F0ED;border-radius:4px;height:8px;overflow:hidden">
+            <div style="width:${barW}%;background:#3D9B8F;height:100%;border-radius:4px"></div>
+          </div>
+          <span style="font-size:11px;color:#7BA69E;min-width:36px;text-align:right">${pct}%</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+  el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead><tr>
+      <th style="text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#7BA69E;padding:6px 0;border-bottom:1px solid #E2EDE9">City</th>
+      <th style="text-align:right;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#7BA69E;padding:6px 8px;border-bottom:1px solid #E2EDE9">Sponsorship Revenue</th>
+      <th style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#7BA69E;padding:6px 0;border-bottom:1px solid #E2EDE9">% of Total</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr style="background:#F4F8F6">
+      <td style="padding:10px 0;font-weight:700;color:#0D2B29;border-top:2px solid #D4E2DD">Total</td>
+      <td style="padding:10px 8px;text-align:right;color:#1B4D4A;font-weight:700;border-top:2px solid #D4E2DD">${$f(total)}</td>
+      <td style="border-top:2px solid #D4E2DD"></td>
+    </tr></tfoot>
+  </table>`;
 }
 
 // Expose render functions globally for showPage() calls
