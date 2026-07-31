@@ -4041,38 +4041,50 @@ function renderAllHsSponsor(){
 
 // ═══ MONTH OVER MONTH (GROUPED BAR — ALL 3 SHOWS) ═══
 function renderHsMoM(){
-  const COL24='#A8C5BE',COL25='#3D9B8F',COL26='#1B4D4A';
+  const COL24='#A8C5BE',COL25='#3D9B8F',COL26='#1B4D4A',COL27='#4FAF9F';
   const years=[24,25,26,27];
-  const SHOW_MO={24:new Date(2024,2,15),25:new Date(2025,2,15),26:new Date(2026,2,13)};
+  const SHOW_MO={24:new Date(2024,2,15),25:new Date(2025,2,15),26:new Date(2026,2,13),27:new Date(2027,2,15)};
   const monthNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
   // XL24/XL25 are defined globally (near topClients)
 
-  // Compute months-before-show for 2026 only (live HubSpot data)
-  function mbsBucket(closeDate){
-    if(!closeDate)return 0;
+  // Compute months-before-show for a given show year (show is in March = month index 2)
+  function mbsBucketFor(closeDate, showYr){
+    if(!closeDate)return null;
     const [y,m]=closeDate.split('-').map(Number);
-    const diff=(2026*12+2)-(y*12+(m-1));
+    const diff=(showYr*12+2)-(y*12+(m-1));
     if(diff>=0&&diff<=11) return diff;
     return null;
   }
 
-  // Build data: Excel for 24/25, HubSpot for 26
+  // Build data: Excel for 24/25, HubSpot for 26 & 27
   const buckets={};
   for(let mbs=11;mbs>=0;mbs--){
     const x24=XL24[mbs]||[0,0], x25=XL25[mbs]||[0,0];
-    buckets[mbs]={y24:x24[0],y25:x25[0],y26:0,c24:x24[1],c25:x25[1],c26:0,f24:new Set(),f25:new Set(),f26:new Set()};
+    buckets[mbs]={y24:x24[0],y25:x25[0],y26:0,y27:0,c24:x24[1],c25:x25[1],c26:0,c27:0,f24:new Set(),f25:new Set(),f26:new Set(),f27:new Set()};
   }
 
   // 2026: bucket from HubSpot close dates
   const wonStage26=WON_STAGE[26];
   const won26=HS.d.filter(d=>d.p===26&&d.s===wonStage26&&d.a>0);
   won26.forEach(d=>{
-    const mbs=mbsBucket(d.cd);
+    const mbs=mbsBucketFor(d.cd,2026);
     if(mbs!=null&&buckets[mbs]){
       buckets[mbs].y26+=d.a;
       buckets[mbs].c26++;
       buckets[mbs].f26.add(hsCompanyKey(d.n));
+    }
+  });
+
+  // 2027: bucket from HubSpot close dates
+  const wonStage27=WON_STAGE[27];
+  const won27=HS.d.filter(d=>d.p===27&&d.s===wonStage27&&d.a>0);
+  won27.forEach(d=>{
+    const mbs=mbsBucketFor(d.cd,2027);
+    if(mbs!=null&&buckets[mbs]){
+      buckets[mbs].y27+=d.a;
+      buckets[mbs].c27++;
+      buckets[mbs].f27.add(hsCompanyKey(d.n));
     }
   });
 
@@ -4081,7 +4093,7 @@ function renderHsMoM(){
   for(let mbs=11;mbs>=0;mbs--){
     const b=buckets[mbs];
     const lb=mbs===0?'Show month':mbs+' mo out';
-    chartData.push({lb,y24:b.y24,y25:b.y25,y26:b.y26,c24:b.c24,c25:b.c25,c26:b.c26,f24:b.f24.size,f25:b.f25.size,f26:b.f26.size});
+    chartData.push({lb,y24:b.y24,y25:b.y25,y26:b.y26,y27:b.y27,c24:b.c24,c25:b.c25,c26:b.c26,c27:b.c27,f24:b.f24.size,f25:b.f25.size,f26:b.f26.size,f27:b.f27.size});
   }
 
   // KPIs: totals per year
@@ -4092,6 +4104,7 @@ function renderHsMoM(){
   const ct24=chartData.reduce((s,d)=>s+d.c24,0);
   const ct25=chartData.reduce((s,d)=>s+d.c25,0);
   const ct26=chartData.reduce((s,d)=>s+d.c26,0);
+  const ct27=chartData.reduce((s,d)=>s+d.c27,0);
   const $f=v=>v>=1e6?'$'+(v/1e6).toFixed(2)+'M':v>=1e3?'$'+(v/1e3).toFixed(1)+'K':'$'+v;
   const yoy25=tot24>0?((tot25-tot24)/tot24*100).toFixed(1)+'%':'—';
   const yoy26=tot25>0?((tot26-tot25)/tot25*100).toFixed(1)+'%':'—';
@@ -4099,15 +4112,16 @@ function renderHsMoM(){
     {i:'📊',t:'2024 Show',v:$f(tot24),s:ct24+' contracts'},
     {i:'📊',t:'2025 Show',v:$f(tot25),s:ct25+' contracts',tr:tot24>0?(tot25-tot24)/tot24:null,tl:'vs 2024'},
     {i:'📊',t:'2026 Show',v:$f(tot26),s:ct26+' contracts',tr:tot25>0?(tot26-tot25)/tot25:null,tl:'vs 2025'},
+    {i:'📊',t:'2027 Show',v:$f(tot27),s:ct27+' contracts',tr:tot26>0?(tot27-tot26)/tot26:null,tl:'vs 2026'},
   ].map(k=>`<div class="kpi"><div class="kpi-label">${k.i} ${k.t}</div><div class="kpi-value">${k.v}</div>${k.s?`<div class="kpi-sub">${k.s}</div>`:''}${k.tr!=null?`<div class="kpi-trend ${k.tr>=0?'up':'down'}">${k.tr>=0?'▲':'▼'} ${(Math.abs(k.tr)*100).toFixed(1)}% <span>${k.tl||''}</span></div>`:''}</div>`).join('');
 
   // ── Grouped bar chart ──
   const r=setupCanvas('hsCanMoM');if(!r)return;const{c,x,W,H}=r;
   const pad={t:30,r:20,b:50,l:65};const cw=W-pad.l-pad.r;const ch=H-pad.t-pad.b;
-  const n=chartData.length;const groupW=cw/n;const barW=Math.min(groupW*0.22,22);const barGap=2;
-  const totalBarsW=barW*3+barGap*2;
+  const n=chartData.length;const groupW=cw/n;const barW=Math.min(groupW*0.19,18);const barGap=2;
+  const totalBarsW=barW*4+barGap*3;
 
-  let mx=0;chartData.forEach(d=>{mx=Math.max(mx,d.y24,d.y25,d.y26)});mx=mx*1.15||1;
+  let mx=0;chartData.forEach(d=>{mx=Math.max(mx,d.y24,d.y25,d.y26,d.y27)});mx=mx*1.15||1;
 
   // Grid
   x.strokeStyle=COL.gr;x.lineWidth=1;
@@ -4119,7 +4133,7 @@ function renderHsMoM(){
   }
 
   // Bars & labels
-  const colors=[COL24,COL25,COL26];const keys=['y24','y25','y26'];
+  const colors=[COL24,COL25,COL26,COL27];const keys=['y24','y25','y26','y27'];
   const $n=v=>v>=1e6?'$'+(v/1e6).toFixed(1)+'M':v>=1e3?'$'+Math.round(v/1e3)+'K':'$'+Math.round(v);
   chartData.forEach((d,i)=>{
     const gx=pad.l+groupW*i+groupW/2-totalBarsW/2;
@@ -4157,9 +4171,10 @@ function renderHsMoM(){
     return`<div class="tip-t">${d.lb}</div>`+
       `<div class="tip-r"><span style="color:${COL24}">2024 Show</span><b>${$$(d.y24)}</b> <span style="font-size:10px;color:#7BA69E">${d.c24} deals · ${d.f24} firms</span></div>`+
       `<div class="tip-r"><span style="color:${COL25}">2025 Show</span><b>${$$(d.y25)}</b> <span style="font-size:10px;color:#7BA69E">${d.c25} deals · ${d.f25} firms</span></div>`+
-      `<div class="tip-r"><span style="color:${COL26}">2026 Show</span><b>${$$(d.y26)}</b> <span style="font-size:10px;color:#7BA69E">${d.c26} deals · ${d.f26} firms</span></div>`}});
+      `<div class="tip-r"><span style="color:${COL26}">2026 Show</span><b>${$$(d.y26)}</b> <span style="font-size:10px;color:#7BA69E">${d.c26} deals · ${d.f26} firms</span></div>`+
+      `<div class="tip-r"><span style="color:${COL27}">2027 Show</span><b>${$$(d.y27)}</b> <span style="font-size:10px;color:#7BA69E">${d.c27} deals · ${d.f27} firms</span></div>`}});
 
-  leg('hsLMoM',[{n:'2024 Show',c:COL24,v:$f(tot24)},{n:'2025 Show',c:COL25,v:$f(tot25)},{n:'2026 Show',c:COL26,v:$f(tot26)},{n:'2027 Show',c:'#3D9B8F',v:$f(tot27||0)}]);
+  leg('hsLMoM',[{n:'2024 Show',c:COL24,v:$f(tot24)},{n:'2025 Show',c:COL25,v:$f(tot25)},{n:'2026 Show',c:COL26,v:$f(tot26)},{n:'2027 Show',c:COL27,v:$f(tot27)}]);
 
   // ── Cumulative line chart ──
   const r2=setupCanvas('hsCanMoMCum');if(!r2)return;const{c:c2,x:x2,W:W2,H:H2}=r2;
@@ -4169,7 +4184,7 @@ function renderHsMoM(){
   const cum={y24:[],y25:[],y26:[],y27:[]};
   let s24=0,s25=0,s26=0,s27=0;
   chartData.forEach(d=>{s24+=d.y24;s25+=d.y25;s26+=d.y26;s27+=d.y27||0;cum.y24.push(s24);cum.y25.push(s25);cum.y26.push(s26);cum.y27.push(s27)});
-  const cmx=Math.max(s24,s25,s26)*1.15||1;
+  const cmx=Math.max(s24,s25,s26,s27)*1.15||1;
 
   // Grid
   x2.strokeStyle=COL.gr;x2.lineWidth=1;
@@ -4186,7 +4201,7 @@ function renderHsMoM(){
   chartData.forEach((d,i)=>x2.fillText(d.lb,pad2.l+st2*i,H2-pad2.b+16));
 
   // Lines
-  const cumColors=[COL24,COL25,COL26,'#3D9B8F'];const cumKeys=['y24','y25','y26','y27'];const cumLabels=['2024 Show','2025 Show','2026 Show','2027 Show'];
+  const cumColors=[COL24,COL25,COL26,COL27];const cumKeys=['y24','y25','y26','y27'];const cumLabels=['2024 Show','2025 Show','2026 Show','2027 Show'];
   cumKeys.forEach((k,ki)=>{
     const pts=cum[k].map((v,i)=>[pad2.l+st2*i,pad2.t+ch2-v/cmx*ch2]);
     x2.beginPath();x2.strokeStyle=cumColors[ki];x2.lineWidth=ki===2?3:2;
@@ -4209,7 +4224,7 @@ function renderHsMoM(){
       `<div class="tip-r"><span style="color:${COL26}">2026 Cumulative</span><b>${$$(cum.y26[i])}</b></div>`+
       `<div class="tip-r"><span style="color:#A8C5BE">2027 Cumulative</span><b>${$$(cum.y27[i])}</b></div>`}});
 
-  leg('hsLMoMCum',[{n:'2024 Show',c:COL24,v:$f(s24)},{n:'2025 Show',c:COL25,v:$f(s25)},{n:'2026 Show',c:COL26,v:$f(s26)}]);
+  leg('hsLMoMCum',[{n:'2024 Show',c:COL24,v:$f(s24)},{n:'2025 Show',c:COL25,v:$f(s25)},{n:'2026 Show',c:COL26,v:$f(s26)},{n:'2027 Show',c:COL27,v:$f(s27)}]);
 }
 
 // Expose render functions globally for showPage() calls
