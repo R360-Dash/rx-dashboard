@@ -357,6 +357,7 @@ tr:hover td{background:#E8F0ED}
       <button class="active" data-pp="all">All Products</button>
       <button data-pp="show">Show</button>
       <button data-pp="cs">City Series</button>
+      <button data-pp="ancillaries">Ancillaries</button>
     </div>
     <div class="toggle" id="plCycleToggle" style="display:none">
       <button class="active" data-cy="fiscal">Fiscal Year</button>
@@ -6059,14 +6060,18 @@ function _plApplyProductFilter(bk, product){
   const revByCat={};
   Object.entries(bk.revByCat).forEach(([k,v])=>{
     const isCS=k.toLowerCase().includes('city series');
-    if(product==='show'&&!isCS) revByCat[k]=v;
-    if(product==='cs'&&isCS)    revByCat[k]=v;
+    const isAnc=k.toLowerCase().includes('ancillary');
+    if(product==='show'&&!isCS&&!isAnc) revByCat[k]=v;
+    if(product==='cs'&&isCS)            revByCat[k]=v;
+    if(product==='ancillaries'&&isAnc)  revByCat[k]=v;
   });
   const revTot=sumCatMap(revByCat);
   // Direct costs: filter by product
   const dcByCat={};
   if(product==='show'){
     ['Show Costs','Marketing Costs'].forEach(k=>{if(bk.dcByCat[k])dcByCat[k]=bk.dcByCat[k];});
+  } else if(product==='ancillaries'){
+    if(bk.dcByCat['Ancillary Costs'])dcByCat['Ancillary Costs']=bk.dcByCat['Ancillary Costs'];
   } else {
     if(bk.dcByCat['City Series Costs'])dcByCat['City Series Costs']=bk.dcByCat['City Series Costs'];
   }
@@ -6262,7 +6267,7 @@ async function renderPL(){
 
 function _plUpdateView(curYear, priorYear){
   const isShow = _plCycleMode === 'show';
-  const prodSuffix = _plProduct==='show' ? ' · Show Only' : _plProduct==='cs' ? ' · City Series Only' : '';
+  const prodSuffix = _plProduct==='show' ? ' · Show Only' : _plProduct==='cs' ? ' · City Series Only' : _plProduct==='ancillaries' ? ' · Ancillaries Only' : '';
   const titles = isShow ? {
     yoy:     `Show Cycle — ${priorYear} vs ${curYear} (Apr–Mar)${prodSuffix}`,
     yearly:  `All Show Cycles Comparison${prodSuffix}`,
@@ -6339,7 +6344,9 @@ function _plBuildLines(b){
   // BVA-declared lines always show (even when ref year has no QBO data yet)
   const _bvaRevCats = new Set(_BVA_LINES.filter(l=>l.section==='rev'&&l.qboCat).map(l=>l.qboCat));
   const _bvaDcCats  = new Set(_BVA_LINES.filter(l=>l.section==='dc' &&l.qboCat).map(l=>l.qboCat));
+  const _isAnc = _plProduct === 'ancillaries';
   _ro.forEach(name => {
+    if(_isAnc && !name.toLowerCase().includes('ancillary')) return;
     const c = b.revByCat[name];
     if(_bvaRevCats.has(name) || (c && c.total !== 0)) lines.push({ kind: 'category', label: name,
       get:(bk)=>bk?.revByCat?.[name]?.total ?? null,
@@ -6356,6 +6363,7 @@ function _plBuildLines(b){
   // Direct Costs
   lines.push({ kind: 'section', label: 'Direct Costs' });
   _do.forEach(name => {
+    if(_isAnc && !name.toLowerCase().includes('ancillary')) return;
     const c = b.dcByCat[name];
     if(_bvaDcCats.has(name) || (c && c.total !== 0)) lines.push({ kind: 'category', label: name,
       get:(bk)=>bk?.dcByCat?.[name]?.total ?? null,
@@ -6366,8 +6374,8 @@ function _plBuildLines(b){
   // Gross Profit
   lines.push({ kind: 'summary', label: 'Gross Profit', get:(bk)=>bk?.gpTot.total ?? null });
 
-  // SG&A, EBITDA, CEA, Net Income — not applicable to City Series product view
-  if(_plProduct !== 'cs'){
+  // SG&A, EBITDA, CEA, Net Income — not applicable to City Series or Ancillaries product view
+  if(_plProduct !== 'cs' && _plProduct !== 'ancillaries'){
     lines.push({ kind: 'category', label: 'SG&A', indent:false,
       get:(bk)=>bk?.sgaTot.total ?? null,
       getLeafs:(bk)=>Object.values(bk?.sgaByCat||{}).flatMap(c=>c.leafs||[]) });
