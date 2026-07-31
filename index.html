@@ -742,6 +742,7 @@ tr:hover td{background:#E8F0ED}
 <div class="hs-search">
   <input type="text" id="hsSearchInput" placeholder="Search deals by name...">
   <select id="hsFilterPipeline"><option value="">All Pipelines</option><option value="default_27">2027</option><option value="default">2026</option><option value="93843528">2025</option><option value="24">2024</option></select>
+  <select id="hsFilterMonth"><option value="">All Months</option><option value="1">January</option><option value="2">February</option><option value="3">March</option><option value="4">April</option><option value="5">May</option><option value="6">June</option><option value="7">July</option><option value="8">August</option><option value="9">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select>
   <select id="hsFilterStage"><option value="">All Stages</option></select>
   <select id="hsFilterRebook"><option value="">Rebook/New</option><option value="Rebook">Rebook</option><option value="New_Deal">New Deal</option></select>
   <select id="hsFilterChannel"><option value="">Inbound/Outbound</option><option value="inbound">Inbound</option><option value="outbound">Outbound</option></select>
@@ -3257,15 +3258,20 @@ function renderDeals(){
   
   const search=(document.getElementById('hsSearchInput').value||'').toLowerCase();
   const fpipe=document.getElementById('hsFilterPipeline').value;
+  const fmonth=document.getElementById('hsFilterMonth').value;
   const fstage=document.getElementById('hsFilterStage').value;
   const frebook=document.getElementById('hsFilterRebook').value;
   const fchannel=document.getElementById('hsFilterChannel').value;
-  
+
   let filtered=HS.d.filter(d=>{
     if(search&&!d.n.toLowerCase().includes(search))return false;
     if(fpipe){
       const pipeNum=fpipe==='default_27'?27:fpipe==='default'?26:fpipe==='24'?24:25;
       if(d.p!==pipeNum)return false;
+    }
+    if(fmonth){
+      const mo=d.cd?parseInt(d.cd.split('-')[1],10):null;
+      if(mo!==parseInt(fmonth,10))return false;
     }
     if(fstage&&d.s!==fstage)return false;
     if(frebook&&d.r!==frebook)return false;
@@ -3379,6 +3385,7 @@ document.getElementById('hsDealsTable')?.querySelector('thead')?.addEventListene
 // Event listeners
 document.getElementById('hsSearchInput')?.addEventListener('input',renderDeals);
 document.getElementById('hsFilterPipeline')?.addEventListener('change',function(){updateStageFilter();renderDeals();});
+document.getElementById('hsFilterMonth')?.addEventListener('change',renderDeals);
 document.getElementById('hsFilterStage')?.addEventListener('change',renderDeals);
 document.getElementById('hsFilterRebook')?.addEventListener('change',renderDeals);
 document.getElementById('hsFilterChannel')?.addEventListener('change',renderDeals);
