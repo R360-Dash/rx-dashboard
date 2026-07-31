@@ -155,6 +155,7 @@ function fmtFull$(v){ return '$'+Math.round(v).toLocaleString(); }
 function pct(a,b){ return b>0?Math.round(a/b*100):0; }
 function ck(name){ return name.split(' - ')[0].trim().toLowerCase(); }
 function isCsDeal(name){ return name.toLowerCase().includes('city series'); }
+function parseCityFromLI(name){ const m=name.match(/city series.*?[-–]\s*(.+)/i); return m?m[1].trim():null; }
 function isRebook(d){ return d.r==='Rebook' || d.n.toLowerCase().includes('rebook'); }
 function isNewDeal(d){ return d.r==='New_Deal'; }
 
@@ -230,6 +231,19 @@ function renderReport(deals27, ts, allDeals27, SC24, SC25, SC26){
     }
   });
   const nF=newFirms.size, rbF=rbFirms.size, tF=totFirms.size;
+
+  // City Series breakdown by city (from line items)
+  const cityRev={};
+  deals27.forEach(d=>{
+    if(d.li&&d.li.length){
+      d.li.forEach(li=>{
+        if(!li.n||!li.n.toLowerCase().includes('city series'))return;
+        const city=parseCityFromLI(li.n);
+        if(city) cityRev[city]=(cityRev[city]||0)+li.a;
+      });
+    }
+  });
+  const cityEntries=Object.entries(cityRev).sort((a,b)=>b[1]-a[1]);
 
   // YTD sums
   const ytdActShow=monthly.slice(0,ci+1).reduce((s,m)=>s+m.show,0);
@@ -472,6 +486,40 @@ function renderReport(deals27, ts, allDeals27, SC24, SC25, SC26){
       <td class="muted">${ci<6?'cycle in progress':delta(totSp,SC26.sp)}</td>
     </tr>
   </tbody></table></div>`;
+
+  // ── City Series by City ──
+  if(cityEntries.length>0){
+    const csTotal=cityEntries.reduce((s,[,v])=>s+v,0);
+    html+=`<div class="sec-title">🗺️ City Series — Sponsorship Revenue by City</div>`;
+    html+=`<div class="table-wrap"><table>
+      <thead><tr>
+        <th>City</th>
+        <th>Sponsorship Revenue</th>
+        <th style="min-width:180px">% of City Series</th>
+      </tr></thead><tbody>`;
+    cityEntries.forEach(([city,r])=>{
+      const p=(r/csTotal*100).toFixed(1);
+      const barW=Math.round(r/csTotal*100);
+      html+=`<tr>
+        <td>${city}</td>
+        <td style="font-weight:700;color:#1B4D4A">${fmtFull$(r)}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="flex:1;background:#EDF2F1;border-radius:3px;height:6px;overflow:hidden;min-width:80px">
+              <div style="width:${barW}%;height:100%;background:#3D9B8F;border-radius:3px"></div>
+            </div>
+            <span style="font-size:12px;font-weight:600;color:#7BA69E;min-width:36px;text-align:right">${p}%</span>
+          </div>
+        </td>
+      </tr>`;
+    });
+    html+=`<tr class="total-row">
+      <td>Total City Series</td>
+      <td style="color:#1B4D4A">${fmtFull$(csTotal)}</td>
+      <td></td>
+    </tr>`;
+    html+=`</tbody></table></div>`;
+  }
 
   // ── Deal List ──
   if(deals27.length>0){
