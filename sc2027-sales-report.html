@@ -273,6 +273,18 @@ function renderReport(deals27, ts, allDeals27, SC24, SC25, SC26){
   // ── KPI cards ──
   const avgDeal = deals27.length > 0 ? Math.round(totSp / deals27.length) : 0;
 
+  // "This week" = Mon–Sun of the current calendar week
+  const _today = new Date();
+  const _dayOfWeek = _today.getDay(); // 0=Sun
+  const _diffToMon = _dayOfWeek === 0 ? -6 : 1 - _dayOfWeek;
+  const _weekStart = new Date(_today); _weekStart.setDate(_today.getDate() + _diffToMon); _weekStart.setHours(0,0,0,0);
+  const _weekEnd   = new Date(_weekStart); _weekEnd.setDate(_weekStart.getDate() + 6); _weekEnd.setHours(23,59,59,999);
+  const isThisWeek = cd => { if(!cd) return false; const d=new Date(cd+'T12:00:00'); return d>=_weekStart&&d<=_weekEnd; };
+
+  const thisWeekDeals   = allDeals27.filter(d => isThisWeek(d.cd));
+  const meetingsThisWeek  = thisWeekDeals.reduce((s,d) => s+(d.m||0), 0);
+  const qualifiedThisWeek = thisWeekDeals.filter(d => d.s==='presentationscheduled').length;
+
   // Activity metrics (uses m/e/dt fields added to HubSpot proxy)
   const wonWithM  = deals27.filter(d => d.m  > 0);
   const wonWithE  = deals27.filter(d => d.e  > 0);
@@ -327,6 +339,22 @@ function renderReport(deals27, ts, allDeals27, SC24, SC25, SC26){
       <div class="kpi-label">⏱️ Avg Days to Close</div>
       <div class="kpi-value" style="font-size:22px">${avgDt === '—' ? '—' : avgDt + ' d'}</div>
       <div class="kpi-sub">${wonWithDt.length} closed-won deals w/ data</div>
+    </div>
+  </div>`;
+
+  // Weekly activity cards
+  const _wkFmt = d => { const opts={month:'short',day:'numeric'}; return d.toLocaleDateString('en-US',opts); };
+  const _wkLabel = `${_wkFmt(_weekStart)} – ${_wkFmt(_weekEnd)}`;
+  html += `<div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);margin-top:-14px">
+    <div class="kpi-card">
+      <div class="kpi-label">📅 Total Meetings This Week</div>
+      <div class="kpi-value" style="font-size:28px">${meetingsThisWeek}</div>
+      <div class="kpi-sub">${thisWeekDeals.length} deal${thisWeekDeals.length!==1?'s':''} with close date ${_wkLabel}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">✅ Total Qualified This Week</div>
+      <div class="kpi-value" style="font-size:28px">${qualifiedThisWeek}</div>
+      <div class="kpi-sub">Deals in Qualified Meeting stage closing ${_wkLabel}</div>
     </div>
   </div>`;
 
