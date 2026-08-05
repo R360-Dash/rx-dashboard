@@ -7191,12 +7191,20 @@ async function renderCashFlow(){
 
     // Load saved forecast (object of line → monthly[12]) or build defaults
     const saved = await _cfLoadForecast(_cfYear);
+    // Ongoing month = current calendar month when it already has partial QBO data
+    const _initNow = new Date();
+    const _initOngoingMo = (_initNow.getFullYear() === _cfYear && _initNow.getMonth() === lastActualIdx && lastActualIdx < 11)
+      ? lastActualIdx : -1;
     const forecast = {};
     _CF_LINES.forEach(l => {
       forecast[l.key] = Array(12).fill(0);
       // Past months: copy actuals from P&L (so the totals tie out)
       for(let i = 0; i <= lastActualIdx; i++){
         forecast[l.key][i] = lineActuals[l.key][i] || 0;
+      }
+      // Ongoing month: if the user saved a custom value, prefer it over the QBO actual
+      if(_initOngoingMo >= 0 && saved && saved[l.key] && saved[l.key][_initOngoingMo] != null){
+        forecast[l.key][_initOngoingMo] = saved[l.key][_initOngoingMo];
       }
       // Future months: use saved value if exists, else suggested default
       for(let i = Math.max(0, lastActualIdx + 1); i < 12; i++){
