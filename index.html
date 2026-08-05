@@ -7232,7 +7232,6 @@ async function renderCashFlow(){
     }
 
     const ytdBurn = actualBurns.slice(0, lastActualIdx + 1).reduce((a,b)=>a+b, 0);
-    const projectedYearEnd = cashPos[11];
 
     // Save state for forecast handlers
     _cfState = { year: _cfYear, actualBurns, forecastBurns, bankBalances, beginCash, latestActualCash, lastActualIdx, cashPos, lineActuals, forecast, suggested };
@@ -7241,6 +7240,9 @@ async function renderCashFlow(){
     // initialise its cash position to formula-based (prior month actual + forecast burn)
     // so the table and charts are consistent before any user edits.
     _cfRecomputeForecast();
+
+    // Read projected year-end AFTER recompute so it matches what the chart draws
+    const projectedYearEnd = cashPos[11];
 
     // Racquet 360 AP balance — combine current + prior year GL to capture unpaid invoices
     const r360Ap   = _cfGetR360ApBalance([glData, glDataPrior].filter(Boolean));
@@ -7261,11 +7263,23 @@ async function renderCashFlow(){
       runwayCl = '#D4A000'; runwaySub = `Year-end balance: ${_$k(projectedYearEnd)}`;
     }
 
+    // YTD burn (Jan through last actual month) and avg monthly forecast
+    const ytdMonths = lastActualIdx + 1;
+    const futureBurns = forecastBurns.slice(lastActualIdx + 1);
+    const avgForecastBurn = futureBurns.length > 0 ? futureBurns.reduce((a,b)=>a+b,0) / futureBurns.length : 0;
+    const ytdColor = ytdBurn >= 0 ? '#1B7A3D' : '#C0392B';
+    const avgFcColor = avgForecastBurn >= 0 ? '#1B7A3D' : '#C0392B';
+    const firstFutureMoName = lastActualIdx < 11 ? _MN[lastActualIdx + 1] : '—';
+
     // KPI cards
+    // cards[0]=Latest Cash, cards[1]=Runway, cards[2]=Projected Year-End,
+    // cards[3]=YTD Burn, cards[4]=Avg Forecast Burn, cards[5]=Payable, cards[6]=Loan
     const kpis = [
       {i:'💧',t:'Latest Cash Balance',v:_$k(latestActualCash),s:lastActualIdx < 0 ? 'No data yet' : (lastActualIdx === now.getMonth() && _cfYear === now.getFullYear() ? `Current balance · ${_MN[lastActualIdx]} ${_cfYear}` : `End of ${_MN[lastActualIdx]} ${_cfYear}`),cl:latestActualCash>=0?'#1B7A3D':'#C0392B'},
       {i:'⏱️',t:'Runway',v:runwayLabel,s:runwaySub,cl:runwayCl},
       {i:'🎯',t:'Projected Year-End',v:_$k(projectedYearEnd),s:lastActualIdx === 11 ? 'Actual ending cash' : 'Latest + forecasted burns',cl:projectedYearEnd>=0?'#1B7A3D':'#C0392B'},
+      {i:'🔥',t:'YTD Burn Rate',v:_$k(ytdBurn),s:`Jan–${_MN[lastActualIdx]} ${_cfYear} · ${ytdMonths} month${ytdMonths!==1?'s':''}`,cl:ytdColor},
+      {i:'📊',t:'Avg Monthly Forecast',v:_$k(Math.round(avgForecastBurn)),s:futureBurns.length > 0 ? `${firstFutureMoName}–Dec · ${futureBurns.length} month${futureBurns.length!==1?'s':''} avg` : 'No future months',cl:avgFcColor},
       {i:'🏢',t:'Payable — Racquet 360',v:r360Ap!=null?_$k(r360Ap):'—',s:'Accounts Payable balance',cl:'#8E44AD'},
       {i:'🏦',t:'Loan — Racquet 360',v:r360Loan!=null?_$k(r360Loan):'—',s:'Long-term liability',cl:'#C0392B'}
     ];
@@ -7706,6 +7720,16 @@ function _cfUpdateProjectedKpi(){
   const pyVal = cards[2].querySelector('.kpi-value');
   if(pyVal){ pyVal.textContent = _$k(projected); pyVal.style.color = pyColor; }
   cards[2].style.borderLeftColor = pyColor;
+
+  // cards[4] = Avg Monthly Forecast Burn (updates when user edits any forecast input)
+  if(cards.length > 4){
+    const futureBurns = s.forecastBurns.slice(s.lastActualIdx + 1);
+    const avgFc = futureBurns.length > 0 ? futureBurns.reduce((a,b)=>a+b,0) / futureBurns.length : 0;
+    const avgFcColor = avgFc >= 0 ? '#1B7A3D' : '#C0392B';
+    const avgFcVal = cards[4].querySelector('.kpi-value');
+    if(avgFcVal){ avgFcVal.textContent = _$k(Math.round(avgFc)); avgFcVal.style.color = avgFcColor; }
+    cards[4].style.borderLeftColor = avgFcColor;
+  }
 }
 
 // Non-categorized table for Cash Flow (shows raw QBO sections and leafs)
