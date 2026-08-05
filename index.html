@@ -7229,6 +7229,11 @@ async function renderCashFlow(){
     // Save state for forecast handlers
     _cfState = { year: _cfYear, actualBurns, forecastBurns, bankBalances, beginCash, latestActualCash, lastActualIdx, cashPos, lineActuals, forecast, suggested };
 
+    // If the current calendar month already has partial QBO actuals (ongoing month),
+    // initialise its cash position to formula-based (prior month actual + forecast burn)
+    // so the table and charts are consistent before any user edits.
+    _cfRecomputeForecast();
+
     // Racquet 360 AP balance — combine current + prior year GL to capture unpaid invoices
     const r360Ap   = _cfGetR360ApBalance([glData, glDataPrior].filter(Boolean));
     // Racquet 360 loan balance — from Balance Sheet long-term liabilities
@@ -7433,14 +7438,26 @@ function _cfComputeForecastTotals(state, monthIndices){
   return { lineTotals, monthTotals, grandTotal };
 }
 
+// Returns the "ongoing" month index when: viewing current year AND that month already
+// has partial QBO actuals (lastActualIdx === current calendar month, month not over).
+function _cfGetOngoingMo(){
+  const s = _cfState;
+  if(!s) return -1;
+  const now = new Date();
+  const curMo = now.getMonth(); // 0-based
+  if(s.year === now.getFullYear() && curMo === s.lastActualIdx && curMo < 11) return curMo;
+  return -1;
+}
+
 function _cfRenderForecastInputs(){
   const s = _cfState;
   const tableEl = document.getElementById('cfForecastTable');
   const section = document.getElementById('cfForecastSection');
   if(!tableEl || !section) return;
 
-  // Hide if no future months (full year of actuals)
-  if(s.lastActualIdx >= 11){
+  // Hide if no future months AND no ongoing month (full year of actuals)
+  const ongoingMo = _cfGetOngoingMo();
+  if(s.lastActualIdx >= 11 && ongoingMo < 0){
     section.style.display = 'none';
     return;
   }
@@ -7461,8 +7478,9 @@ function _cfRenderForecastInputs(){
       : '<span style="color:#B8860B">🔒 Read-only — only the Owner can edit forecast assumptions.</span>';
   }
 
-  // Visible (future) month indices
+  // Visible month indices: ongoing calendar month (if any) + all future months
   const monthIndices = [];
+  if(ongoingMo >= 0) monthIndices.push(ongoingMo);
   for(let i = Math.max(0, s.lastActualIdx + 1); i < 12; i++) monthIndices.push(i);
 
   const { lineTotals, monthTotals, grandTotal } = _cfComputeForecastTotals(s, monthIndices);
@@ -7476,7 +7494,11 @@ function _cfRenderForecastInputs(){
   let html = `<thead><tr>
     <th style="text-align:left;padding:8px 12px;font-size:10px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;background:#F7F9F8">Line</th>`;
   monthIndices.forEach(i => {
-    html += `<th style="text-align:right;padding:8px 8px;font-size:10px;color:#7BA69E;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;background:#F7F9F8">${_MN[i]}</th>`;
+    const isOng = i === ongoingMo;
+    const hdrBg = isOng ? '#FFF8E7' : '#F7F9F8';
+    const hdrColor = isOng ? '#B8860B' : '#7BA69E';
+    const badge = isOng ? '<br><span style="font-size:9px;font-weight:700;letter-spacing:0.03em">IN PROGRESS</span>' : '';
+    html += `<th style="text-align:right;padding:8px 8px;font-size:10px;color:${hdrColor};font-weight:600;text-transform:uppercase;letter-spacing:0.05em;background:${hdrBg}">${_MN[i]}${badge}</th>`;
   });
   html += `<th style="text-align:right;padding:8px 12px;font-size:10px;color:#1B4D4A;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;background:#E8F0ED;border-left:2px solid #1B4D4A">Total</th>`;
   html += `</tr></thead><tbody>`;
@@ -7503,6 +7525,19 @@ function _cfRenderForecastInputs(){
   });
   const gtColor = grandTotal >= 0 ? '#1B7A3D' : '#C0392B';
   html += `<td style="${totalCs};color:${gtColor};border-left:2px solid #1B4D4A" data-grand-total>${_cfFmtBurn(grandTotal)}</td></tr>`;
+
+  // Cash Position row: actual for past months, projected (prior actual + forecast burn) for ongoing/future
+  html += `<tr style="background:#EDF7F4;border-top:2px solid #3D9B8F">
+    <td style="padding:7px 12px;font-size:11px;font-weight:800;color:#1B4D4A;text-transform:uppercase;letter-spacing:0.04em">💰 Cash Position</td>`;
+  monthIndices.forEach(i => {
+    const v = s.cashPos[i];
+    const cpColor = v == null ? '#9E9E9E' : (v >= 0 ? '#1B7A3D' : '#C0392B');
+    const cellBg = i === ongoingMo ? ';background:#FFFBF0' : '';
+    html += `<td style="${cs};font-weight:700;color:${cpColor}${cellBg}" data-cash-pos="${i}">${v != null ? _$k(v) : '—'}</td>`;
+  });
+  const cpFinal = s.cashPos[11];
+  const cpFinalColor = cpFinal == null ? '#9E9E9E' : (cpFinal >= 0 ? '#1B7A3D' : '#C0392B');
+  html += `<td style="${totalCs};color:${cpFinalColor};border-left:2px solid #3D9B8F" data-cash-pos-total>${cpFinal != null ? _$k(cpFinal) : '—'}</td></tr>`;
   html += `</tbody>`;
 
   tableEl.innerHTML = html;
@@ -7548,12 +7583,25 @@ function _cfRenderForecastInputs(){
 function _cfRecomputeForecast(){
   const s = _cfState;
   const computedBurns = _cfComputeNetBurn(s.forecast);
+  const ongoingMo = _cfGetOngoingMo();
+
+  // Ongoing month: replace QBO actual burn with editable forecast burn
+  if(ongoingMo >= 0) s.forecastBurns[ongoingMo] = computedBurns[ongoingMo];
+
   for(let i = s.lastActualIdx + 1; i < 12; i++){
     s.forecastBurns[i] = computedBurns[i];
   }
-  // Recompute cash position from first future month onward
-  for(let i = Math.max(0, s.lastActualIdx + 1); i < 12; i++){
-    s.cashPos[i] = (i === 0 ? s.beginCash : s.cashPos[i-1]) + s.forecastBurns[i];
+
+  // Recompute cash position starting from earliest affected month
+  const startIdx = ongoingMo >= 0 ? ongoingMo : Math.max(0, s.lastActualIdx + 1);
+  for(let i = startIdx; i < 12; i++){
+    if(i === ongoingMo){
+      // Projected: actual cash at end of prior month + forecast burn
+      const prevCash = i > 0 ? s.bankBalances[i - 1] : s.beginCash;
+      s.cashPos[i] = prevCash + s.forecastBurns[i];
+    } else {
+      s.cashPos[i] = (i === 0 ? s.beginCash : s.cashPos[i-1]) + s.forecastBurns[i];
+    }
   }
 }
 
@@ -7562,7 +7610,9 @@ function _cfUpdateForecastTotals(){
   const s = _cfState;
   const tableEl = document.getElementById('cfForecastTable');
   if(!tableEl) return;
+  const ongoingMo = _cfGetOngoingMo();
   const monthIndices = [];
+  if(ongoingMo >= 0) monthIndices.push(ongoingMo);
   for(let i = Math.max(0, s.lastActualIdx + 1); i < 12; i++) monthIndices.push(i);
   const { lineTotals, monthTotals, grandTotal } = _cfComputeForecastTotals(s, monthIndices);
 
@@ -7585,6 +7635,22 @@ function _cfUpdateForecastTotals(){
   if(gt){
     gt.textContent = _cfFmtBurn(grandTotal);
     gt.style.color = grandTotal >= 0 ? '#1B7A3D' : '#C0392B';
+  }
+  // Cash Position row
+  monthIndices.forEach(i => {
+    const cell = tableEl.querySelector(`[data-cash-pos="${i}"]`);
+    if(cell){
+      const v = s.cashPos[i];
+      cell.textContent = v != null ? _$k(v) : '—';
+      cell.style.color = v == null ? '#9E9E9E' : (v >= 0 ? '#1B7A3D' : '#C0392B');
+    }
+  });
+  // Cash Position year-end total cell
+  const cpTotal = tableEl.querySelector('[data-cash-pos-total]');
+  if(cpTotal){
+    const v = s.cashPos[11];
+    cpTotal.textContent = v != null ? _$k(v) : '—';
+    cpTotal.style.color = v == null ? '#9E9E9E' : (v >= 0 ? '#1B7A3D' : '#C0392B');
   }
 }
 
