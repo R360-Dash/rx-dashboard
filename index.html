@@ -7668,18 +7668,44 @@ function _cfFmtBurn(v){
   return v < 0 ? `(${_$k(Math.abs(v))})` : _$k(v);
 }
 
-// Update only the "Projected Year-End" KPI (called as user edits forecast)
+// Update Runway + Projected Year-End KPI cards live as forecast inputs change
 function _cfUpdateProjectedKpi(){
   const s = _cfState;
   const grid = document.getElementById('cfKpis');
   if(!grid) return;
   const cards = grid.children;
-  if(cards.length < 4) return;
+  if(cards.length < 3) return;
+
   const projected = s.cashPos[11];
-  const valueEl = cards[3].querySelector('.kpi-value');
-  if(valueEl) valueEl.textContent = _$k(projected);
-  cards[3].style.borderLeftColor = projected >= 0 ? '#1B7A3D' : '#C0392B';
-  if(valueEl) valueEl.style.color = projected >= 0 ? '#1B7A3D' : '#C0392B';
+
+  // Recompute runway from cashPos (include ongoing month in the scan)
+  const ongoingMo = _cfGetOngoingMo();
+  const runwayStart = ongoingMo >= 0 ? ongoingMo : s.lastActualIdx + 1;
+  let runwayLabel = 'Beyond year-end', runwayCl = '#1B7A3D', runwaySub = 'Cash stays positive';
+  for(let i = runwayStart; i < 12; i++){
+    if(s.cashPos[i] <= 0){
+      runwayLabel = _MN[i] + ' ' + s.year;
+      runwayCl = '#C0392B';
+      runwaySub = `Projected balance: ${_$k(s.cashPos[i])}`;
+      break;
+    }
+  }
+  if(runwayLabel === 'Beyond year-end' && projected < 50000){
+    runwayCl = '#D4A000'; runwaySub = `Year-end balance: ${_$k(projected)}`;
+  }
+
+  // cards[1] = Runway
+  const rwVal = cards[1].querySelector('.kpi-value');
+  const rwSub = cards[1].querySelector('.kpi-sub');
+  if(rwVal){ rwVal.textContent = runwayLabel; rwVal.style.color = runwayCl; }
+  if(rwSub) rwSub.textContent = runwaySub;
+  cards[1].style.borderLeftColor = runwayCl;
+
+  // cards[2] = Projected Year-End
+  const pyColor = projected >= 0 ? '#1B7A3D' : '#C0392B';
+  const pyVal = cards[2].querySelector('.kpi-value');
+  if(pyVal){ pyVal.textContent = _$k(projected); pyVal.style.color = pyColor; }
+  cards[2].style.borderLeftColor = pyColor;
 }
 
 // Non-categorized table for Cash Flow (shows raw QBO sections and leafs)
