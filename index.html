@@ -7263,7 +7263,7 @@ async function renderCashFlow(){
 
     // KPI cards
     const kpis = [
-      {i:'💧',t:'Latest Cash Balance',v:_$k(latestActualCash),s:lastActualIdx >= 0 ? `End of ${_MN[lastActualIdx]} ${_cfYear}` : 'No data yet',cl:latestActualCash>=0?'#1B7A3D':'#C0392B'},
+      {i:'💧',t:'Latest Cash Balance',v:_$k(latestActualCash),s:lastActualIdx < 0 ? 'No data yet' : (lastActualIdx === now.getMonth() && _cfYear === now.getFullYear() ? `Current balance · ${_MN[lastActualIdx]} ${_cfYear}` : `End of ${_MN[lastActualIdx]} ${_cfYear}`),cl:latestActualCash>=0?'#1B7A3D':'#C0392B'},
       {i:'⏱️',t:'Runway',v:runwayLabel,s:runwaySub,cl:runwayCl},
       {i:'🎯',t:'Projected Year-End',v:_$k(projectedYearEnd),s:lastActualIdx === 11 ? 'Actual ending cash' : 'Latest + forecasted burns',cl:projectedYearEnd>=0?'#1B7A3D':'#C0392B'},
       {i:'🏢',t:'Payable — Racquet 360',v:r360Ap!=null?_$k(r360Ap):'—',s:'Accounts Payable balance',cl:'#8E44AD'},
