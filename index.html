@@ -564,7 +564,7 @@ tr:hover td{background:#E8F0ED}
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
     <div style="font-size:13px;color:#7BA69E">Source: QuickBooks Online · <span id="cfUpdated"></span></div>
     <div id="cfScenTabs" style="display:flex;gap:3px;background:#EDF4F2;border:1px solid #D4E2DD;border-radius:8px;padding:3px">
-      <button data-scen="base" title="Base scenario — coming soon" style="padding:5px 14px;border:none;border-radius:5px;font-size:11px;font-weight:600;font-family:inherit;cursor:not-allowed;opacity:.4;background:transparent;color:#1B4D4A" disabled>Base</button>
+      <button data-scen="base" style="padding:5px 14px;border:none;border-radius:5px;font-size:11px;font-weight:600;font-family:inherit;cursor:pointer;background:transparent;color:#1B4D4A;transition:background .15s">Base</button>
       <button data-scen="upside" style="padding:5px 14px;border:none;border-radius:5px;font-size:11px;font-weight:600;font-family:inherit;cursor:pointer;background:transparent;color:#1B4D4A;transition:background .15s">↑ Upside</button>
       <button data-scen="downside" style="padding:5px 14px;border:none;border-radius:5px;font-size:11px;font-weight:600;font-family:inherit;cursor:pointer;background:#fff;color:#1B4D4A;box-shadow:0 1px 3px rgba(13,43,41,.1)">↓ Downside</button>
     </div>
@@ -7105,6 +7105,35 @@ function _cfGetR360LoanBalance(bsReport){
 let _cfActiveScenario = 'downside'; // 'base' | 'upside' | 'downside'
 
 // Upside = current forecast with contingencies zeroed for ongoing + future months
+function _cfComputeBaseData(){
+  const s = _cfState;
+  if(!s) return null;
+  const ongoingMo = _cfGetOngoingMo();
+  const startIdx  = ongoingMo >= 0 ? ongoingMo : Math.max(0, s.lastActualIdx + 1);
+
+  const bForecast = {};
+  _CF_LINES.forEach(l => { bForecast[l.key] = s.forecast[l.key].slice(); });
+  for(let i = startIdx; i < 12; i++){
+    bForecast.contingencies[i] = 0.5 * (s.forecast.showColl[i] || 0);
+  }
+
+  const computedBurns = _cfComputeNetBurn(bForecast);
+  const bBurns = s.actualBurns.slice();
+  if(ongoingMo >= 0) bBurns[ongoingMo] = computedBurns[ongoingMo];
+  for(let i = s.lastActualIdx + 1; i < 12; i++) bBurns[i] = computedBurns[i];
+
+  const bCashPos = s.bankBalances.slice();
+  for(let i = startIdx; i < 12; i++){
+    if(i === ongoingMo){
+      const prevCash = i > 0 ? s.bankBalances[i - 1] : s.beginCash;
+      bCashPos[i] = prevCash + bBurns[i];
+    } else {
+      bCashPos[i] = (i === 0 ? s.beginCash : bCashPos[i - 1]) + bBurns[i];
+    }
+  }
+  return { forecastBurns: bBurns, cashPos: bCashPos };
+}
+
 function _cfComputeUpsideData(){
   const s = _cfState;
   if(!s) return null;
@@ -7134,11 +7163,8 @@ function _cfComputeUpsideData(){
 
 // Switch the active scenario tab: update UI, charts, and KPI cards
 function _cfSwitchScenario(scen){
-  console.log('[CF] _cfSwitchScenario called:', scen, '_cfState:', !!_cfState);
-  if(scen === 'base') return;
   _cfActiveScenario = scen;
 
-  // Tab active state — bold teal for active, faded for inactive
   document.querySelectorAll('#cfScenTabs button[data-scen]').forEach(b => {
     const isActive = b.dataset.scen === scen;
     b.style.background = isActive ? '#1B4D4A' : 'transparent';
@@ -7154,18 +7180,39 @@ function _cfSwitchScenario(scen){
     if(forecastSection) forecastSection.style.display = '';
     _cfDrawCharts();
     _cfUpdateScenarioKpis(_cfState.cashPos, _cfState.forecastBurns);
+  } else if(scen === 'base'){
+    if(forecastSection) forecastSection.style.display = 'none';
+    try {
+      const b = _cfComputeBaseData();
+      if(b){
+        const s = _cfState;
+        const ongoingMo = _cfGetOngoingMo();
+        const startIdx  = ongoingMo >= 0 ? ongoingMo : Math.max(0, s.lastActualIdx + 1);
+        let contingencyTotal = 0;
+        for(let i = startIdx; i < 12; i++) contingencyTotal += 0.5 * (s.forecast.showColl[i] || 0);
+        const contText = contingencyTotal > 0
+          ? ` — adds <strong>${_$k(Math.round(contingencyTotal))}</strong> in contingencies (50% of Show Collections)`
+          : ' — 50% of Show Collections (Show Collections forecast is $0)';
+        if(banner){ banner.style.display = ''; banner.innerHTML = `◆ <strong>Base scenario</strong>${contText}.`; }
+        _cfDrawCharts(b);
+        _cfUpdateScenarioKpis(b.cashPos, b.forecastBurns);
+      } else {
+        if(banner){ banner.style.display = ''; banner.innerHTML = '◆ <strong>Base scenario</strong> — Load Cash Flow data first.'; }
+      }
+    } catch(e){
+      console.error('[CF] Base scenario error:', e);
+      if(banner){ banner.style.display = ''; banner.innerHTML = '◆ <strong>Base scenario</strong> — Error: ' + e.message; }
+    }
   } else if(scen === 'upside'){
     if(forecastSection) forecastSection.style.display = 'none';
     try {
       const u = _cfComputeUpsideData();
-      console.log('[CF] upsideData:', u ? 'ok' : 'null', u ? 'cashPos[11]='+u.cashPos[11] : '');
       if(u){
         const s = _cfState;
         const ongoingMo = _cfGetOngoingMo();
         const startIdx  = ongoingMo >= 0 ? ongoingMo : Math.max(0, s.lastActualIdx + 1);
         let contingencyTotal = 0;
         for(let i = startIdx; i < 12; i++) contingencyTotal += (s.forecast.contingencies[i] || 0);
-        console.log('[CF] contingencyTotal:', contingencyTotal, 'startIdx:', startIdx);
         const savingsText = contingencyTotal !== 0
           ? ` — removes <strong>${_$k(Math.abs(Math.round(contingencyTotal)))}</strong> in contingencies`
           : ' — no contingencies in current forecast';
