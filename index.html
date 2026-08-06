@@ -7134,21 +7134,23 @@ function _cfComputeUpsideData(){
 
 // Switch the active scenario tab: update UI, charts, and KPI cards
 function _cfSwitchScenario(scen){
-  if(scen === 'base') return; // placeholder — not yet configured
+  console.log('[CF] _cfSwitchScenario called:', scen, '_cfState:', !!_cfState);
+  if(scen === 'base') return;
   _cfActiveScenario = scen;
 
-  // Tab active state
+  // Tab active state — bold teal for active, faded for inactive
   document.querySelectorAll('#cfScenTabs button[data-scen]').forEach(b => {
     const isActive = b.dataset.scen === scen;
-    b.style.background    = isActive ? '#fff' : 'transparent';
-    b.style.boxShadow     = isActive ? '0 1px 3px rgba(13,43,41,.1)' : 'none';
+    b.style.background = isActive ? '#1B4D4A' : 'transparent';
+    b.style.color      = isActive ? '#fff'    : '#1B4D4A';
+    b.style.boxShadow  = isActive ? '0 1px 3px rgba(13,43,41,.2)' : 'none';
   });
 
   const banner          = document.getElementById('cfScenBanner');
   const forecastSection = document.getElementById('cfForecastSection');
 
   if(scen === 'downside'){
-    banner.style.display = 'none';
+    if(banner) banner.style.display = 'none';
     if(forecastSection) forecastSection.style.display = '';
     _cfDrawCharts();
     _cfUpdateScenarioKpis(_cfState.cashPos, _cfState.forecastBurns);
@@ -7156,28 +7158,26 @@ function _cfSwitchScenario(scen){
     if(forecastSection) forecastSection.style.display = 'none';
     try {
       const u = _cfComputeUpsideData();
+      console.log('[CF] upsideData:', u ? 'ok' : 'null', u ? 'cashPos[11]='+u.cashPos[11] : '');
       if(u){
-        // Compute total contingencies removed (future + ongoing months)
         const s = _cfState;
         const ongoingMo = _cfGetOngoingMo();
         const startIdx  = ongoingMo >= 0 ? ongoingMo : Math.max(0, s.lastActualIdx + 1);
         let contingencyTotal = 0;
         for(let i = startIdx; i < 12; i++) contingencyTotal += (s.forecast.contingencies[i] || 0);
+        console.log('[CF] contingencyTotal:', contingencyTotal, 'startIdx:', startIdx);
         const savingsText = contingencyTotal !== 0
           ? ` — removes <strong>${_$k(Math.abs(Math.round(contingencyTotal)))}</strong> in contingencies`
           : ' — no contingencies in current forecast';
-        banner.style.display = '';
-        banner.innerHTML = `↑ <strong>Upside scenario</strong>${savingsText}. All other inputs match Downside.`;
+        if(banner){ banner.style.display = ''; banner.innerHTML = `↑ <strong>Upside scenario</strong>${savingsText}. All other inputs match Downside.`; }
         _cfDrawCharts(u);
         _cfUpdateScenarioKpis(u.cashPos, u.forecastBurns);
       } else {
-        banner.style.display = '';
-        banner.innerHTML = '↑ <strong>Upside scenario</strong> — Load Cash Flow data first.';
+        if(banner){ banner.style.display = ''; banner.innerHTML = '↑ <strong>Upside scenario</strong> — Load Cash Flow data first.'; }
       }
     } catch(e){
       console.error('[CF] Upside scenario error:', e);
-      banner.style.display = '';
-      banner.innerHTML = '↑ <strong>Upside scenario</strong> — Error computing scenario. See console.';
+      if(banner){ banner.style.display = ''; banner.innerHTML = '↑ <strong>Upside scenario</strong> — Error: ' + e.message; }
     }
   }
 }
