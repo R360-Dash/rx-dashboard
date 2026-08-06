@@ -560,7 +560,15 @@ tr:hover td{background:#E8F0ED}
 
 <!-- ═══ FINANCIALS — CASH FLOW ═══ -->
 <div id="sec-cashflow" class="page">
-  <div style="font-size:13px;color:#7BA69E;margin-bottom:16px">Source: QuickBooks Online · <span id="cfUpdated"></span></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+    <div style="font-size:13px;color:#7BA69E">Source: QuickBooks Online · <span id="cfUpdated"></span></div>
+    <div id="cfScenTabs" style="display:flex;gap:3px;background:#EDF4F2;border:1px solid #D4E2DD;border-radius:8px;padding:3px">
+      <button data-scen="base" title="Base scenario — coming soon" style="padding:5px 14px;border:none;border-radius:5px;font-size:11px;font-weight:600;font-family:inherit;cursor:not-allowed;opacity:.4;background:transparent;color:#1B4D4A" disabled>Base</button>
+      <button data-scen="upside" onclick="_cfSwitchScenario('upside')" style="padding:5px 14px;border:none;border-radius:5px;font-size:11px;font-weight:600;font-family:inherit;cursor:pointer;background:transparent;color:#1B4D4A;transition:background .15s">↑ Upside</button>
+      <button data-scen="downside" onclick="_cfSwitchScenario('downside')" style="padding:5px 14px;border:none;border-radius:5px;font-size:11px;font-weight:600;font-family:inherit;cursor:pointer;background:#fff;color:#1B4D4A;box-shadow:0 1px 3px rgba(13,43,41,.1)">↓ Downside</button>
+    </div>
+  </div>
+  <div id="cfScenBanner" style="display:none;margin-bottom:14px;padding:9px 14px;font-size:11px;font-weight:600;border-radius:6px;border-left:3px solid #1B7A3D;background:#EDF7EE;color:#1B4D4A"></div>
   <div class="kpi-grid" id="cfKpis"></div>
   <div class="two-col">
     <div class="section">
@@ -7092,7 +7100,127 @@ function _cfGetR360LoanBalance(bsReport){
   } catch(e){ console.warn('R360 loan parse error:', e); return null; }
 }
 
+// ── Scenario tab state ────────────────────────────────────────────────────
+let _cfActiveScenario = 'downside'; // 'base' | 'upside' | 'downside'
+
+// Upside = current forecast with contingencies zeroed for ongoing + future months
+function _cfComputeUpsideData(){
+  const s = _cfState;
+  if(!s) return null;
+  const ongoingMo = _cfGetOngoingMo();
+  const startIdx  = ongoingMo >= 0 ? ongoingMo : Math.max(0, s.lastActualIdx + 1);
+
+  const uForecast = {};
+  _CF_LINES.forEach(l => { uForecast[l.key] = s.forecast[l.key].slice(); });
+  for(let i = startIdx; i < 12; i++) uForecast.contingencies[i] = 0;
+
+  const computedBurns = _cfComputeNetBurn(uForecast);
+  const uBurns = s.actualBurns.slice();
+  if(ongoingMo >= 0) uBurns[ongoingMo] = computedBurns[ongoingMo];
+  for(let i = s.lastActualIdx + 1; i < 12; i++) uBurns[i] = computedBurns[i];
+
+  const uCashPos = s.bankBalances.slice();
+  for(let i = startIdx; i < 12; i++){
+    if(i === ongoingMo){
+      const prevCash = i > 0 ? s.bankBalances[i - 1] : s.beginCash;
+      uCashPos[i] = prevCash + uBurns[i];
+    } else {
+      uCashPos[i] = (i === 0 ? s.beginCash : uCashPos[i - 1]) + uBurns[i];
+    }
+  }
+  return { forecastBurns: uBurns, cashPos: uCashPos };
+}
+
+// Switch the active scenario tab: update UI, charts, and KPI cards
+function _cfSwitchScenario(scen){
+  if(scen === 'base') return; // placeholder — not yet configured
+  _cfActiveScenario = scen;
+
+  // Tab active state
+  document.querySelectorAll('#cfScenTabs button[data-scen]').forEach(b => {
+    const isActive = b.dataset.scen === scen;
+    b.style.background    = isActive ? '#fff' : 'transparent';
+    b.style.boxShadow     = isActive ? '0 1px 3px rgba(13,43,41,.1)' : 'none';
+  });
+
+  const banner          = document.getElementById('cfScenBanner');
+  const forecastSection = document.getElementById('cfForecastSection');
+
+  if(scen === 'downside'){
+    banner.style.display = 'none';
+    if(forecastSection) forecastSection.style.display = '';
+    _cfDrawCharts();
+    _cfUpdateScenarioKpis(_cfState.cashPos, _cfState.forecastBurns);
+  } else if(scen === 'upside'){
+    banner.style.display  = '';
+    banner.innerHTML      = '↑ <strong>Upside scenario</strong> — Contingencies removed. All other forecast inputs match Downside.';
+    if(forecastSection) forecastSection.style.display = 'none';
+    const u = _cfComputeUpsideData();
+    if(u){ _cfDrawCharts(u); _cfUpdateScenarioKpis(u.cashPos, u.forecastBurns); }
+  }
+}
+
+// Update Runway, Projected Year-End, and Avg Monthly Forecast KPI cards
+// for whichever scenario's cashPos + forecastBurns are passed in
+function _cfUpdateScenarioKpis(cashPos, forecastBurns){
+  const s = _cfState;
+  const grid = document.getElementById('cfKpis');
+  if(!grid || !s) return;
+  const cards = grid.children;
+  if(cards.length < 3) return;
+
+  const projected    = cashPos[11];
+  const ongoingMo    = _cfGetOngoingMo();
+  const runwayStart  = ongoingMo >= 0 ? ongoingMo : s.lastActualIdx + 1;
+
+  let runwayLabel = 'Beyond year-end', runwayCl = '#1B7A3D', runwaySub = 'Cash stays positive';
+  for(let i = runwayStart; i < 12; i++){
+    if(cashPos[i] <= 0){
+      runwayLabel = _MN[i] + ' ' + s.year;
+      runwayCl    = '#C0392B';
+      runwaySub   = `Projected balance: ${_$k(cashPos[i])}`;
+      break;
+    }
+  }
+  if(runwayLabel === 'Beyond year-end' && projected < 50000){
+    runwayCl = '#D4A000'; runwaySub = `Year-end balance: ${_$k(projected)}`;
+  }
+
+  // cards[1] = Runway
+  const rwVal = cards[1].querySelector('.kpi-value');
+  const rwSub = cards[1].querySelector('.kpi-sub');
+  if(rwVal){ rwVal.textContent = runwayLabel; rwVal.style.color = runwayCl; }
+  if(rwSub) rwSub.textContent = runwaySub;
+  cards[1].style.borderLeftColor = runwayCl;
+
+  // cards[2] = Projected Year-End
+  const pyColor = projected >= 0 ? '#1B7A3D' : '#C0392B';
+  const pyVal = cards[2].querySelector('.kpi-value');
+  if(pyVal){ pyVal.textContent = _$k(projected); pyVal.style.color = pyColor; }
+  cards[2].style.borderLeftColor = pyColor;
+
+  // cards[4] = Avg Monthly Forecast Burn
+  if(cards.length > 4){
+    const futureBurns = forecastBurns.slice(s.lastActualIdx + 1);
+    const avgFc = futureBurns.length > 0 ? futureBurns.reduce((a,b)=>a+b,0) / futureBurns.length : 0;
+    const avgFcColor = avgFc >= 0 ? '#1B7A3D' : '#C0392B';
+    const avgFcVal = cards[4].querySelector('.kpi-value');
+    if(avgFcVal){ avgFcVal.textContent = _$k(Math.round(avgFc)); avgFcVal.style.color = avgFcColor; }
+    cards[4].style.borderLeftColor = avgFcColor;
+  }
+}
+
 async function renderCashFlow(){
+  // Always reset to Downside on data reload (year switch, page load)
+  _cfActiveScenario = 'downside';
+  document.querySelectorAll('#cfScenTabs button[data-scen]').forEach(b => {
+    const active = b.dataset.scen === 'downside';
+    b.style.background = active ? '#fff' : 'transparent';
+    b.style.boxShadow  = active ? '0 1px 3px rgba(13,43,41,.1)' : 'none';
+  });
+  const _initBanner = document.getElementById('cfScenBanner');
+  if(_initBanner) _initBanner.style.display = 'none';
+
   const updEl = document.getElementById('cfUpdated');
   if(updEl) updEl.innerHTML = '<span style="color:#3D9B8F">Loading&hellip;</span>';
 
@@ -7307,15 +7435,18 @@ async function renderCashFlow(){
 
 // Draw both Cash Position + Burn Rate charts as bar charts.
 // Solid bars = actuals, striped bars = forecast.
-function _cfDrawCharts(){
+// Pass overrideData = { cashPos, forecastBurns } to render a scenario without mutating _cfState.
+function _cfDrawCharts(overrideData){
   const s = _cfState;
   if(!s) return;
+  const cashPos      = overrideData ? overrideData.cashPos      : s.cashPos;
+  const forecastBurns = overrideData ? overrideData.forecastBurns : s.forecastBurns;
 
   // Build chart data: { lb, val, isForecast }
-  const posData = _MN.map((m,i)=>({ lb:m, val:Math.round(s.cashPos[i]/1000), isForecast: i > s.lastActualIdx }));
-  const burnData = _MN.map((m,i)=>({ lb:m, val:Math.round(s.forecastBurns[i]/1000), isForecast: i > s.lastActualIdx }));
+  const posData  = _MN.map((m,i)=>({ lb:m, val:Math.round(cashPos[i]/1000),       isForecast: i > s.lastActualIdx }));
+  const burnData = _MN.map((m,i)=>({ lb:m, val:Math.round(forecastBurns[i]/1000), isForecast: i > s.lastActualIdx }));
 
-  _cfDrawBarChart('cfCanPos', posData, { positiveColor:'#A8C5BE', negativeColor:'#E8A89A' });
+  _cfDrawBarChart('cfCanPos',  posData,  { positiveColor:'#A8C5BE', negativeColor:'#E8A89A' });
   _cfDrawBarChart('cfCanBurn', burnData, { positiveColor:'#A8C5BE', negativeColor:'#E8A89A' });
 }
 
@@ -7682,54 +7813,10 @@ function _cfFmtBurn(v){
   return v < 0 ? `(${_$k(Math.abs(v))})` : _$k(v);
 }
 
-// Update Runway + Projected Year-End KPI cards live as forecast inputs change
+// Update dynamic KPI cards when the user edits Downside forecast inputs
 function _cfUpdateProjectedKpi(){
-  const s = _cfState;
-  const grid = document.getElementById('cfKpis');
-  if(!grid) return;
-  const cards = grid.children;
-  if(cards.length < 3) return;
-
-  const projected = s.cashPos[11];
-
-  // Recompute runway from cashPos (include ongoing month in the scan)
-  const ongoingMo = _cfGetOngoingMo();
-  const runwayStart = ongoingMo >= 0 ? ongoingMo : s.lastActualIdx + 1;
-  let runwayLabel = 'Beyond year-end', runwayCl = '#1B7A3D', runwaySub = 'Cash stays positive';
-  for(let i = runwayStart; i < 12; i++){
-    if(s.cashPos[i] <= 0){
-      runwayLabel = _MN[i] + ' ' + s.year;
-      runwayCl = '#C0392B';
-      runwaySub = `Projected balance: ${_$k(s.cashPos[i])}`;
-      break;
-    }
-  }
-  if(runwayLabel === 'Beyond year-end' && projected < 50000){
-    runwayCl = '#D4A000'; runwaySub = `Year-end balance: ${_$k(projected)}`;
-  }
-
-  // cards[1] = Runway
-  const rwVal = cards[1].querySelector('.kpi-value');
-  const rwSub = cards[1].querySelector('.kpi-sub');
-  if(rwVal){ rwVal.textContent = runwayLabel; rwVal.style.color = runwayCl; }
-  if(rwSub) rwSub.textContent = runwaySub;
-  cards[1].style.borderLeftColor = runwayCl;
-
-  // cards[2] = Projected Year-End
-  const pyColor = projected >= 0 ? '#1B7A3D' : '#C0392B';
-  const pyVal = cards[2].querySelector('.kpi-value');
-  if(pyVal){ pyVal.textContent = _$k(projected); pyVal.style.color = pyColor; }
-  cards[2].style.borderLeftColor = pyColor;
-
-  // cards[4] = Avg Monthly Forecast Burn (updates when user edits any forecast input)
-  if(cards.length > 4){
-    const futureBurns = s.forecastBurns.slice(s.lastActualIdx + 1);
-    const avgFc = futureBurns.length > 0 ? futureBurns.reduce((a,b)=>a+b,0) / futureBurns.length : 0;
-    const avgFcColor = avgFc >= 0 ? '#1B7A3D' : '#C0392B';
-    const avgFcVal = cards[4].querySelector('.kpi-value');
-    if(avgFcVal){ avgFcVal.textContent = _$k(Math.round(avgFc)); avgFcVal.style.color = avgFcColor; }
-    cards[4].style.borderLeftColor = avgFcColor;
-  }
+  if(!_cfState) return;
+  _cfUpdateScenarioKpis(_cfState.cashPos, _cfState.forecastBurns);
 }
 
 // Non-categorized table for Cash Flow (shows raw QBO sections and leafs)
