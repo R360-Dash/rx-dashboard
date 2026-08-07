@@ -7114,7 +7114,7 @@ function _cfComputeBaseData(){
   const bForecast = {};
   _CF_LINES.forEach(l => { bForecast[l.key] = s.forecast[l.key].slice(); });
   for(let i = startIdx; i < 12; i++){
-    bForecast.contingencies[i] = 0.5 * (s.forecast.showColl[i] || 0);
+    bForecast.contingencies[i] = 0.5 * (s.forecast.contingencies[i] || 0);
   }
 
   const computedBurns = _cfComputeNetBurn(bForecast);
@@ -7189,10 +7189,10 @@ function _cfSwitchScenario(scen){
         const ongoingMo = _cfGetOngoingMo();
         const startIdx  = ongoingMo >= 0 ? ongoingMo : Math.max(0, s.lastActualIdx + 1);
         let contingencyTotal = 0;
-        for(let i = startIdx; i < 12; i++) contingencyTotal += 0.5 * (s.forecast.showColl[i] || 0);
+        for(let i = startIdx; i < 12; i++) contingencyTotal += 0.5 * (s.forecast.contingencies[i] || 0);
         const contText = contingencyTotal > 0
-          ? ` — Show Collections based on prior year's actuals (<strong>${_$k(Math.round(contingencyTotal))}</strong>)`
-          : " — Show Collections based on prior year's actuals (Show Collections forecast is $0)";
+          ? ` — contingencies at 50% of Downside (<strong>${_$k(Math.round(contingencyTotal))}</strong>)`
+          : ' — contingencies at 50% of Downside (no contingencies in Downside forecast)';
         if(banner){ banner.style.display = ''; banner.innerHTML = `◆ <strong>Base scenario</strong>${contText}.`; }
         _cfDrawCharts(b);
         _cfUpdateScenarioKpis(b.cashPos, b.forecastBurns);
