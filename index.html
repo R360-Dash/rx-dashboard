@@ -7191,8 +7191,8 @@ function _cfSwitchScenario(scen){
         let contingencyTotal = 0;
         for(let i = startIdx; i < 12; i++) contingencyTotal += 0.5 * (s.forecast.showColl[i] || 0);
         const contText = contingencyTotal > 0
-          ? ` — contingencies = 50% of Show Collections based on prior year's actuals (<strong>${_$k(Math.round(contingencyTotal))}</strong>)`
-          : ' — contingencies = 50% of Show Collections based on prior year\'s actuals (Show Collections forecast is $0)';
+          ? ` — Show Collections based on prior year's actuals (<strong>${_$k(Math.round(contingencyTotal))}</strong>)`
+          : " — Show Collections based on prior year's actuals (Show Collections forecast is $0)";
         if(banner){ banner.style.display = ''; banner.innerHTML = `◆ <strong>Base scenario</strong>${contText}.`; }
         _cfDrawCharts(b);
         _cfUpdateScenarioKpis(b.cashPos, b.forecastBurns);
