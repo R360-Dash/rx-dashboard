@@ -7191,8 +7191,8 @@ function _cfSwitchScenario(scen){
         let contingencyTotal = 0;
         for(let i = startIdx; i < 12; i++) contingencyTotal += 0.5 * (s.forecast.showColl[i] || 0);
         const contText = contingencyTotal > 0
-          ? ` — adds <strong>${_$k(Math.round(contingencyTotal))}</strong> in contingencies (50% of Show Collections)`
-          : ' — 50% of Show Collections (Show Collections forecast is $0)';
+          ? ` — contingencies = 50% of Show Collections based on prior year's actuals (<strong>${_$k(Math.round(contingencyTotal))}</strong>)`
+          : ' — contingencies = 50% of Show Collections based on prior year\'s actuals (Show Collections forecast is $0)';
         if(banner){ banner.style.display = ''; banner.innerHTML = `◆ <strong>Base scenario</strong>${contText}.`; }
         _cfDrawCharts(b);
         _cfUpdateScenarioKpis(b.cashPos, b.forecastBurns);
@@ -7213,10 +7213,7 @@ function _cfSwitchScenario(scen){
         const startIdx  = ongoingMo >= 0 ? ongoingMo : Math.max(0, s.lastActualIdx + 1);
         let contingencyTotal = 0;
         for(let i = startIdx; i < 12; i++) contingencyTotal += (s.forecast.contingencies[i] || 0);
-        const savingsText = contingencyTotal !== 0
-          ? ` — removes <strong>${_$k(Math.abs(Math.round(contingencyTotal)))}</strong> in contingencies`
-          : ' — no contingencies in current forecast';
-        if(banner){ banner.style.display = ''; banner.innerHTML = `↑ <strong>Upside scenario</strong>${savingsText}. All other inputs match Downside.`; }
+        if(banner){ banner.style.display = ''; banner.innerHTML = '↑ <strong>Upside scenario</strong> — hitting sales quota. All other inputs match Downside.'; }
         _cfDrawCharts(u);
         _cfUpdateScenarioKpis(u.cashPos, u.forecastBurns);
       } else {
