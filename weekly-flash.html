@@ -276,14 +276,19 @@ function parsePlForCfLines(plReport){
 function parseNetChanges(report){
   if(!report?.Rows) return Array(12).fill(0);
   const rows = report.Rows.Row || [];
+  // Pass 1: top-level standalone summary rows only (no Header = grand total, not a section)
+  // This matches "Net Increase in Cash" / "Net Change in Cash" — same as index.html's parsed.summaries
   for(const r of rows){
-    if(r.Summary){
+    if(r.Summary && !r.Header && !r.Rows){
       const cd  = r.Summary.ColData || [];
       const lbl = cd[0]?.value || '';
       if(/Net cash|Net Increase|Ending Cash|Net change/i.test(lbl)){
         return cd.slice(1,-1).map(c=>parseFloat(c.value||0)||0);
       }
     }
+  }
+  // Pass 2: section summaries fallback (e.g., if report only has operating section)
+  for(const r of rows){
     if(r.Header && r.Rows){
       const sub = r.Summary?.ColData || [];
       const lbl = (sub[0]?.value || r.Header?.ColData?.[0]?.value || '');
