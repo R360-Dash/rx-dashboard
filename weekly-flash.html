@@ -205,6 +205,29 @@ function computeNetBurn(lineMap){
     return net;
   });
 }
+function computeScenario(forecastData, contingencyMult, netChanges, bankBals, beginCash, lastActIdx){
+  if(!forecastData) return null;
+  const mFc = {};
+  CF_LINES.forEach(l => { mFc[l.key] = (forecastData[l.key] || []).slice(); });
+  for(let i = lastActIdx+1; i < 12; i++){
+    mFc.contingencies[i] = contingencyMult * (forecastData.contingencies?.[i] || 0);
+  }
+  const mBurns = Array(12).fill(0);
+  for(let i = 0; i <= lastActIdx; i++) mBurns[i] = netChanges[i]||0;
+  const future = computeNetBurn(mFc);
+  for(let i = lastActIdx+1; i < 12; i++) mBurns[i] = future[i];
+  const mCashPos = Array(12).fill(0);
+  for(let i = 0; i < 12; i++){
+    if(i <= lastActIdx) mCashPos[i] = bankBals[i]||0;
+    else mCashPos[i] = (i===0?beginCash:mCashPos[i-1]) + mBurns[i];
+  }
+  const projYE = mCashPos[11];
+  const runwayGoesNeg = mCashPos.slice(lastActIdx+1).some(v => v <= 0);
+  let runwayMonths = null;
+  for(let i=lastActIdx+1; i<12; i++){ if(mCashPos[i]<=0){ runwayMonths=i-lastActIdx; break; } }
+  if(!runwayGoesNeg) runwayMonths = 12-lastActIdx-1;
+  return { cashPos: mCashPos, forecastBurns: mBurns, projYearEnd: projYE, runwayGoesNeg, runwayMonths, cashNeededYE: projYE<0?Math.abs(projYE):0 };
+}
 
 // ── QBO parsing ─────────────────────────────────────────────────────────────
 function parseNetChanges(report){
@@ -379,7 +402,7 @@ function buildEmailHTML(d){
   const {wonDeals,totSp,firms,rbCt,rbRev,nwCt,nwRev,monthly,ci,attCol,ytdPct,ytdQ,
     pipeWtd,pipeRaw,openDeals,byStage,curCash,beginCash,cashChange,avgBurn3,
     netChanges,lastActIdx,cashBars,burnBars,runwayGoesNeg,runwayMonths,
-    projYearEnd,cashNeededYE,cashPos,forecastBurns,MN,QBO_YEAR}=d;
+    projYearEnd,cashNeededYE,cashPos,forecastBurns,baseScen,upScen,MN,QBO_YEAR}=d;
 
   const fSum=forecastBurns.slice(lastActIdx+1).reduce((s,v)=>s+v,0);
   const flagLevel=runwayGoesNeg?'red':(projYearEnd<curCash*.25?'amber':'green');
@@ -468,7 +491,7 @@ function buildEmailHTML(d){
     ${_et(salesCard,pipelineCard)}
     <div style="${ST}">Cash &amp; Burn — FY${QBO_YEAR}</div>
     ${_et(cashCard,burnCard)}
-    <div style="${ST};margin-top:18px">Cash Forecast &amp; Runway — FY${QBO_YEAR}</div>
+    <div style="${ST};margin-top:18px">Cash Forecast &amp; Runway — Downside Scenario — FY${QBO_YEAR}</div>
     <table width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:18px"><tr><td style="border-radius:10px;padding:16px 20px;${flagBgS[flagLevel]}">
       <table cellspacing="0" cellpadding="0" border="0"><tr>
         <td style="font-size:24px;line-height:1;vertical-align:top;padding-right:14px">${flagIcon}</td>
@@ -476,6 +499,26 @@ function buildEmailHTML(d){
       </tr></table>
     </td></tr></table>
     ${_et(fcCard,bfCard)}
+    <div style="${ST};margin-top:18px">Scenario Comparison — FY${QBO_YEAR}</div>
+    <table width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:20px"><tr>
+    ${[{label:'↓ Downside',desc:'Full contingencies',border:'#C0392B',sc:null},{label:'◆ Base',desc:'50% contingencies',border:'#1B4D4A',sc:baseScen},{label:'↑ Upside',desc:'Zero contingencies',border:'#1B7A3D',sc:upScen}].map(({label,desc,border,sc},idx)=>{
+      const pYE=sc?sc.projYearEnd:projYearEnd, rGN=sc?sc.runwayGoesNeg:runwayGoesNeg, rMos=sc?sc.runwayMonths:runwayMonths, cN=sc?sc.cashNeededYE:cashNeededYE;
+      const cP=sc?sc.cashPos:cashPos;
+      const stC=rGN?'#C0392B':pYE<curCash*.25?'#B8860B':'#1B7A3D';
+      const stT=rGN?`🚨 Shortfall in ${rMos}mo`:pYE<curCash*.25?'⚠️ Buffer thinning':'✅ Healthy through YE';
+      const cPBars=cP.map((v,i)=>({label:MN[i].slice(0,3),v:Math.round(v),forecast:i>lastActIdx}));
+      const pad3=idx===0?'0 6px 0 0':idx===1?'0 3px 0 3px':'0 0 0 6px';
+      return `<td width="33.33%" style="vertical-align:top;padding:${pad3}">
+        <div style="${CARD};border-top:3px solid ${border}">
+          <div style="font-size:13px;font-weight:800;color:#0D2B29;margin-bottom:2px">${label}</div>
+          <div style="font-size:11px;color:#7A9E9A;margin-bottom:10px">${desc}</div>
+          ${_eg([_ekm('Projected YE',fmt$(pYE),`Dec 31, ${QBO_YEAR}`,false,`color:${pYE>=0?'#1B7A3D':'#C0392B'}`),_ekm('Cash Needed',cN>0?fmt$(cN):'None','to stay positive',false,`color:${cN>0?'#C0392B':'#1B7A3D'}`)],2)}
+          ${_em(cPBars)}<div style="${NOTE}">Monthly ending cash — light = forecast</div>
+          <div style="margin-top:8px;font-size:11px;font-weight:700;color:${stC}">${stT}</div>
+        </div>
+      </td>`;
+    }).join('')}
+    </tr></table>
     <div style="${FT}">RacquetX · Weekly Flash Report · Confidential &amp; Proprietary · Live: HubSpot + QuickBooks Online · ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div>
   </div>
 </div>`;
@@ -618,6 +661,11 @@ function render(deals27all, cfData, bsData, forecastData, hsTsLabel){
   if(!runwayGoesNeg) runwayMonths = 12 - lastActIdx - 1; // months to year-end
   // Cash needed to stay positive through year-end
   const cashNeededYE = projYearEnd < 0 ? Math.abs(projYearEnd) : 0;
+
+  // ── Scenario variants ──
+  const baseScen = computeScenario(forecastData, 0.5, netChanges, bankBals, beginCash, lastActIdx);
+  const upScen   = computeScenario(forecastData, 0,   netChanges, bankBals, beginCash, lastActIdx);
+
   const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
   // Monthly net change for bar chart (last 6 actual months)
@@ -743,8 +791,8 @@ function render(deals27all, cfData, bsData, forecastData, hsTsLabel){
   h += `</div>`; // end burn card
   h += `</div>`; // end two-col
 
-  // ─ Cash Forecast & Runway ─
-  h += `<div style="${C.STITLE};margin-top:24px">Cash Forecast &amp; Runway — FY${QBO_YEAR}</div>`;
+  // ─ Cash Forecast & Runway — Downside ─
+  h += `<div style="${C.STITLE};margin-top:24px">Cash Forecast &amp; Runway — Downside Scenario — FY${QBO_YEAR}</div>`;
 
   // Flag banner
   const flagLevel = runwayGoesNeg ? 'red' : (projYearEnd < curCash * 0.25 ? 'amber' : 'green');
@@ -803,6 +851,41 @@ function render(deals27all, cfData, bsData, forecastData, hsTsLabel){
   h += `</div>`; // end card
   h += `</div>`; // end two-col
 
+  // ─ Scenario Comparison ─
+  h += `<div style="${C.STITLE};margin-top:28px">Scenario Comparison — FY${QBO_YEAR}</div>`;
+  const scenDefs = [
+    { key:'down', label:'↓ Downside', desc:'Full contingencies as entered', icon:'📉', border:'#C0392B', scen:null },
+    { key:'base', label:'◆ Base',     desc:'Contingencies at 50% of Downside', icon:'📊', border:'#1B4D4A', scen:baseScen },
+    { key:'up',   label:'↑ Upside',   desc:'Zero contingencies — hitting sales quota', icon:'🚀', border:'#1B7A3D', scen:upScen },
+  ];
+  h += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px">`;
+  scenDefs.forEach(({label,desc,icon,border,scen:sc})=>{
+    const pYE  = sc ? sc.projYearEnd  : projYearEnd;
+    const rGN  = sc ? sc.runwayGoesNeg : runwayGoesNeg;
+    const rMos = sc ? sc.runwayMonths  : runwayMonths;
+    const cN   = sc ? sc.cashNeededYE  : cashNeededYE;
+    const cP   = sc ? sc.cashPos       : cashPos;
+    const statusTxt = rGN ? `🚨 Shortfall in ${rMos}mo` : (pYE < curCash*0.25 ? '⚠️ Buffer thinning' : '✅ Healthy through YE');
+    const statusC   = rGN ? '#C0392B' : (pYE < curCash*0.25 ? '#B8860B' : '#1B7A3D');
+    const cpBars = cP.map((v,i)=>({ label:MN[i].slice(0,3), v:Math.round(v), forecast:i>lastActIdx }));
+    h += `<div style="${C.CARD};border-top:3px solid ${border}">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:2px">
+        <span style="font-size:15px">${icon}</span>
+        <span style="font-size:13px;font-weight:800;color:#0D2B29">${label}</span>
+      </div>
+      <div style="font-size:11px;color:#7A9E9A;margin-bottom:12px">${desc}</div>
+      <div style="${C.G3}">
+        ${kmi('Projected YE',fmtFull(pYE),`Dec 31, ${QBO_YEAR}`,false,`color:${pYE>=0?'#1B7A3D':'#C0392B'}`)}
+        ${kmi('Cash Needed',cN>0?fmtFull(cN):'None','to stay positive',false,`color:${cN>0?'#C0392B':'#1B7A3D'}`)}
+        ${kmi('Status',rGN?rMos+'mo':'>YE',rGN?'until $0':'Healthy',false,`color:${statusC}`)}
+      </div>
+      <div style="width:100%;overflow:hidden">${svgBarsActVsForecast(cpBars, {h:90, lastActIdx})}</div>
+      <div style="${C.NOTE}">Monthly ending cash — solid = actuals, hatched = forecast</div>
+      <div style="margin-top:8px;font-size:11px;font-weight:700;color:${statusC}">${statusTxt}</div>
+    </div>`;
+  });
+  h += `</div>`;
+
   h += `<div style="${C.FOOTER}">RacquetX · Weekly Flash Report · Confidential &amp; Proprietary · Live: HubSpot + QuickBooks Online · ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div>`;
 
   content.innerHTML = h;
@@ -814,6 +897,7 @@ function render(deals27all, cfData, bsData, forecastData, hsTsLabel){
     curCash, beginCash, cashChange, avgBurn3, netChanges, lastActIdx,
     cashBars, burnBars, runwayGoesNeg, runwayMonths,
     projYearEnd, cashNeededYE, cashPos, forecastBurns,
+    baseScen, upScen,
     MN, QBO_YEAR
   });
 
@@ -825,11 +909,11 @@ function render(deals27all, cfData, bsData, forecastData, hsTsLabel){
 
 // ── Fetch & init ─────────────────────────────────────────────────────────────
 async function init(){
-  const fetchQbo = path => fetch(QBO_BASE+path,{signal:AbortSignal.timeout(20000)}).then(r=>r.ok?r.json():Promise.reject('HTTP '+r.status));
+  const fetchQbo = path => fetch(QBO_BASE+path,{cache:'no-store',signal:AbortSignal.timeout(20000)}).then(r=>r.ok?r.json():Promise.reject('HTTP '+r.status));
 
   try {
     const [hsRes, cfRes, bsRes, fcRes] = await Promise.allSettled([
-      fetch(HS_PROXY,{signal:AbortSignal.timeout(15000)}).then(r=>r.json()),
+      fetch(HS_PROXY,{cache:'no-store',signal:AbortSignal.timeout(15000)}).then(r=>r.json()),
       fetchQbo(`/api/cashflow?year=${QBO_YEAR}`),
       fetchQbo(`/api/balancesheet?year=${QBO_YEAR}`),
       fetchQbo(`/api/forecast?year=${QBO_YEAR}`)
