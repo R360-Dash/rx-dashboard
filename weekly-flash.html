@@ -208,26 +208,36 @@ function computeNetBurn(lineMap){
     return net;
   });
 }
-function computeScenario(forecastData, contingencyMult, netChanges, bankBals, beginCash, lastActIdx){
-  if(!forecastData) return null;
+function computeScenario(effectiveFc, contingencyMult, netChanges, bankBals, beginCash, lastActIdx, ongoingMo){
+  if(!effectiveFc) return null;
   const mFc = {};
-  CF_LINES.forEach(l => { mFc[l.key] = (forecastData[l.key] || []).slice(); });
-  for(let i = lastActIdx+1; i < 12; i++){
-    mFc.contingencies[i] = contingencyMult * (forecastData.contingencies?.[i] || 0);
+  CF_LINES.forEach(l => { mFc[l.key] = (effectiveFc[l.key] || Array(12).fill(0)).slice(); });
+  // Apply contingency multiplier to ongoing + future months
+  const fcStart = ongoingMo >= 0 ? ongoingMo : lastActIdx + 1;
+  for(let i = fcStart; i < 12; i++){
+    mFc.contingencies[i] = contingencyMult * (mFc.contingencies[i] || 0);
   }
+  // Burns
   const mBurns = Array(12).fill(0);
-  for(let i = 0; i <= lastActIdx; i++) mBurns[i] = netChanges[i]||0;
+  for(let i = 0; i < fcStart; i++) mBurns[i] = netChanges[i]||0;
   const future = computeNetBurn(mFc);
+  if(ongoingMo >= 0) mBurns[ongoingMo] = future[ongoingMo];
   for(let i = lastActIdx+1; i < 12; i++) mBurns[i] = future[i];
+  // Cash positions
   const mCashPos = Array(12).fill(0);
-  for(let i = 0; i < 12; i++){
-    if(i <= lastActIdx) mCashPos[i] = bankBals[i]||0;
-    else mCashPos[i] = (i===0?beginCash:mCashPos[i-1]) + mBurns[i];
+  for(let i = 0; i < fcStart; i++) mCashPos[i] = bankBals[i]||0;
+  for(let i = fcStart; i < 12; i++){
+    if(i === ongoingMo){
+      const prevCash = i > 0 ? bankBals[i-1] : beginCash;
+      mCashPos[i] = prevCash + mBurns[i];
+    } else {
+      mCashPos[i] = (i===0?beginCash:mCashPos[i-1]) + mBurns[i];
+    }
   }
   const projYE = mCashPos[11];
-  const runwayGoesNeg = mCashPos.slice(lastActIdx+1).some(v => v <= 0);
+  const runwayGoesNeg = mCashPos.slice(fcStart).some(v => v <= 0);
   let runwayMonths = null;
-  for(let i=lastActIdx+1; i<12; i++){ if(mCashPos[i]<=0){ runwayMonths=i-lastActIdx; break; } }
+  for(let i = fcStart; i < 12; i++){ if(mCashPos[i]<=0){ runwayMonths=i-lastActIdx; break; } }
   if(!runwayGoesNeg) runwayMonths = 12-lastActIdx-1;
   return { cashPos: mCashPos, forecastBurns: mBurns, projYearEnd: projYE, runwayGoesNeg, runwayMonths, cashNeededYE: projYE<0?Math.abs(projYE):0 };
 }
@@ -683,6 +693,11 @@ function render(deals27all, cfData, bsData, forecastData, plData, hsTsLabel){
   const cashChange  = curCash - beginCash;
   const avgBurn3    = lastActIdx >= 0 ? netChanges.slice(Math.max(0,lastActIdx-2), lastActIdx+1).reduce((s,v)=>s+v,0) / Math.min(3, lastActIdx+1) : 0;
 
+  // ── Ongoing month: current calendar month that already has partial QBO data ──
+  const _now = new Date();
+  const ongoingMo = (_now.getFullYear() === QBO_YEAR && _now.getMonth() === lastActIdx && lastActIdx >= 0 && lastActIdx < 11)
+    ? lastActIdx : -1;
+
   // ── Effective forecast: saved ?? trailing-avg fallback (mirrors index.html Downside) ──
   const plLines   = parsePlForCfLines(plData?.report);
   const suggested = {};
@@ -690,40 +705,49 @@ function render(deals27all, cfData, bsData, forecastData, plData, hsTsLabel){
   const effectiveForecast = {};
   CF_LINES.forEach(l => {
     effectiveForecast[l.key] = Array(12).fill(0);
-    for(let i = lastActIdx+1; i < 12; i++){
+    // Include ongoing month in forecast range (same as index.html)
+    const fcStart = ongoingMo >= 0 ? ongoingMo : lastActIdx + 1;
+    for(let i = fcStart; i < 12; i++){
       const sv = forecastData?.[l.key]?.[i];
       effectiveForecast[l.key][i] = (sv != null) ? sv : suggested[l.key];
     }
   });
 
-  // ── Forecast: build forecastBurns & cashPos ──
+  // ── Forecast burns & cash position — mirrors _cfRecomputeForecast in index.html ──
   const forecastBurns = Array(12).fill(0);
-  // Past months: use actuals
-  for(let i=0; i<=lastActIdx; i++) forecastBurns[i] = netChanges[i]||0;
-  // Future months: effective forecast (saved ?? trailing avg per line)
-  {
-    const computedFuture = computeNetBurn(effectiveForecast);
-    for(let i=Math.max(0,lastActIdx+1); i<12; i++) forecastBurns[i] = computedFuture[i];
-  }
+  const startIdx = ongoingMo >= 0 ? ongoingMo : lastActIdx + 1;
+  // Actual months (before ongoing or before first forecast month): use QBO actuals
+  for(let i = 0; i < startIdx; i++) forecastBurns[i] = netChanges[i]||0;
+  // Ongoing + future: use computed forecast
+  const computedFuture = computeNetBurn(effectiveForecast);
+  if(ongoingMo >= 0) forecastBurns[ongoingMo] = computedFuture[ongoingMo];
+  for(let i = lastActIdx + 1; i < 12; i++) forecastBurns[i] = computedFuture[i];
+
   // Cash position per month
   const cashPos = Array(12).fill(0);
-  for(let i=0; i<12; i++){
-    if(i<=lastActIdx) cashPos[i] = bankBals[i]||0;
-    else cashPos[i] = (i===0?beginCash:cashPos[i-1]) + forecastBurns[i];
+  // Actuals before the ongoing/forecast start: use real bank balances
+  for(let i = 0; i < startIdx; i++) cashPos[i] = bankBals[i]||0;
+  // Ongoing month and beyond: chain from prior balance + forecast burn
+  for(let i = startIdx; i < 12; i++){
+    if(i === ongoingMo){
+      const prevCash = i > 0 ? bankBals[i - 1] : beginCash;
+      cashPos[i] = prevCash + forecastBurns[i];
+    } else {
+      cashPos[i] = (i === 0 ? beginCash : cashPos[i - 1]) + forecastBurns[i];
+    }
   }
   const projYearEnd = cashPos[11];
-  // Runway: first future month where cashPos goes ≤ 0
+  // Runway: first month (from startIdx) where cashPos goes ≤ 0
   let runwayMonths = null, runwayGoesNeg = false;
-  for(let i=lastActIdx+1; i<12; i++){
+  for(let i = startIdx; i < 12; i++){
     if(cashPos[i] <= 0){ runwayMonths = i - lastActIdx; runwayGoesNeg = true; break; }
   }
-  if(!runwayGoesNeg) runwayMonths = 12 - lastActIdx - 1; // months to year-end
-  // Cash needed to stay positive through year-end
+  if(!runwayGoesNeg) runwayMonths = 12 - lastActIdx - 1;
   const cashNeededYE = projYearEnd < 0 ? Math.abs(projYearEnd) : 0;
 
-  // ── Scenario variants ──
-  const baseScen = computeScenario(effectiveForecast, 0.5, netChanges, bankBals, beginCash, lastActIdx);
-  const upScen   = computeScenario(effectiveForecast, 0,   netChanges, bankBals, beginCash, lastActIdx);
+  // ── Scenario variants (pass ongoingMo so each scenario handles it correctly) ──
+  const baseScen = computeScenario(effectiveForecast, 0.5, netChanges, bankBals, beginCash, lastActIdx, ongoingMo);
+  const upScen   = computeScenario(effectiveForecast, 0,   netChanges, bankBals, beginCash, lastActIdx, ongoingMo);
 
   const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
