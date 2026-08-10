@@ -185,6 +185,9 @@ function weekLabel(){
   return `Week of ${fmt(d1)} – ${fmt(d2)}`;
 }
 
+// ── QBO account → CF category mapping (mirrors dashboard QBO_MAPPING) ────────
+const WF_QBO_MAPPING = {"City Series Sales":"City Series Tickets","Rebooking Sales":"Show Sponsors","Revenue - Merch":"Merch","Sales - Clubs Summit":"City Series Sponsors","Sales - City Series Sponsorship":"City Series Sponsors","Sponsorship Sales":"Show Sponsors","Tickets Sales":"Show Tickets","COGS - City Series":"City Series Costs","Cost of Goods Sold":"Show Costs","Additional Staff":"Show Costs","Additional Staffing":"Show Costs","Big 6":"Show Costs","Speakers / T&E":"Show Costs","Sponsorships":"Show Costs","Staff T&E":"Show Costs","Venue":"Show Costs","AV Labor":"Show Costs","Booth Packages":"Show Costs","Catering":"Show Costs","Club Summit":"Show Costs","Creators Corner":"Show Costs","Decoration":"Show Costs","Digital signage":"Show Costs","Emerging Designers":"Show Costs","Evening Event Night Day 1":"Show Costs","Evening Event Night Day 2":"Show Costs","Freight":"Show Costs","Hotel & Accomodation":"Show Costs","Hotel Attrition":"Show Costs","Innovation Showcase":"Show Costs","Internet":"Show Costs","Keynote":"Show Costs","Pod Cast Studio":"Show Costs","Registration":"Show Costs","Show Decorator":"Show Costs","Showfloor Theater":"Show Costs","Signage":"Show Costs","Venue Rental":"Show Costs","Venue Costs / Staffing":"Show Costs","Travel COGS":"Show Costs","Stripe fees":"SG&A","Bank Charges":"SG&A","Contractors":"SG&A","Expense Reimbursement":"SG&A","Insurance":"SG&A","Interest Paid":"SG&A","Legal & Professional Services":"SG&A","Accounting Services":"SG&A","Consulting Fees":"SG&A","IT Services":"SG&A","Management Fees":"SG&A","Recruitment Fees":"SG&A","Tax Services":"SG&A","Licenses":"SG&A","Licenses & Dues":"SG&A","Marketing Expenses":"Marketing Costs","Audience Marketing":"Marketing Costs","Brand Marketing":"Marketing Costs","Marketing Partner":"Marketing Costs","Conference Content":"Marketing Costs","Sales Marketing":"Marketing Costs","SEM/SEO":"Marketing Costs","Social Media":"Marketing Costs","Merchant Fees":"SG&A","QuickBooks Payments Fees":"SG&A","Shipping, Freight & Delivery":"SG&A","Software & Apps Subscriptions":"SG&A","Travel":"SG&A","Uncategorized Expense":"SG&A","Commissions":"SG&A","Corporate Expense Allocation":"Corporate Expense Allocation","Exhange Rate Difference":"SG&A","Other Miscellaneous Expense":"SG&A","Suscriptions and fees":"SG&A","Team Meals":"SG&A","General Services Contractor":"Show Costs","Recovery Costs":"Show Costs"};
+
 // ── CF Lines (must match dashboard schema) ────────────────────────────────
 const CF_LINES = [
   { key:'showColl',     sign:+1 },
@@ -227,6 +230,46 @@ function computeScenario(forecastData, contingencyMult, netChanges, bankBals, be
   for(let i=lastActIdx+1; i<12; i++){ if(mCashPos[i]<=0){ runwayMonths=i-lastActIdx; break; } }
   if(!runwayGoesNeg) runwayMonths = 12-lastActIdx-1;
   return { cashPos: mCashPos, forecastBurns: mBurns, projYearEnd: projYE, runwayGoesNeg, runwayMonths, cashNeededYE: projYE<0?Math.abs(projYE):0 };
+}
+
+// Trailing 3-month average with outlier filter — mirrors _cfTrailingAvg in dashboard
+function cfTrailingAvg(arr, lastActIdx){
+  if(lastActIdx < 0) return 0;
+  const recent = arr.slice(Math.max(0, lastActIdx-2), lastActIdx+1).filter(v => Math.abs(v) > 0.01);
+  if(!recent.length) return 0;
+  const sorted = [...recent].sort((a,b) => Math.abs(a)-Math.abs(b));
+  const med = sorted[Math.floor(sorted.length/2)];
+  const filt = recent.filter(v => !med || Math.abs(v) <= Math.abs(med)*3);
+  const use = filt.length ? filt : recent;
+  return Math.round(use.reduce((s,v)=>s+v,0)/use.length);
+}
+
+// Parse P&L report → per-category monthly actuals using WF_QBO_MAPPING
+function parsePlForCfLines(plReport){
+  const empty = () => Array(12).fill(0);
+  const cats = { showCosts: empty(), cityCosts: empty(), marketing: empty(), sga: empty() };
+  if(!plReport?.Rows?.Row) return cats;
+  const catKey = { 'Show Costs':'showCosts', 'City Series Costs':'cityCosts', 'Marketing Costs':'marketing', 'SG&A':'sga' };
+  function addLeaf(label, monthly){
+    const cat = WF_QBO_MAPPING[label];
+    const key = catKey[cat];
+    if(key) monthly.forEach((v,i) => { cats[key][i] += Math.abs(parseFloat(v)||0); });
+  }
+  function walkRow(r){
+    if(r.ColData){
+      const cd = r.ColData;
+      addLeaf(cd[0]?.value||'', (cd.slice(1,-1).map(c=>parseFloat(c.value||0)||0)));
+    } else if(r.Header && r.Rows){
+      const hdr = r.Header.ColData||[];
+      if(hdr.length > 1){
+        const pm = hdr.slice(1,-1).map(c=>parseFloat(c.value||0)||0);
+        if(pm.some(v=>v!==0)) addLeaf(hdr[0]?.value||'', pm);
+      }
+      (r.Rows.Row||[]).forEach(walkRow);
+    }
+  }
+  (plReport.Rows.Row||[]).forEach(walkRow);
+  return cats;
 }
 
 // ── QBO parsing ─────────────────────────────────────────────────────────────
@@ -586,7 +629,7 @@ function kmi(lbl,val,sub,accent,vs=''){
   return `<div style="${b}"><div style="${l}">${lbl}</div><div style="${v};${vs}">${val}</div><div style="${s}">${sub}</div></div>`;
 }
 
-function render(deals27all, cfData, bsData, forecastData, hsTsLabel){
+function render(deals27all, cfData, bsData, forecastData, plData, hsTsLabel){
   const ci = curIdx();
   const content = document.getElementById('reportContent');
 
@@ -635,16 +678,27 @@ function render(deals27all, cfData, bsData, forecastData, hsTsLabel){
   const cashChange  = curCash - beginCash;
   const avgBurn3    = lastActIdx >= 0 ? netChanges.slice(Math.max(0,lastActIdx-2), lastActIdx+1).reduce((s,v)=>s+v,0) / Math.min(3, lastActIdx+1) : 0;
 
+  // ── Effective forecast: saved ?? trailing-avg fallback (mirrors index.html Downside) ──
+  const plLines   = parsePlForCfLines(plData?.report);
+  const suggested = {};
+  CF_LINES.forEach(l => { suggested[l.key] = cfTrailingAvg(plLines[l.key] || Array(12).fill(0), lastActIdx); });
+  const effectiveForecast = {};
+  CF_LINES.forEach(l => {
+    effectiveForecast[l.key] = Array(12).fill(0);
+    for(let i = lastActIdx+1; i < 12; i++){
+      const sv = forecastData?.[l.key]?.[i];
+      effectiveForecast[l.key][i] = (sv != null) ? sv : suggested[l.key];
+    }
+  });
+
   // ── Forecast: build forecastBurns & cashPos ──
   const forecastBurns = Array(12).fill(0);
   // Past months: use actuals
   for(let i=0; i<=lastActIdx; i++) forecastBurns[i] = netChanges[i]||0;
-  // Future months: use saved forecast lines, else trailing avg
-  if(forecastData){
-    const computedFuture = computeNetBurn(forecastData);
+  // Future months: effective forecast (saved ?? trailing avg per line)
+  {
+    const computedFuture = computeNetBurn(effectiveForecast);
     for(let i=Math.max(0,lastActIdx+1); i<12; i++) forecastBurns[i] = computedFuture[i];
-  } else {
-    for(let i=Math.max(0,lastActIdx+1); i<12; i++) forecastBurns[i] = avgBurn3;
   }
   // Cash position per month
   const cashPos = Array(12).fill(0);
@@ -663,8 +717,8 @@ function render(deals27all, cfData, bsData, forecastData, hsTsLabel){
   const cashNeededYE = projYearEnd < 0 ? Math.abs(projYearEnd) : 0;
 
   // ── Scenario variants ──
-  const baseScen = computeScenario(forecastData, 0.5, netChanges, bankBals, beginCash, lastActIdx);
-  const upScen   = computeScenario(forecastData, 0,   netChanges, bankBals, beginCash, lastActIdx);
+  const baseScen = computeScenario(effectiveForecast, 0.5, netChanges, bankBals, beginCash, lastActIdx);
+  const upScen   = computeScenario(effectiveForecast, 0,   netChanges, bankBals, beginCash, lastActIdx);
 
   const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -912,11 +966,12 @@ async function init(){
   const fetchQbo = path => fetch(QBO_BASE+path,{cache:'no-store',signal:AbortSignal.timeout(20000)}).then(r=>r.ok?r.json():Promise.reject('HTTP '+r.status));
 
   try {
-    const [hsRes, cfRes, bsRes, fcRes] = await Promise.allSettled([
+    const [hsRes, cfRes, bsRes, fcRes, plRes] = await Promise.allSettled([
       fetch(HS_PROXY,{cache:'no-store',signal:AbortSignal.timeout(15000)}).then(r=>r.json()),
       fetchQbo(`/api/cashflow?year=${QBO_YEAR}`),
       fetchQbo(`/api/balancesheet?year=${QBO_YEAR}`),
-      fetchQbo(`/api/forecast?year=${QBO_YEAR}`)
+      fetchQbo(`/api/forecast?year=${QBO_YEAR}`),
+      fetchQbo(`/api/pl?year=${QBO_YEAR}`)
     ]);
 
     const hsData = hsRes.status==='fulfilled' ? hsRes.value : null;
@@ -924,11 +979,12 @@ async function init(){
     const bsData = bsRes.status==='fulfilled' ? bsRes.value : null;
     const fcRaw  = fcRes.status==='fulfilled' ? fcRes.value : null;
     const fcData = fcRaw?.forecast || null;
+    const plData = plRes.status==='fulfilled' ? plRes.value : null;
 
     if(!hsData?.d) throw new Error('HubSpot data unavailable');
 
     const deals27 = hsData.d.filter(d => d.p===27);
-    render(deals27, cfData, bsData, fcData, hsData.ts||'');
+    render(deals27, cfData, bsData, fcData, plData, hsData.ts||'');
   } catch(err){
     document.getElementById('reportContent').innerHTML =
       `<div style="background:#FFF5F5;border:1px solid #FCC;border-radius:12px;padding:20px 24px;color:#C0392B;font-size:13px;">
