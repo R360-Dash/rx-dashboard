@@ -3848,12 +3848,14 @@ function renderHsCumYoY(){
   drawGroupedBars('hsCanYoY',cumData,[
     {k:'y24',cl:COL.d,nm:'2024 Show'},
     {k:'y25',cl:COL.b,nm:'2025 Show'},
-    {k:'y26',cl:COL.a,nm:'2026 Show'}
+    {k:'y26',cl:COL.a,nm:'2026 Show'},
+    {k:'y27',cl:'#3D9B8F',nm:'2027 Show'}
   ]);
   leg('hsLYoY',[
     {n:'2024 Show — '+$$(hsSpData(24).totalRev),c:COL.d},
     {n:'2025 Show — '+$$(hsSpData(25).totalRev),c:COL.b},
-    {n:'2026 Show — '+$$(hsSpData(26).totalRev),c:COL.a}
+    {n:'2026 Show — '+$$(hsSpData(26).totalRev),c:COL.a},
+    {n:'2027 Show — '+$$(hsSpData(27).totalRev),c:'#3D9B8F'}
   ]);
 }
 
