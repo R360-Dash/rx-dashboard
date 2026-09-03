@@ -5341,9 +5341,15 @@ const _$Knd=v=>{if(v==null)return '—';const a=Math.abs(v);const s=v<0?'-':'';r
 const _qboCache = { pl:{}, cf:{}, bs:{}, gl:{} };
 const _MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-async function fetchQbo(path){
+async function fetchQbo(path, _retry=true){
   const res = await fetch(`${QBO_PROXY}${path}`, { signal: AbortSignal.timeout(20000) });
-  if(!res.ok) throw new Error(`QBO fetch failed: ${res.status}`);
+  if(!res.ok){
+    if(_retry && res.status >= 500){
+      await new Promise(r=>setTimeout(r,2000));
+      return fetchQbo(path, false);
+    }
+    throw new Error(`QBO fetch failed: ${res.status}`);
+  }
   return res.json();
 }
 
@@ -7502,7 +7508,7 @@ async function renderCashFlow(){
   } catch(err){
     console.error('Cash Flow render failed:', err);
     if(updEl) updEl.innerHTML = '<span style="color:#C0392B">Error: '+err.message+'</span>';
-    document.getElementById('cfKpis').innerHTML = '<div style="color:#C0392B;padding:16px">Failed to load Cash Flow: '+err.message+'</div>';
+    document.getElementById('cfKpis').innerHTML = '<div style="color:#C0392B;padding:16px">Failed to load Cash Flow: '+err.message+'<br><button onclick="renderCashFlow()" style="margin-top:10px;font-size:12px;padding:6px 14px;background:#fff;border:1px solid #C0392B;color:#C0392B;border-radius:6px;cursor:pointer;font-family:inherit">↻ Retry</button></div>';
   }
 }
 
