@@ -920,8 +920,11 @@ tr:hover td{background:#E8F0ED}
 <thead><tr>
   <th style="text-align:left;cursor:pointer" data-col="n" onclick="window._sortClientRevTable&&window._sortClientRevTable('n')">Client ↕</th>
   <th style="cursor:pointer" data-col="y24" onclick="window._sortClientRevTable&&window._sortClientRevTable('y24')">2024 Show ↕</th>
+  <th style="color:#7BA69E;font-weight:500;font-size:10px;letter-spacing:.04em">24→25</th>
   <th style="cursor:pointer" data-col="y25" onclick="window._sortClientRevTable&&window._sortClientRevTable('y25')">2025 Show ↕</th>
+  <th style="color:#7BA69E;font-weight:500;font-size:10px;letter-spacing:.04em">25→26</th>
   <th style="cursor:pointer" data-col="y26" onclick="window._sortClientRevTable&&window._sortClientRevTable('y26')">2026 Show ↕</th>
+  <th style="color:#7BA69E;font-weight:500;font-size:10px;letter-spacing:.04em">26→27</th>
   <th style="cursor:pointer" data-col="y27" onclick="window._sortClientRevTable&&window._sortClientRevTable('y27')">2027 Show ↕</th>
   <th style="cursor:pointer" data-col="total" onclick="window._sortClientRevTable&&window._sortClientRevTable('total')">Total ↕</th>
   <th style="cursor:pointer" data-col="shows" onclick="window._sortClientRevTable&&window._sortClientRevTable('shows')"># Shows ↕</th>
@@ -4166,6 +4169,16 @@ function renderHsClientRev(){
     kpiEl.innerHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">${kpiCards.join('')}</div>`;
   }
 
+  function _yoy(prev,curr){
+    if(!prev&&!curr) return {html:'<td></td>',val:null};
+    if(!prev&&curr)  return {html:`<td style="text-align:center;font-size:11px;font-weight:700;color:#1B7A3D;letter-spacing:.02em">NEW</td>`,val:null};
+    if(prev&&!curr)  return {html:`<td style="text-align:center;font-size:11px;font-weight:700;color:#C0392B;letter-spacing:.02em">LOST</td>`,val:null};
+    const pct=Math.round((curr-prev)/prev*100);
+    const clr=pct>=0?'#1B7A3D':'#C0392B';
+    const sign=pct>=0?'+':'';
+    return {html:`<td style="text-align:center;font-size:11px;font-weight:700;color:${clr}">${sign}${pct}%</td>`,val:pct};
+  }
+
   function _paint(rows){
     const body=document.getElementById('hsClientRevBody');
     const foot=document.getElementById('hsClientRevTotal');
@@ -4175,19 +4188,31 @@ function renderHsClientRev(){
     const t26=rows.reduce((s,r)=>s+r.y26,0);
     const t27=rows.reduce((s,r)=>s+r.y27,0);
     const tt=t24+t25+t26+t27;
-    body.innerHTML=rows.map((r,i)=>`<tr style="${i%2===1?'background:#F7F9F8':''}">
-      <td style="text-align:left;color:#0D2B29;font-weight:500">${r.n}</td>
-      <td style="${fc(r.y24)}">${fv(r.y24)}</td>
-      <td style="${fc(r.y25)}">${fv(r.y25)}</td>
-      <td style="${fc(r.y26)}">${fv(r.y26)}</td>
-      <td style="${fc(r.y27)}">${fv(r.y27)}</td>
-      <td style="color:#1B4D4A;font-weight:700">${fv(r.total)}</td>
-      <td style="text-align:center;color:#7BA69E">${r.shows}</td>
-    </tr>`).join('');
+    body.innerHTML=rows.map((r,i)=>{
+      const d2425=_yoy(r.y24,r.y25);
+      const d2526=_yoy(r.y25,r.y26);
+      const d2627=_yoy(r.y26,r.y27);
+      return `<tr style="${i%2===1?'background:#F7F9F8':''}">
+        <td style="text-align:left;color:#0D2B29;font-weight:500">${r.n}</td>
+        <td style="${fc(r.y24)}">${fv(r.y24)}</td>
+        ${d2425.html}
+        <td style="${fc(r.y25)}">${fv(r.y25)}</td>
+        ${d2526.html}
+        <td style="${fc(r.y26)}">${fv(r.y26)}</td>
+        ${d2627.html}
+        <td style="${fc(r.y27)}">${fv(r.y27)}</td>
+        <td style="color:#1B4D4A;font-weight:700">${fv(r.total)}</td>
+        <td style="text-align:center;color:#7BA69E">${r.shows}</td>
+      </tr>`;
+    }).join('');
+    const ft2425=_yoy(t24,t25), ft2526=_yoy(t25,t26), ft2627=_yoy(t26,t27);
     foot.innerHTML=`<td style="text-align:left;padding:10px 12px">Totals (${rows.length} clients)</td>
       <td style="padding:10px 12px">${fv(t24)}</td>
+      ${ft2425.html}
       <td style="padding:10px 12px">${fv(t25)}</td>
+      ${ft2526.html}
       <td style="padding:10px 12px">${fv(t26)}</td>
+      ${ft2627.html}
       <td style="padding:10px 12px">${fv(t27)}</td>
       <td style="padding:10px 12px;color:#1B4D4A">${fv(tt)}</td>
       <td></td>`;
