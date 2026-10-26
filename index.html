@@ -901,6 +901,7 @@ tr:hover td{background:#E8F0ED}
 <!-- ═══ HUBSPOT — REVENUE BY CLIENT ═══ -->
 <div id="sec-hsclientrev" class="page">
 <div style="font-size:13px;color:#7BA69E;margin-bottom:16px">Source: HubSpot CRM · Closed Won deals · All shows</div>
+<div id="hsClientRevKpis" style="margin-bottom:24px"></div>
 <div class="section">
 <div class="section-header"><div class="section-bar"></div><div class="section-title">Sponsorship Revenue by Client</div></div>
 <div class="card" style="padding:0;overflow:hidden">
@@ -4108,7 +4109,8 @@ function renderHsClientRev(){
     });
   });
 
-  let _rows=Object.values(firms).map(f=>({
+  const allRows=Object.values(firms);
+  let _rows=allRows.map(f=>({
     ...f,
     total:f.y24+f.y25+f.y26+f.y27,
     shows:[f.y24,f.y25,f.y26,f.y27].filter(v=>v>0).length
@@ -4117,6 +4119,52 @@ function renderHsClientRev(){
 
   const fv=v=>v>0?'$'+v.toLocaleString('en-US',{maximumFractionDigits:0}):'—';
   const fc=v=>v>0?'color:#1B4D4A;font-weight:600':'color:#ccc';
+  const fp=v=>v!=null?Math.round(v)+'%':'—';
+
+  // ── KPI: NRR & Churn per year transition ──
+  const transitions=[{prev:24,curr:25},{prev:25,curr:26},{prev:26,curr:27}];
+  const kpiEl=document.getElementById('hsClientRevKpis');
+  if(kpiEl){
+    const kpiCards=transitions.map(({prev,curr})=>{
+      const pk='y'+prev, ck='y'+curr;
+      const prevClients=allRows.filter(r=>r[pk]>0);
+      const currKeys=new Set(allRows.filter(r=>r[ck]>0).map(r=>r.n));
+      const returning=prevClients.filter(r=>currKeys.has(r.n));
+      const churned=prevClients.filter(r=>!currKeys.has(r.n));
+      const prevTotalRev=prevClients.reduce((s,r)=>s+r[pk],0);
+      const returningRevCurr=returning.reduce((s,r)=>s+r[ck],0);
+      const churnedRev=churned.reduce((s,r)=>s+r[pk],0);
+      const nrr=prevTotalRev>0?returningRevCurr/prevTotalRev*100:null;
+      const nrrColor=nrr==null?'#7BA69E':nrr>=100?'#1B7A3D':nrr>=70?'#1B4D4A':'#C0392B';
+      const churnRevPct=prevTotalRev>0?Math.round(churnedRev/prevTotalRev*100):0;
+      return `<div style="background:#fff;border:1px solid #D4E2DD;border-radius:14px;padding:20px 22px;box-shadow:0 2px 8px rgba(27,77,74,.08)">
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#7BA69E;margin-bottom:14px;border-bottom:1px solid #EDF2F0;padding-bottom:10px">20${prev} → 20${curr} Show</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <div class="kpi-label">NRR</div>
+            <div class="kpi-value" style="color:${nrrColor}">${nrr!=null?Math.round(nrr)+'%':'—'}</div>
+            <div class="kpi-sub">${fv(returningRevCurr)} retained</div>
+          </div>
+          <div>
+            <div class="kpi-label">Churn Rate</div>
+            <div class="kpi-value" style="color:${churned.length>0?'#C0392B':'#1B7A3D'}">${churnRevPct}%</div>
+            <div class="kpi-sub">${churned.length} client${churned.length!==1?'s':''} lost</div>
+          </div>
+          <div>
+            <div class="kpi-label">Churned Revenue</div>
+            <div style="font-size:20px;font-weight:700;color:${churned.length>0?'#C0392B':'#1B7A3D'}">${fv(churnedRev)||'$0'}</div>
+            <div class="kpi-sub">${churnRevPct}% of 20${prev} revenue</div>
+          </div>
+          <div>
+            <div class="kpi-label">Returning Clients</div>
+            <div style="font-size:20px;font-weight:700;color:#1B4D4A">${returning.length} <span style="font-size:13px;font-weight:400;color:#7BA69E">of ${prevClients.length}</span></div>
+            <div class="kpi-sub">${prevClients.length>0?Math.round(returning.length/prevClients.length*100):0}% retention</div>
+          </div>
+        </div>
+      </div>`;
+    });
+    kpiEl.innerHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">${kpiCards.join('')}</div>`;
+  }
 
   function _paint(rows){
     const body=document.getElementById('hsClientRevBody');
