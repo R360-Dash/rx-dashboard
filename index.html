@@ -4222,7 +4222,7 @@ function renderHsClientRev(){
       ${ft2627.html}`;
   }
 
-  // ── Excel download ──
+  // ── Excel download (CSV with UTF-8 BOM — opens natively in Excel) ──
   function _yoyText(prev,curr){
     if(!prev&&!curr) return '';
     if(!prev&&curr)  return 'NEW';
@@ -4231,37 +4231,30 @@ function renderHsClientRev(){
     return (pct>=0?'+':'')+pct+'%';
   }
   window._downloadClientRevXlsx=function(){
-    const wsData=[['Client','2024 Show','2025 Show','2026 Show','2027 Show','Total','# Shows','24→25','25→26','26→27']];
-    _rows.forEach(r=>{
-      wsData.push([
-        r.n,
-        r.y24||'',r.y25||'',r.y26||'',r.y27||'',
-        r.total,r.shows,
-        _yoyText(r.y24,r.y25),
-        _yoyText(r.y25,r.y26),
-        _yoyText(r.y26,r.y27)
-      ]);
-    });
+    const esc=v=>{
+      const s=String(v==null?'':v);
+      return s.includes(',')||s.includes('"')||s.includes('\n')?`"${s.replace(/"/g,'""')}"`:s;
+    };
     const t24=_rows.reduce((s,r)=>s+r.y24,0);
     const t25=_rows.reduce((s,r)=>s+r.y25,0);
     const t26=_rows.reduce((s,r)=>s+r.y26,0);
     const t27=_rows.reduce((s,r)=>s+r.y27,0);
-    wsData.push(['TOTAL',t24,t25,t26,t27,t24+t25+t26+t27,'',_yoyText(t24,t25),_yoyText(t25,t26),_yoyText(t26,t27)]);
-
-    function s2ab(s){const b=new ArrayBuffer(s.length);const v=new Uint8Array(b);for(let i=0;i<s.length;i++)v[i]=s.charCodeAt(i)&0xFF;return b;}
-    function loadXlsx(cb){
-      if(window.XLSX){cb();return;}
-      const sc=document.createElement('script');
-      sc.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-      sc.onload=cb; document.head.appendChild(sc);
-    }
-    loadXlsx(()=>{
-      const wb=XLSX.utils.book_new();
-      const ws=XLSX.utils.aoa_to_sheet(wsData);
-      ws['!cols']=[{wch:32},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:8},{wch:8},{wch:8},{wch:8}];
-      XLSX.utils.book_append_sheet(wb,'Revenue by Client',ws);
-      XLSX.writeFile(wb,'RacquetX_Revenue_by_Client.xlsx');
-    });
+    const rows=[
+      ['Client','2024 Show','2025 Show','2026 Show','2027 Show','Total','# Shows','24→25 YoY','25→26 YoY','26→27 YoY'],
+      ..._rows.map(r=>[
+        r.n,r.y24||0,r.y25||0,r.y26||0,r.y27||0,r.total,r.shows,
+        _yoyText(r.y24,r.y25),_yoyText(r.y25,r.y26),_yoyText(r.y26,r.y27)
+      ]),
+      ['TOTAL',t24,t25,t26,t27,t24+t25+t26+t27,'',_yoyText(t24,t25),_yoyText(t25,t26),_yoyText(t26,t27)]
+    ];
+    const csv='﻿'+rows.map(r=>r.map(esc).join(',')).join('\r\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download='RacquetX_Revenue_by_Client.csv';
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
   };
 
   function _apply(){
