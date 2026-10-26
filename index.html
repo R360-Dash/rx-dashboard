@@ -930,8 +930,11 @@ tr:hover td{background:#E8F0ED}
   <th style="cursor:pointer" data-col="total" onclick="window._sortClientRevTable&&window._sortClientRevTable('total')">Total ↕</th>
   <th style="cursor:pointer" data-col="shows" onclick="window._sortClientRevTable&&window._sortClientRevTable('shows')"># Shows ↕</th>
   <th style="color:#7BA69E;font-weight:500;font-size:10px;letter-spacing:.04em">24→25</th>
+  <th style="color:#C0392B;font-weight:500;font-size:10px;letter-spacing:.04em">Churn $</th>
   <th style="color:#7BA69E;font-weight:500;font-size:10px;letter-spacing:.04em">25→26</th>
+  <th style="color:#C0392B;font-weight:500;font-size:10px;letter-spacing:.04em">Churn $</th>
   <th style="color:#7BA69E;font-weight:500;font-size:10px;letter-spacing:.04em">26→27</th>
+  <th style="color:#C0392B;font-weight:500;font-size:10px;letter-spacing:.04em">Churn $</th>
 </tr></thead>
 <tbody id="hsClientRevBody"></tbody>
 <tfoot><tr id="hsClientRevTotal" style="font-weight:700;background:#F0F5F3;border-top:2px solid #D4E2DD"></tr></tfoot>
@@ -4174,13 +4177,16 @@ function renderHsClientRev(){
   }
 
   function _yoy(prev,curr){
-    if(!prev&&!curr) return {html:'<td></td>',val:null};
-    if(!prev&&curr)  return {html:`<td style="text-align:center;font-size:11px;font-weight:700;color:#1B7A3D;letter-spacing:.02em">NEW</td>`,val:null};
-    if(prev&&!curr)  return {html:`<td style="text-align:center;font-size:11px;font-weight:700;color:#C0392B;letter-spacing:.02em">LOST</td>`,val:null};
+    if(!prev&&!curr) return {html:'<td></td>',churnHtml:'<td></td>'};
+    if(!prev&&curr)  return {html:`<td style="text-align:center;font-size:11px;font-weight:700;color:#1B7A3D;letter-spacing:.02em">NEW</td>`,churnHtml:'<td></td>'};
+    if(prev&&!curr)  return {
+      html:`<td style="text-align:center;font-size:11px;font-weight:700;color:#C0392B;letter-spacing:.02em">LOST</td>`,
+      churnHtml:`<td style="text-align:right;font-size:11px;font-weight:700;color:#C0392B">${'$'+prev.toLocaleString('en-US',{maximumFractionDigits:0})}</td>`
+    };
     const pct=Math.round((curr-prev)/prev*100);
     const clr=pct>=0?'#1B7A3D':'#C0392B';
     const sign=pct>=0?'+':'';
-    return {html:`<td style="text-align:center;font-size:11px;font-weight:700;color:${clr}">${sign}${pct}%</td>`,val:pct};
+    return {html:`<td style="text-align:center;font-size:11px;font-weight:700;color:${clr}">${sign}${pct}%</td>`,churnHtml:'<td></td>'};
   }
 
   function _paint(rows){
@@ -4204,12 +4210,16 @@ function renderHsClientRev(){
         <td style="${fc(r.y27)}">${fv(r.y27)}</td>
         <td style="color:#1B4D4A;font-weight:700">${fv(r.total)}</td>
         <td style="text-align:center;color:#7BA69E">${r.shows}</td>
-        ${d2425.html}
-        ${d2526.html}
-        ${d2627.html}
+        ${d2425.html}${d2425.churnHtml}
+        ${d2526.html}${d2526.churnHtml}
+        ${d2627.html}${d2627.churnHtml}
       </tr>`;
     }).join('');
     const ft2425=_yoy(t24,t25), ft2526=_yoy(t25,t26), ft2627=_yoy(t26,t27);
+    const churnT24=_rows.reduce((s,r)=>s+(r.y24>0&&r.y25===0?r.y24:0),0);
+    const churnT25=_rows.reduce((s,r)=>s+(r.y25>0&&r.y26===0?r.y25:0),0);
+    const churnT26=_rows.reduce((s,r)=>s+(r.y26>0&&r.y27===0?r.y26:0),0);
+    const fChurn=v=>v>0?`<td style="padding:10px 12px;font-weight:700;color:#C0392B">${fv(v)}</td>`:'<td></td>';
     foot.innerHTML=`<td style="text-align:left;padding:10px 12px">Totals (${rows.length} clients)</td>
       <td style="padding:10px 12px">${fv(t24)}</td>
       <td style="padding:10px 12px">${fv(t25)}</td>
@@ -4217,9 +4227,9 @@ function renderHsClientRev(){
       <td style="padding:10px 12px">${fv(t27)}</td>
       <td style="padding:10px 12px;color:#1B4D4A">${fv(tt)}</td>
       <td></td>
-      ${ft2425.html}
-      ${ft2526.html}
-      ${ft2627.html}`;
+      ${ft2425.html}${fChurn(churnT24)}
+      ${ft2526.html}${fChurn(churnT25)}
+      ${ft2627.html}${fChurn(churnT26)}`;
   }
 
   // ── Excel download (CSV with UTF-8 BOM — opens natively in Excel) ──
@@ -4239,13 +4249,20 @@ function renderHsClientRev(){
     const t25=_rows.reduce((s,r)=>s+r.y25,0);
     const t26=_rows.reduce((s,r)=>s+r.y26,0);
     const t27=_rows.reduce((s,r)=>s+r.y27,0);
+    const churnAmt=(prev,curr)=>prev>0&&!curr?prev:0;
     const rows=[
-      ['Client','2024 Show','2025 Show','2026 Show','2027 Show','Total','# Shows','24→25 YoY','25→26 YoY','26→27 YoY'],
+      ['Client','2024 Show','2025 Show','2026 Show','2027 Show','Total','# Shows','24→25 YoY','Churn 24→25','25→26 YoY','Churn 25→26','26→27 YoY','Churn 26→27'],
       ..._rows.map(r=>[
         r.n,r.y24||0,r.y25||0,r.y26||0,r.y27||0,r.total,r.shows,
-        _yoyText(r.y24,r.y25),_yoyText(r.y25,r.y26),_yoyText(r.y26,r.y27)
+        _yoyText(r.y24,r.y25),churnAmt(r.y24,r.y25)||'',
+        _yoyText(r.y25,r.y26),churnAmt(r.y25,r.y26)||'',
+        _yoyText(r.y26,r.y27),churnAmt(r.y26,r.y27)||''
       ]),
-      ['TOTAL',t24,t25,t26,t27,t24+t25+t26+t27,'',_yoyText(t24,t25),_yoyText(t25,t26),_yoyText(t26,t27)]
+      ['TOTAL',t24,t25,t26,t27,t24+t25+t26+t27,'',
+        _yoyText(t24,t25),_rows.reduce((s,r)=>s+churnAmt(r.y24,r.y25),0)||'',
+        _yoyText(t25,t26),_rows.reduce((s,r)=>s+churnAmt(r.y25,r.y26),0)||'',
+        _yoyText(t26,t27),_rows.reduce((s,r)=>s+churnAmt(r.y26,r.y27),0)||''
+      ]
     ];
     const csv='﻿'+rows.map(r=>r.map(esc).join(',')).join('\r\n');
     const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
