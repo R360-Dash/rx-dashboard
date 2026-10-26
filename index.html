@@ -251,6 +251,7 @@ tr:hover td{background:#E8F0ED}
     <a class="nav-item" data-nav="sec-hsmom">Month over Month</a>
     <a class="nav-item" data-nav="sec-hscumsp">Cumulative YoY</a>
     <a class="nav-item" data-nav="sec-hscumfirm">Client Cohorts</a>
+    <a class="nav-item" data-nav="sec-hsclientrev">Revenue by Client</a>
     </div>
   </div>
   <div class="nav-group">
@@ -893,6 +894,41 @@ tr:hover td{background:#E8F0ED}
 <div class="card" id="hsLtvBox" style="text-align:center;padding:20px;border:2px solid #1B4D4A;border-radius:14px"></div>
 <div class="card" id="hsRetentionBox" style="margin-top:16px;padding:18px"></div>
 <div class="card" id="hsRevLostBox" style="margin-top:16px;padding:18px;border:2px solid #C0392B;border-radius:14px"></div>
+</div>
+</div>
+</div>
+
+<!-- ═══ HUBSPOT — REVENUE BY CLIENT ═══ -->
+<div id="sec-hsclientrev" class="page">
+<div style="font-size:13px;color:#7BA69E;margin-bottom:16px">Source: HubSpot CRM · Closed Won deals · All shows</div>
+<div class="section">
+<div class="section-header"><div class="section-bar"></div><div class="section-title">Sponsorship Revenue by Client</div></div>
+<div class="card" style="padding:0;overflow:hidden">
+<div class="hs-search" style="padding:16px 16px 0">
+  <input type="text" id="hsClientRevSearch" placeholder="Search client..." oninput="window._filterClientRevTable&&window._filterClientRevTable()">
+  <select id="hsClientRevFilter" onchange="window._filterClientRevTable&&window._filterClientRevTable()">
+    <option value="">All Shows</option>
+    <option value="24">2024 Only</option>
+    <option value="25">2025 Only</option>
+    <option value="26">2026 Only</option>
+    <option value="27">2027 Only</option>
+  </select>
+</div>
+<div class="hs-deals-wrap" style="max-height:70vh">
+<table id="hsClientRevTable">
+<thead><tr>
+  <th style="text-align:left;cursor:pointer" data-col="n" onclick="window._sortClientRevTable&&window._sortClientRevTable('n')">Client ↕</th>
+  <th style="cursor:pointer" data-col="y24" onclick="window._sortClientRevTable&&window._sortClientRevTable('y24')">2024 Show ↕</th>
+  <th style="cursor:pointer" data-col="y25" onclick="window._sortClientRevTable&&window._sortClientRevTable('y25')">2025 Show ↕</th>
+  <th style="cursor:pointer" data-col="y26" onclick="window._sortClientRevTable&&window._sortClientRevTable('y26')">2026 Show ↕</th>
+  <th style="cursor:pointer" data-col="y27" onclick="window._sortClientRevTable&&window._sortClientRevTable('y27')">2027 Show ↕</th>
+  <th style="cursor:pointer" data-col="total" onclick="window._sortClientRevTable&&window._sortClientRevTable('total')">Total ↕</th>
+  <th style="cursor:pointer" data-col="shows" onclick="window._sortClientRevTable&&window._sortClientRevTable('shows')"># Shows ↕</th>
+</tr></thead>
+<tbody id="hsClientRevBody"></tbody>
+<tfoot><tr id="hsClientRevTotal" style="font-weight:700;background:#F0F5F3;border-top:2px solid #D4E2DD"></tr></tfoot>
+</table>
+</div>
 </div>
 </div>
 </div>
@@ -2943,7 +2979,7 @@ function showPage(id){
   document.querySelectorAll('.nav-group').forEach(g=>{
     if(g.querySelector(`.nav-item[data-nav="${id}"]`))g.classList.remove('collapsed');
   });
-  document.getElementById('tog').style.display=(id==='sec-mkt'||id==='sec-cumfirm'||id==='sec-cumsp'||id==='sec-settings'||id==='sec-board'||id==='sec-sales-report'||id==='sec-hsoverview'||id==='sec-hsdeals'||id==='sec-grip'||id==='sec-hsmix'||id==='sec-hsnew'||id==='sec-hsrebooks'||id==='sec-hsmom'||id==='sec-hscumsp'||id==='sec-hscumfirm'||id==='sec-partners'||id==='sec-linkedin'||id==='sec-ga4'||id==='sec-pl'||id==='sec-bva'||id==='sec-cashflow'||id==='sec-revproj'||id==='sec-scenario'||id==='sec-expenses'||id==='sec-csmap')?'none':'flex';
+  document.getElementById('tog').style.display=(id==='sec-mkt'||id==='sec-cumfirm'||id==='sec-cumsp'||id==='sec-settings'||id==='sec-board'||id==='sec-sales-report'||id==='sec-hsoverview'||id==='sec-hsdeals'||id==='sec-grip'||id==='sec-hsmix'||id==='sec-hsnew'||id==='sec-hsrebooks'||id==='sec-hsmom'||id==='sec-hscumsp'||id==='sec-hscumfirm'||id==='sec-hsclientrev'||id==='sec-partners'||id==='sec-linkedin'||id==='sec-ga4'||id==='sec-pl'||id==='sec-bva'||id==='sec-cashflow'||id==='sec-revproj'||id==='sec-scenario'||id==='sec-expenses'||id==='sec-csmap')?'none':'flex';
   // Show page-specific year toggle in header
   ['expCycleToggle','expYearToggle','plProductToggle','plCycleToggle','plYearToggle','cfYearToggle','bvaYearToggle1','bvaViewToggle'].forEach(t=>{const el=document.getElementById(t);if(el)el.style.display='none';});
   if(id==='sec-expenses'){
@@ -2974,6 +3010,7 @@ function showPage(id){
   if(id==='sec-hsmom')setTimeout(renderHsMoM,80);
   if(id==='sec-hscumsp')setTimeout(renderHsCumYoY,80);
   if(id==='sec-hscumfirm')setTimeout(renderHsCohorts,80);
+  if(id==='sec-hsclientrev')setTimeout(renderHsClientRev,80);
   if(id==='sec-partners')setTimeout(renderPartners,80);
   if(id==='sec-linkedin')setTimeout(renderLinkedin,80);
   if(id==='sec-ga4')setTimeout(renderGA4,80);
@@ -4056,6 +4093,83 @@ function setupHsSpToggles(){
   });
 }
 
+// ── Render: Revenue by Client (cross-show matrix) ──
+function renderHsClientRev(){
+  if(!window.HS||!window.HS.d) return;
+  const yrs=[24,25,26,27];
+  const firms={};
+  yrs.forEach(yr=>{
+    const ws=WON_STAGE[yr];
+    HS.d.filter(d=>d.p===yr&&d.s===ws&&d.a>0).forEach(d=>{
+      const k=hsCompanyKey(d.n);
+      const nm=hsCompanyName(d.n);
+      if(!firms[k]){firms[k]={n:nm,y24:0,y25:0,y26:0,y27:0};}
+      firms[k]['y'+yr]+=d.a;
+    });
+  });
+
+  let _rows=Object.values(firms).map(f=>({
+    ...f,
+    total:f.y24+f.y25+f.y26+f.y27,
+    shows:[f.y24,f.y25,f.y26,f.y27].filter(v=>v>0).length
+  }));
+  let _sortCol='total',_sortDir=-1;
+
+  const fv=v=>v>0?'$'+v.toLocaleString('en-US',{maximumFractionDigits:0}):'—';
+  const fc=v=>v>0?'color:#1B4D4A;font-weight:600':'color:#ccc';
+
+  function _paint(rows){
+    const body=document.getElementById('hsClientRevBody');
+    const foot=document.getElementById('hsClientRevTotal');
+    if(!body||!foot) return;
+    const t24=rows.reduce((s,r)=>s+r.y24,0);
+    const t25=rows.reduce((s,r)=>s+r.y25,0);
+    const t26=rows.reduce((s,r)=>s+r.y26,0);
+    const t27=rows.reduce((s,r)=>s+r.y27,0);
+    const tt=t24+t25+t26+t27;
+    body.innerHTML=rows.map((r,i)=>`<tr style="${i%2===1?'background:#F7F9F8':''}">
+      <td style="text-align:left;color:#0D2B29;font-weight:500">${r.n}</td>
+      <td style="${fc(r.y24)}">${fv(r.y24)}</td>
+      <td style="${fc(r.y25)}">${fv(r.y25)}</td>
+      <td style="${fc(r.y26)}">${fv(r.y26)}</td>
+      <td style="${fc(r.y27)}">${fv(r.y27)}</td>
+      <td style="color:#1B4D4A;font-weight:700">${fv(r.total)}</td>
+      <td style="text-align:center;color:#7BA69E">${r.shows}</td>
+    </tr>`).join('');
+    foot.innerHTML=`<td style="text-align:left;padding:10px 12px">Totals (${rows.length} clients)</td>
+      <td style="padding:10px 12px">${fv(t24)}</td>
+      <td style="padding:10px 12px">${fv(t25)}</td>
+      <td style="padding:10px 12px">${fv(t26)}</td>
+      <td style="padding:10px 12px">${fv(t27)}</td>
+      <td style="padding:10px 12px;color:#1B4D4A">${fv(tt)}</td>
+      <td></td>`;
+  }
+
+  function _apply(){
+    const q=(document.getElementById('hsClientRevSearch')||{}).value||'';
+    const yrF=(document.getElementById('hsClientRevFilter')||{}).value||'';
+    let rows=_rows.filter(r=>{
+      if(q&&!r.n.toLowerCase().includes(q.toLowerCase())) return false;
+      if(yrF&&r['y'+yrF]===0) return false;
+      return true;
+    });
+    rows=[...rows].sort((a,b)=>{
+      const av=typeof a[_sortCol]==='string'?a[_sortCol]:a[_sortCol]||0;
+      const bv=typeof b[_sortCol]==='string'?b[_sortCol]:b[_sortCol]||0;
+      return _sortDir*(typeof av==='string'?av.localeCompare(bv):bv-av);
+    });
+    _paint(rows);
+  }
+
+  window._filterClientRevTable=_apply;
+  window._sortClientRevTable=function(col){
+    if(_sortCol===col) _sortDir*=-1; else { _sortCol=col; _sortDir=col==='n'?1:-1; }
+    _apply();
+  };
+
+  _apply();
+}
+
 function renderAllHsSponsor(){
   renderHsMix();renderHsNew();renderHsRebooks();renderHsCumYoY();renderHsCohorts();renderHsMoM();
 }
@@ -4294,6 +4408,7 @@ window.renderHsRebooks=renderHsRebooks;
 window.renderHsMoM=renderHsMoM;
 window.renderHsCumYoY=renderHsCumYoY;
 window.renderHsCohorts=renderHsCohorts;
+window.renderHsClientRev=renderHsClientRev;
 window.renderPartners=renderPartners;
 // Expose utility functions for KPI Snapshot (render() in outer scope)
 window.hsCompanyKey=hsCompanyKey;
