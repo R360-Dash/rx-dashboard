@@ -3481,64 +3481,85 @@ const COMPANY_ALIASES = {
   'padeltech': 'padel tech',
 
   // ── Sales-team corrections ──────────────────────────────────────────────
-  // RealTurf: deal named "Real Turf en otro" in some years
   'real turf en otro': 'realturf',
   'real turf': 'realturf',
-  // SCM2: deal named with event note
   'scm2 vino con iappf en 2026': 'scm2',
   'scm2 vino con iappf': 'scm2',
-  // SaveMyPlay: spaced/described variants
-  'save my play en otros deals': 'savemyplay',
-  'save my play': 'savemyplay',
-  // Volley / Get Volley
+  // Volley: actual HubSpot name has no space ("Getvolley")
   'get volley': 'volley',
-  // Fromuth: "Fromuth Tennis" in some years
+  'getvolley': 'volley',
+  // Fromuth Tennis in some years
   'fromuth tennis': 'fromuth',
-  // GearForTheGame / Pallap (same company)
+  // GearForTheGame / Pallap — actual names seen: "Pallap (gear for the game)", "Gear For The Game LLC"
   'pallap': 'gearforthegame',
-  // Acrytech: abbreviated as "AT" in some deals
+  'pallap (gear for the game)': 'gearforthegame',
+  'gear for the game llc': 'gearforthegame',
+  // Acrytech abbreviated as "AT"
   'at': 'acrytech',
-  // IonSport: previously named IonCourt (company renamed)
+  // IonSport: previously IonCourt
   'ioncourt': 'ionsport',
-  // PicklePorLab: deal name includes IAPPF context
+  // PicklePorLab: various IAPPF-tagged deal names
   'pickleporlab vino con iappf': 'pickleporlab',
   'pickle por lab vino con iappf': 'pickleporlab',
   'pickle por lab': 'pickleporlab',
-  // PlayByPoint: spaced variant
+  // PlayByPoint
   'play by point': 'playbypoint',
   'play bypoint': 'playbypoint',
-  // AutoKiosk: previously listed as "Padel Kiosk"
+  // AutoKiosk: also "Autokiosk BV" and "Padel Kiosk"
   'padel kiosk': 'autokiosk',
+  'autokiosk bv': 'autokiosk',
 };
 
-// Clean display names for canonical keys that would otherwise show a raw deal description
+// Prefix-based aliases for deal names where HubSpot appended a long description
+// after the company name (no " - " separator). Matched as: base starts with prefix.
+const COMPANY_PREFIX_ALIASES = [
+  ['save my play', 'savemyplay'],
+  ['savemyplay', 'savemyplay'],
+  ['scm2', 'scm2'],
+  ['getvolley', 'volley'],
+  ['get volley', 'volley'],
+  ['pickleporlab', 'pickleporlab'],
+  ['pickle por lab', 'pickleporlab'],
+  ['real turf', 'realturf'],
+  ['realturf', 'realturf'],
+];
+
+// Clean display names for canonical keys
 const COMPANY_DISPLAY_NAMES = {
-  'realturf':      'RealTurf',
-  'scm2':          'SCM2',
-  'savemyplay':    'SaveMyPlay',
-  'volley':        'Volley',
-  'fromuth':       'Fromuth',
-  'gearforthegame':'GearForTheGame',
-  'acrytech':      'Acrytech',
-  'ionsport':      'IonSport',
-  'pickleporlab':  'PicklePorLab',
-  'playbypoint':   'PlayByPoint',
-  'autokiosk':     'AutoKiosk',
+  'realturf':       'RealTurf',
+  'scm2':           'SCM2',
+  'savemyplay':     'SaveMyPlay',
+  'volley':         'Volley',
+  'fromuth':        'Fromuth',
+  'gearforthegame': 'GearForTheGame',
+  'acrytech':       'Acrytech',
+  'ionsport':       'IonSport',
+  'pickleporlab':   'PicklePorLab',
+  'playbypoint':    'PlayByPoint',
+  'autokiosk':      'AutoKiosk',
 };
+
+function _resolveKey(lower){
+  if(COMPANY_ALIASES[lower]) return COMPANY_ALIASES[lower];
+  for(const [pfx, canonical] of COMPANY_PREFIX_ALIASES){
+    if(lower === pfx || lower.startsWith(pfx+' ') || lower.startsWith(pfx+'-') || lower.startsWith(pfx+'+')){
+      return canonical;
+    }
+  }
+  return null;
+}
 
 function hsCompanyName(n){
   let name = n.split(' - ')[0].trim();
-  // Strip trailing " Deal" or " Rebook" appended directly to company name (2024-era naming)
   name = name.replace(/\s+deal$/i,'').replace(/\s+rebook$/i,'').trim();
-  // If this resolves to a canonical key with a known display name, use it
-  const key = COMPANY_ALIASES[name.toLowerCase()];
+  const key = _resolveKey(name.toLowerCase());
   if(key && COMPANY_DISPLAY_NAMES[key]) return COMPANY_DISPLAY_NAMES[key];
   if(COMPANY_DISPLAY_NAMES[name.toLowerCase()]) return COMPANY_DISPLAY_NAMES[name.toLowerCase()];
   return name;
 }
 function hsCompanyKey(n){
-  const base = hsCompanyName(n).toLowerCase();
-  return COMPANY_ALIASES[base] || base;
+  const base = n.split(' - ')[0].trim().replace(/\s+deal$/i,'').replace(/\s+rebook$/i,'').trim().toLowerCase();
+  return _resolveKey(base) || base;
 }
 
 function hsInferType(d){
