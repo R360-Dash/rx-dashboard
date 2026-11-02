@@ -3465,7 +3465,6 @@ const MN=['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','
 const _hsSp={};
 
 // Canonical company name aliases — normalises inconsistent deal naming across years
-// (primarily 2024 deals that used "Company Name Deal" instead of "Company - Type")
 const COMPANY_ALIASES = {
   // Wilson: "Wilson Tennis Deal" (p24) vs "Wilson - Rebook" (p25/p26)
   'wilson tennis': 'wilson',
@@ -3480,12 +3479,61 @@ const COMPANY_ALIASES = {
   'ortega supply chain company': 'ortega supply chain',
   // Padeltech: "Padeltech" (p25) vs "Padel Tech" (p26)
   'padeltech': 'padel tech',
+
+  // ── Sales-team corrections ──────────────────────────────────────────────
+  // RealTurf: deal named "Real Turf en otro" in some years
+  'real turf en otro': 'realturf',
+  'real turf': 'realturf',
+  // SCM2: deal named with event note
+  'scm2 vino con iappf en 2026': 'scm2',
+  'scm2 vino con iappf': 'scm2',
+  // SaveMyPlay: spaced/described variants
+  'save my play en otros deals': 'savemyplay',
+  'save my play': 'savemyplay',
+  // Volley / Get Volley
+  'get volley': 'volley',
+  // Fromuth: "Fromuth Tennis" in some years
+  'fromuth tennis': 'fromuth',
+  // GearForTheGame / Pallap (same company)
+  'pallap': 'gearforthegame',
+  // Acrytech: abbreviated as "AT" in some deals
+  'at': 'acrytech',
+  // IonSport: previously named IonCourt (company renamed)
+  'ioncourt': 'ionsport',
+  // PicklePorLab: deal name includes IAPPF context
+  'pickleporlab vino con iappf': 'pickleporlab',
+  'pickle por lab vino con iappf': 'pickleporlab',
+  'pickle por lab': 'pickleporlab',
+  // PlayByPoint: spaced variant
+  'play by point': 'playbypoint',
+  'play bypoint': 'playbypoint',
+  // AutoKiosk: previously listed as "Padel Kiosk"
+  'padel kiosk': 'autokiosk',
+};
+
+// Clean display names for canonical keys that would otherwise show a raw deal description
+const COMPANY_DISPLAY_NAMES = {
+  'realturf':      'RealTurf',
+  'scm2':          'SCM2',
+  'savemyplay':    'SaveMyPlay',
+  'volley':        'Volley',
+  'fromuth':       'Fromuth',
+  'gearforthegame':'GearForTheGame',
+  'acrytech':      'Acrytech',
+  'ionsport':      'IonSport',
+  'pickleporlab':  'PicklePorLab',
+  'playbypoint':   'PlayByPoint',
+  'autokiosk':     'AutoKiosk',
 };
 
 function hsCompanyName(n){
   let name = n.split(' - ')[0].trim();
   // Strip trailing " Deal" or " Rebook" appended directly to company name (2024-era naming)
   name = name.replace(/\s+deal$/i,'').replace(/\s+rebook$/i,'').trim();
+  // If this resolves to a canonical key with a known display name, use it
+  const key = COMPANY_ALIASES[name.toLowerCase()];
+  if(key && COMPANY_DISPLAY_NAMES[key]) return COMPANY_DISPLAY_NAMES[key];
+  if(COMPANY_DISPLAY_NAMES[name.toLowerCase()]) return COMPANY_DISPLAY_NAMES[name.toLowerCase()];
   return name;
 }
 function hsCompanyKey(n){
