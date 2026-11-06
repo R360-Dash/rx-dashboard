@@ -914,6 +914,11 @@ tr:hover td{background:#E8F0ED}
     <option value="26">2026 Only</option>
     <option value="27">2027 Only</option>
   </select>
+  <div class="hs-pipeline-toggle" id="hsClientRevProductToggle" style="margin-bottom:0" onclick="(function(btn){if(!btn||!btn.dataset.cp)return;document.querySelectorAll('#hsClientRevProductToggle button').forEach(b=>b.classList.remove('active'));btn.classList.add('active');window.renderHsClientRev&&window.renderHsClientRev()})(event.target.closest('button'))">
+    <button class="active" data-cp="rx">Show + CS</button>
+    <button data-cp="show">Show</button>
+    <button data-cp="cs">City Series</button>
+  </div>
   <button onclick="window._downloadClientRevXlsx&&window._downloadClientRevXlsx()" style="background:#1B4D4A;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px">
     <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 1v8M3 6.5l3.5 3.5L10 6.5M1 11h11" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
     Export Excel
@@ -4176,16 +4181,41 @@ function setupHsSpToggles(){
 // ── Render: Revenue by Client (cross-show matrix) ──
 function renderHsClientRev(){
   if(!window.HS||!window.HS.d) return;
+  const product=(document.querySelector('#hsClientRevProductToggle button.active')||{}).dataset?.cp||'rx';
+  const isShow=product==='show', isCS=product==='cs';
+
+  // Per-deal amount after applying product filter
+  function _dealAmt(d,yr){
+    if(isCS){
+      // City Series only: 2027 may have line items; 2026 use deal-name check
+      if(yr===27){const{csAmt}=_splitDealAmts(d,27);return csAmt;}
+      return _isCsDeal(d.n)?d.a:0;
+    } else if(isShow){
+      if(yr===27){const{showAmt}=_splitDealAmts(d,27);return showAmt;}
+      return _isCsDeal(d.n)?0:d.a;
+    }
+    return d.a; // 'rx' = both
+  }
+
   const yrs=[24,25,26,27];
   const firms={};
   yrs.forEach(yr=>{
     const ws=WON_STAGE[yr];
     HS.d.filter(d=>d.p===yr&&d.s===ws&&d.a>0).forEach(d=>{
+      const amt=_dealAmt(d,yr);
+      if(!amt) return;
       const k=hsCompanyKey(d.n);
       const nm=hsCompanyName(d.n);
       if(!firms[k]){firms[k]={n:nm,y24:0,y25:0,y26:0,y27:0};}
-      firms[k]['y'+yr]+=d.a;
+      firms[k]['y'+yr]+=amt;
     });
+  });
+
+  // Update column headers to reflect product context
+  const yrLabel=isCS?'CS':isShow?'Show':'';
+  ['y24','y25','y26','y27'].forEach((col,i)=>{
+    const th=document.querySelector(`th[data-col="${col}"]`);
+    if(th) th.textContent=`20${[24,25,26,27][i]}${yrLabel?' '+yrLabel:''} ↕`;
   });
 
   const allRows=Object.values(firms);
