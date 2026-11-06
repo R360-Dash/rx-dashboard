@@ -1643,10 +1643,10 @@ const COL={a:'#1B4D4A',b:'#5BA08A',g:'#1B7A3D',r:'#C0392B',p:'#2D7A6F',t:'#3D9B8
 let AS='2026';
 let _revFilter='rx'; // 'rx' | 'show' | 'cs'
 function _isCsDeal(name){return name.toLowerCase().includes('city series');}
-// For 2027 deals with line items, split CS vs Show by line item name.
-// Fallback: use deal name for 2026 or li-less deals.
+// For 2026/2027 deals with line items, split CS vs Show by line item name.
+// Fallback: use deal name for older years or li-less deals.
 function _splitDealAmts(deal,yr){
-  if(yr===27&&deal.li&&deal.li.length){
+  if((yr===27||yr===26)&&deal.li&&deal.li.length){
     const csAmt=deal.li.filter(l=>_isCsDeal(l.n)).reduce((s,l)=>s+l.a,0);
     const liTotal=deal.li.reduce((s,l)=>s+l.a,0);
     const unattributed=Math.max(0,deal.a-liTotal);
@@ -4184,14 +4184,14 @@ function renderHsClientRev(){
   const product=(document.querySelector('#hsClientRevProductToggle button.active')||{}).dataset?.cp||'rx';
   const isShow=product==='show', isCS=product==='cs';
 
-  // Per-deal amount after applying product filter
+  // Per-deal amount after applying product filter.
+  // 2026 and 2027 use _splitDealAmts (line-item aware); earlier years use deal-name check.
   function _dealAmt(d,yr){
     if(isCS){
-      // City Series only: 2027 may have line items; 2026 use deal-name check
-      if(yr===27){const{csAmt}=_splitDealAmts(d,27);return csAmt;}
+      if(yr===26||yr===27){const{csAmt}=_splitDealAmts(d,yr);return csAmt;}
       return _isCsDeal(d.n)?d.a:0;
     } else if(isShow){
-      if(yr===27){const{showAmt}=_splitDealAmts(d,27);return showAmt;}
+      if(yr===26||yr===27){const{showAmt}=_splitDealAmts(d,yr);return showAmt;}
       return _isCsDeal(d.n)?0:d.a;
     }
     return d.a; // 'rx' = both
