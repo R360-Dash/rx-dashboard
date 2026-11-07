@@ -3544,6 +3544,29 @@ const COMPANY_DISPLAY_NAMES = {
   'autokiosk':      'AutoKiosk',
 };
 
+// Manual 2026 CS amounts per company key (authoritative until HubSpot line items are added).
+// Values are the TOTAL City Series revenue for that company in 2026.
+const CS_2026 = {
+  'playtomic':            15000,
+  'lusotendas':           15000,
+  'court reserve':        15000,
+  'lsi industries inc.':   7000,
+  'padel lux':             4000,
+  'savemyplay':           12500,
+  'rps corporation':       6000,
+  'patch retention':       9000,
+  'elite tennis travel':   2500,
+  'energywise solutions':  6000,
+  'fast-dry courts':       6000,
+  'sets consulting':       4000,
+  'vorzani new':           2000,
+  'opencourt':             2500,
+  'cortz':                 3000,
+  'pickleball manager':    3000,
+  'mac sports travel':     3000,
+  'okatent':               8000,
+};
+
 function _resolveKey(lower){
   if(COMPANY_ALIASES[lower]) return COMPANY_ALIASES[lower];
   for(const [pfx, canonical] of COMPANY_PREFIX_ALIASES){
@@ -4202,7 +4225,8 @@ function renderHsClientRev(){
   yrs.forEach(yr=>{
     const ws=WON_STAGE[yr];
     HS.d.filter(d=>d.p===yr&&d.s===ws&&d.a>0).forEach(d=>{
-      const amt=_dealAmt(d,yr);
+      // y26: always collect raw total — CS split applied at firm level via CS_2026 map
+      const amt=yr===26?d.a:_dealAmt(d,yr);
       if(!amt) return;
       const k=hsCompanyKey(d.n);
       const nm=hsCompanyName(d.n);
@@ -4210,6 +4234,20 @@ function renderHsClientRev(){
       firms[k]['y'+yr]+=amt;
     });
   });
+
+  // Apply 2026 manual CS split when Show or CS toggle is active
+  if(isShow||isCS){
+    Object.keys(firms).forEach(k=>{
+      const cs=CS_2026[k]??0;
+      const raw=firms[k].y26;
+      firms[k].y26=isShow?Math.max(0,raw-cs):Math.min(raw,cs);
+    });
+    // Drop firms with zero revenue in this view
+    Object.keys(firms).forEach(k=>{
+      const f=firms[k];
+      if(!f.y24&&!f.y25&&!f.y26&&!f.y27)delete firms[k];
+    });
+  }
 
   // Update column headers to reflect product context
   const yrLabel=isCS?'CS':isShow?'Show':'';
