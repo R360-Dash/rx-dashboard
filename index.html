@@ -6382,6 +6382,7 @@ const SC_YEARS  = [2024, 2025, 2026, 2027]; // Show Cycle years (need Y-1 data, 
 // ── 2027 RF#3 Breakdown — sourced from "2026 Racket X Expo Plan RF#3 v3.xlsx" ──
 // All values in $ (Excel is in K$, multiplied by 1000 here).
 // Derived fields (gpTot, ebitda, netInc) computed from inputs; not from cached formula values.
+// Source: "2026 Racket X Expo Plan RF#3 v3.xlsx" → "Without Marketplace" tab, 2027 columns
 const PL_RF3_BK = (function(){
   const K = 1000;
   const mk = (cat, m) => ({ category:cat, total:m.reduce((a,b)=>a+b,0), monthly:m, leafs:[] });
@@ -6390,18 +6391,16 @@ const PL_RF3_BK = (function(){
     monthly: Array(12).fill(0).map((_,i)=>cats.reduce((s,c)=>s+c.monthly[i],0))
   });
   const revCats = [
-    mk('Show Sponsors',        [0,0,1700,0,0,0,0,0,0,0,0,0].map(v=>v*K)),
-    mk('Show Tickets',         [0,0,150,0,0,0,0,0,0,0,0,0].map(v=>v*K)),
+    mk('Show Sponsors',        [0,0,1225.5,0,0,0,0,0,0,0,0,0].map(v=>v*K)),
+    mk('Show Tickets',         [0,0,75,0,0,0,0,0,0,0,0,0].map(v=>v*K)),
     mk('City Series Sponsors', [30,0,0,0,0,0,30,30,30,30,30,0].map(v=>v*K)),
-    mk('City Series Tickets',  [4,0,0,0,0,0,4,4,3,4,3,0].map(v=>v*K)),
-    mk('Ancillary Revenue',    [20,25,25,50,50,50,50,50,50,50,50,50].map(v=>v*K)),
+    mk('City Series Tickets',  [2,0,0,0,0,0,4,4,3,4,3,0].map(v=>v*K)),
     mk('Merch',                [0,0,10,0,0,0,0,0,0,0,0,0].map(v=>v*K)),
   ];
   const dcCats = [
-    mk('Show Costs',           [0,0,702,0,0,0,0,0,0,0,0,0].map(v=>v*K)),
-    mk('City Series Costs',    [12,0,0,0,0,0,12,12,12,12,12,0].map(v=>v*K)),
-    mk('Marketing Costs',      [5,18,6,60,3,1,5,5,5,5,18,5].map(v=>v*K)),
-    mk('Ancillary Costs',      [7,7,7,10,10,10,10,10,10,10,10,10].map(v=>v*K)),
+    mk('Show Costs',           [0,0,535,0,0,0,0,0,0,0,0,0].map(v=>v*K)),
+    mk('City Series Costs',    [16,0,0,0,0,0,12,12,12,12,12,0].map(v=>v*K)),
+    mk('Marketing Costs',      [5,18,22,3,3,1,5,5,5,5,18,5].map(v=>v*K)),
   ];
   const sgaM = [52,52,189,52,52,52,52,52,52,52,52,94].map(v=>v*K);
   const ceaM = [6,6,6,6,6,6,6,6,6,6,6,6].map(v=>v*K);
