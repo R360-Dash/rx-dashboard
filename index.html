@@ -6379,6 +6379,51 @@ let _plProduct = 'all'; // 'all' | 'show' | 'cs'
 const PL_YEARS = [2023, 2024, 2025, 2026, 2027];
 const SC_YEARS  = [2024, 2025, 2026, 2027]; // Show Cycle years (need Y-1 data, so 2023 start = SC2024)
 
+// ── 2027 RF#3 Breakdown — sourced from "2026 Racket X Expo Plan RF#3 v3.xlsx" ──
+// All values in $ (Excel is in K$, multiplied by 1000 here).
+// Derived fields (gpTot, ebitda, netInc) computed from inputs; not from cached formula values.
+const PL_RF3_BK = (function(){
+  const K = 1000;
+  const mk = (cat, m) => ({ category:cat, total:m.reduce((a,b)=>a+b,0), monthly:m, leafs:[] });
+  const sumCats = cats => ({
+    total: cats.reduce((s,c)=>s+c.total,0),
+    monthly: Array(12).fill(0).map((_,i)=>cats.reduce((s,c)=>s+c.monthly[i],0))
+  });
+  const revCats = [
+    mk('Show Sponsors',        [0,0,1700,0,0,0,0,0,0,0,0,0].map(v=>v*K)),
+    mk('Show Tickets',         [0,0,150,0,0,0,0,0,0,0,0,0].map(v=>v*K)),
+    mk('City Series Sponsors', [30,0,0,0,0,0,30,30,30,30,30,0].map(v=>v*K)),
+    mk('City Series Tickets',  [4,0,0,0,0,0,4,4,3,4,3,0].map(v=>v*K)),
+    mk('Ancillary Revenue',    [20,25,25,50,50,50,50,50,50,50,50,50].map(v=>v*K)),
+    mk('Merch',                [0,0,10,0,0,0,0,0,0,0,0,0].map(v=>v*K)),
+  ];
+  const dcCats = [
+    mk('Show Costs',           [0,0,702,0,0,0,0,0,0,0,0,0].map(v=>v*K)),
+    mk('City Series Costs',    [12,0,0,0,0,0,12,12,12,12,12,0].map(v=>v*K)),
+    mk('Marketing Costs',      [5,18,6,60,3,1,5,5,5,5,18,5].map(v=>v*K)),
+    mk('Ancillary Costs',      [7,7,7,10,10,10,10,10,10,10,10,10].map(v=>v*K)),
+  ];
+  const sgaM = [52,52,189,52,52,52,52,52,52,52,52,94].map(v=>v*K);
+  const ceaM = [6,6,6,6,6,6,6,6,6,6,6,6].map(v=>v*K);
+  const revTot  = sumCats(revCats);
+  const dcTot   = sumCats(dcCats);
+  const sgaTot  = { total:sgaM.reduce((a,b)=>a+b,0), monthly:sgaM };
+  const ceaTot  = { total:ceaM.reduce((a,b)=>a+b,0), monthly:ceaM };
+  const gpTot   = { total:revTot.total-dcTot.total,  monthly:revTot.monthly.map((v,i)=>v-dcTot.monthly[i]) };
+  const ebitda  = { total:gpTot.total-sgaTot.total,  monthly:gpTot.monthly.map((v,i)=>v-sgaTot.monthly[i]) };
+  const netInc  = { total:ebitda.total-ceaTot.total, monthly:ebitda.monthly.map((v,i)=>v-ceaTot.monthly[i]) };
+  const monthLabels = ['Jan 2027','Feb 2027','Mar 2027','Apr 2027','May 2027','Jun 2027','Jul 2027','Aug 2027','Sep 2027','Oct 2027','Nov 2027','Dec 2027'];
+  return {
+    revByCat:  Object.fromEntries(revCats.map(c=>[c.category,c])),
+    dcByCat:   Object.fromEntries(dcCats.map(c=>[c.category,c])),
+    sgaByCat:  {'SG&A':mk('SG&A',sgaM)},
+    ceaByCat:  {'Corporate Expense Allocation':mk('Corporate Expense Allocation',ceaM)},
+    uncatByCat:{}, uncatTot:{total:0,monthly:Array(12).fill(0)},
+    revTot, dcTot, gpTot, ebitda, netInc, sgaTot, ceaTot,
+    parsed: { monthLabels },
+  };
+})();
+
 // Build a complete P&L breakdown from a parsed QBO report
 function _buildPLBreakdown(parsed){
   const nMonths = parsed.monthLabels.length;
@@ -6665,6 +6710,11 @@ async function renderPL(){
       } catch(e) { console.warn('BVA 2027 budget failed:', e); }
     }
 
+    // RF#3 — static projection from "2026 Racket X Expo Plan RF#3 v3.xlsx"
+    if(_plCycleMode === 'fiscal') {
+      displayBreakdowns['2027rf3'] = _plApplyProductFilter(PL_RF3_BK, _plProduct);
+    }
+
     const cur = displayBreakdowns[_plYear];
     if(!cur){
       document.getElementById('plKpis').innerHTML = '<div style="color:#C0392B;padding:16px">No data returned for '+_plYear+'</div>';
@@ -6708,10 +6758,10 @@ async function renderPL(){
     renderPLYoYTable('plYoyTable', cur, prior, _plYear, priorYear);
     // Fiscal: insert 2026est before 2027 so 2027 stays last; show cycle: no 2026est
     const plTableYears = _plCycleMode === 'fiscal'
-      ? [...activeYears.filter(y => y !== 2027), '2026est', ...(activeYears.includes(2027) ? ['2027budget'] : [])]
+      ? [...activeYears.filter(y => y !== 2027), '2026est', ...(activeYears.includes(2027) ? ['2027budget', '2027rf3'] : [])]
       : activeYears;
     renderPLYearlyTable('plYearlyTable', displayBreakdowns, plTableYears);
-    renderCondensedPL('plTable', cur, prior, priorYear);
+    renderCondensedPL('plTable', cur, prior, priorYear, displayBreakdowns['2027rf3']);
 
     // Sync product toggle active state
     document.getElementById('plProductToggle')?.querySelectorAll('button').forEach(b=>{
@@ -6997,8 +7047,9 @@ function renderPLYearlyTable(tableId, allBreakdowns, yearsOverride){
   years.forEach(y => {
     const isEst = y === '2026est';
     const isBdg = y === '2027budget';
-    const hdrExtra = isEst ? ';color:#6B3FA0;font-style:italic' : isBdg ? ';color:#1A6B4A;font-style:italic' : '';
-    const hdrLabel = isEst ? '2026 Est ($)' : isBdg ? '2027 Bdg ($)' : `${y} ($)`;
+    const isRf3 = y === '2027rf3';
+    const hdrExtra = isEst ? ';color:#6B3FA0;font-style:italic' : isBdg ? ';color:#1A6B4A;font-style:italic' : isRf3 ? ';color:#1A4A8A;font-style:italic' : '';
+    const hdrLabel = isEst ? '2026 Est ($)' : isBdg ? '2027 Bdg ($)' : isRf3 ? '2027 RF#3 ($)' : `${y} ($)`;
     html += `<th style="${hdrCs}${hdrExtra}">${hdrLabel}</th><th style="${hdrCs}${hdrExtra}">% sales</th>`;
   });
   html += `</tr></thead><tbody>`;
@@ -7039,9 +7090,10 @@ function renderPLYearlyTable(tableId, allBreakdowns, yearsOverride){
       const yrRev = b.revTot.total;
       const isEst = y === '2026est';
       const isBdg = y === '2027budget';
-      const valColor = line.kind === 'summary' ? ((val||0) >= 0 ? '#1B7A3D' : '#C0392B') : (isEst ? '#4A3070' : isBdg ? '#1A6B4A' : (line.kind === 'category' ? '#0D2B29' : 'inherit'));
+      const isRf3 = y === '2027rf3';
+      const valColor = line.kind === 'summary' ? ((val||0) >= 0 ? '#1B7A3D' : '#C0392B') : (isEst ? '#4A3070' : isBdg ? '#1A6B4A' : isRf3 ? '#1A4A8A' : (line.kind === 'category' ? '#0D2B29' : 'inherit'));
       const pct = (val != null && yrRev > 0) ? (val/yrRev*100).toFixed(1)+'%' : '—';
-      const estBg = isEst ? ';background:#FAF7FF' : isBdg ? ';background:#F0FAF5' : '';
+      const estBg = isEst ? ';background:#FAF7FF' : isBdg ? ';background:#F0FAF5' : isRf3 ? ';background:#EEF4FF' : '';
       html += `<td style="${sty.cs};color:${valColor}${estBg}">${_plFmt$(val)}</td><td style="${sty.cs};color:#A8C5BE;font-size:10px${estBg}">${pct}</td>`;
     });
     html += `</tr>`;
@@ -7067,7 +7119,7 @@ function renderPLYearlyTable(tableId, allBreakdowns, yearsOverride){
           const val = byYear[y] ?? null;
           const yrRev = b?.revTot.total ?? 0;
           const pct = (val != null && yrRev > 0) ? (val/yrRev*100).toFixed(1)+'%' : '—';
-          const estBg = y === '2026est' ? ';background:#FAF7FF' : '';
+          const estBg = y === '2026est' ? ';background:#FAF7FF' : y === '2027rf3' ? ';background:#EEF4FF' : '';
           html += `<td style="${lcs}${estBg}">${_plFmt$(val)}</td><td style="${lcs}${estBg}">${pct}</td>`;
         });
         html += `</tr>`;
@@ -7091,7 +7143,7 @@ function renderPLYearlyTable(tableId, allBreakdowns, yearsOverride){
   });
 }
 
-function renderCondensedPL(tableId, cur, prior, priorYear){
+function renderCondensedPL(tableId, cur, prior, priorYear, rf3Bk){
   const table = document.getElementById(tableId);
   if(!table) return;
   const parsed = cur.parsed;
@@ -7099,7 +7151,8 @@ function renderCondensedPL(tableId, cur, prior, priorYear){
   const cs = 'text-align:right;padding:4px 9px;font-size:11px;font-family:\'Source Sans 3\',monospace';
   const totalCs = 'text-align:right;padding:4px 9px;font-size:11px;font-family:\'Source Sans 3\',monospace;color:#1B4D4A;font-weight:700';
   const yoyHdr = prior ? `<th style="${cs};color:#7BA69E">vs ${priorYear}</th>` : '';
-  const colCount = mLabels.length + 2 + (prior ? 1 : 0);
+  const rf3Hdr = rf3Bk ? `<th style="${cs};color:#1A4A8A;font-weight:600;font-style:italic">RF#3 Total</th>` : '';
+  const colCount = mLabels.length + 2 + (prior ? 1 : 0) + (rf3Bk ? 1 : 0);
   const curRev = cur.revTot.total;
   // Sticky first-column: CSS handles position/z-index; we only need to pin the correct background
   // so coloured total/summary rows don't bleed through when the table scrolls horizontally.
@@ -7108,7 +7161,7 @@ function renderCondensedPL(tableId, cur, prior, priorYear){
 
   let html = `<thead><tr><th style="${stickyHdr}"></th>`;
   mLabels.forEach(m=>html+=`<th style="${cs};color:#7BA69E;font-weight:600">${m.split(' ')[0]}</th>`);
-  html += `<th style="${cs};color:#1B4D4A;font-weight:600">Total</th>${yoyHdr}</tr></thead><tbody>`;
+  html += `<th style="${cs};color:#1B4D4A;font-weight:600">Total</th>${yoyHdr}${rf3Hdr}</tr></thead><tbody>`;
 
   const fmt = v => v===0 ? '<span style="color:#D4E2DD">—</span>' : (v<0 ? `<span style="color:#C0392B">(${_$Knd(Math.abs(v))})</span>` : _$Knd(v));
 
@@ -7130,6 +7183,13 @@ function renderCondensedPL(tableId, cur, prior, priorYear){
     return `<td style="${cs};color:${color};font-weight:600">${arrow} ${sign}${pct.toFixed(1)}%</td>`;
   };
 
+  const rf3Cell = (val, fw) => {
+    if(!rf3Bk) return '';
+    const color = val == null ? '#A8C5BE' : '#1A4A8A';
+    const fwStyle = fw ? `;font-weight:${fw}` : '';
+    return `<td style="${cs};color:${color};background:#EEF4FF${fwStyle}">${val == null ? '—' : fmt(val)}</td>`;
+  };
+
   // Section header (no border lines, just italic label)
   function sectionHeader(label, color){
     const accent = color || '#1B4D4A';
@@ -7137,6 +7197,7 @@ function renderCondensedPL(tableId, cur, prior, priorYear){
     for(let i=0;i<mLabels.length;i++) r+=`<td style="${cs}"></td>`;
     r += `<td style="${cs}"></td>`;
     if(prior) r += `<td style="${cs}"></td>`;
+    if(rf3Bk) r += `<td style="${cs};background:#EEF4FF"></td>`;
     r += `</tr>`;
     return r;
   }
@@ -7154,6 +7215,7 @@ function renderCondensedPL(tableId, cur, prior, priorYear){
     cat.monthly.forEach(v=>r+=`<td style="${cs}">${fmt(v)}</td>`);
     r += `<td style="${cs};font-weight:600;color:#1B4D4A">${fmt(cat.total)}</td>`;
     r += yoyCell(cat.total, opts.priorTotal);
+    r += rf3Cell(opts.rf3Total ?? null, '600');
     r += `</tr>`;
     // Hidden leaf rows
     if(hasLeafs && drillId){
@@ -7162,26 +7224,29 @@ function renderCondensedPL(tableId, cur, prior, priorYear){
         leaf.monthly.forEach(v=>r+=`<td style="${cs};color:#7BA69E">${fmt(v)}</td>`);
         r += `<td style="${cs};color:#7BA69E">${fmt(leaf.total)}</td>`;
         if(prior) r += `<td style="${cs}"></td>`;
+        if(rf3Bk) r += `<td style="${cs};background:#EEF4FF"></td>`;
         r += `</tr>`;
       });
     }
     return r;
   }
-  function totalRow(label, obj, color, priorTotal){
+  function totalRow(label, obj, color, priorTotal, rf3Total){
     const accent = color || '#1B4D4A';
     let r = `<tr style="background:#F4F8F6"><td style="${stickyCell('#F4F8F6')};padding:5px 10px;font-weight:700;color:${accent};font-size:11px">${label}</td>`;
     obj.monthly.forEach(v=>r+=`<td style="${cs};font-weight:700;color:${accent}">${fmt(v)}</td>`);
     r += `<td style="${cs};font-weight:700;color:${accent}">${fmt(obj.total)}</td>`;
     r += yoyCell(obj.total, priorTotal);
+    r += rf3Cell(rf3Total ?? null, '700');
     r += `</tr>`;
     return r;
   }
-  function summaryRow(label, obj, priorTotal){
+  function summaryRow(label, obj, priorTotal, rf3Total){
     const col = obj.total >= 0 ? '#1B7A3D' : '#C0392B';
     let r = `<tr style="background:#E8F0ED"><td style="${stickyCell('#E8F0ED')};padding:6px 10px;font-weight:800;color:${col};font-size:11px;text-transform:uppercase;letter-spacing:0.04em">${label}</td>`;
     obj.monthly.forEach(v=>r+=`<td style="${cs};font-weight:700;color:${v>=0?'#1B7A3D':'#C0392B'}">${fmt(v)}</td>`);
     r += `<td style="${cs};font-weight:800;color:${col}">${fmt(obj.total)}</td>`;
     r += yoyCell(obj.total, priorTotal);
+    r += rf3Cell(rf3Total ?? null, '800');
     r += `</tr>`;
     return r;
   }
@@ -7204,17 +7269,17 @@ function renderCondensedPL(tableId, cur, prior, priorYear){
     const cat = cur.revByCat[catName];
     if(cat && cat.total !== 0){
       const priorCat = prior?.revByCat?.[catName];
-      html += catRow(cat, { drillId: 'rev-'+(drillCounter++), priorTotal: priorCat?.total });
+      html += catRow(cat, { drillId: 'rev-'+(drillCounter++), priorTotal: priorCat?.total, rf3Total: rf3Bk?.revByCat?.[catName]?.total });
     }
   });
   Object.keys(cur.revByCat).filter(k=>!REV_ORDER.includes(k)).forEach(k=>{
     const c = cur.revByCat[k];
     if(c.total !== 0){
       const priorCat = prior?.revByCat?.[k];
-      html += catRow(c, { drillId: 'rev-'+(drillCounter++), priorTotal: priorCat?.total });
+      html += catRow(c, { drillId: 'rev-'+(drillCounter++), priorTotal: priorCat?.total, rf3Total: rf3Bk?.revByCat?.[k]?.total });
     }
   });
-  html += totalRow('Total Revenues', cur.revTot, '#1B4D4A', prior?.revTot.total);
+  html += totalRow('Total Revenues', cur.revTot, '#1B4D4A', prior?.revTot.total, rf3Bk?.revTot.total);
   html += spacerRow();
 
   // ── DIRECT COSTS ──
@@ -7223,14 +7288,14 @@ function renderCondensedPL(tableId, cur, prior, priorYear){
     const cat = cur.dcByCat[catName];
     if(cat && cat.total !== 0){
       const priorCat = prior?.dcByCat?.[catName];
-      html += catRow(cat, { drillId: 'dc-'+(drillCounter++), priorTotal: priorCat?.total });
+      html += catRow(cat, { drillId: 'dc-'+(drillCounter++), priorTotal: priorCat?.total, rf3Total: rf3Bk?.dcByCat?.[catName]?.total });
     }
   });
-  html += totalRow('Total Direct Costs', cur.dcTot, '#B8860B', prior?.dcTot.total);
+  html += totalRow('Total Direct Costs', cur.dcTot, '#B8860B', prior?.dcTot.total, rf3Bk?.dcTot.total);
   html += spacerRow();
 
   // ── GROSS PROFIT ──
-  html += summaryRow('Gross Profit', cur.gpTot, prior?.gpTot.total);
+  html += summaryRow('Gross Profit', cur.gpTot, prior?.gpTot.total, rf3Bk?.gpTot.total);
   html += spacerRow();
 
   // ── SG&A (one consolidated line — drill into all SG&A leafs across sections) ──
@@ -7240,11 +7305,11 @@ function renderCondensedPL(tableId, cur, prior, priorYear){
     monthly: cur.sgaTot.monthly,
     leafs: Object.values(cur.sgaByCat).flatMap(c => c.leafs || [])
   };
-  html += catRow(sgaCombined, { drillId: 'sga-'+(drillCounter++), priorTotal: prior?.sgaTot.total });
+  html += catRow(sgaCombined, { drillId: 'sga-'+(drillCounter++), priorTotal: prior?.sgaTot.total, rf3Total: rf3Bk?.sgaTot.total });
   html += spacerRow();
 
   // ── EBITDA ──
-  html += summaryRow('EBITDA', cur.ebitda, prior?.ebitda.total);
+  html += summaryRow('EBITDA', cur.ebitda, prior?.ebitda.total, rf3Bk?.ebitda.total);
   html += spacerRow();
 
   // ── Corporate Expense Allocation ──
@@ -7255,12 +7320,12 @@ function renderCondensedPL(tableId, cur, prior, priorYear){
       monthly: cur.ceaTot.monthly,
       leafs: Object.values(cur.ceaByCat).flatMap(c => c.leafs || [])
     };
-    html += catRow(ceaCombined, { drillId: 'cea-'+(drillCounter++), priorTotal: prior?.ceaTot.total });
+    html += catRow(ceaCombined, { drillId: 'cea-'+(drillCounter++), priorTotal: prior?.ceaTot.total, rf3Total: rf3Bk?.ceaTot.total });
     html += spacerRow();
   }
 
   // ── NET INCOME ──
-  html += summaryRow('Net Income', cur.netInc, prior?.netInc.total);
+  html += summaryRow('Net Income', cur.netInc, prior?.netInc.total, rf3Bk?.netInc.total);
 
   // ── Unmapped (only if non-zero) ──
   if(cur.uncatTot.total !== 0){
