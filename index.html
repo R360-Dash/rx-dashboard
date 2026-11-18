@@ -6722,10 +6722,6 @@ async function renderPL(){
       if(b) showCycleBreakdowns[y] = b;
     });
 
-    // No QBO actuals exist for 2027 yet — override both with RF#3 Excel plan after SC is built
-    allBreakdowns[2027] = PL_RF3_BK;
-    showCycleBreakdowns[2027] = PL_RF3_SC2027_BK;
-
     // Auto-clamp year: SC mode has no 2023 (would need 2022 data)
     if(_plCycleMode === 'show' && _plYear < SC_YEARS[0]) _plYear = SC_YEARS[0];
 
@@ -6756,6 +6752,13 @@ async function renderPL(){
       } catch(e) { console.warn('BVA 2027 budget failed:', e); }
     }
 
+    // RF#3 — static projection from "2026 Racket X Expo Plan RF#3 v3.xlsx" (Without Marketplace tab)
+    if(_plCycleMode === 'fiscal') {
+      displayBreakdowns['2027rf3'] = _plApplyProductFilter(PL_RF3_BK, _plProduct);
+    }
+    if(_plCycleMode === 'show') {
+      displayBreakdowns['2027rf3sc'] = _plApplyProductFilter(PL_RF3_SC2027_BK, _plProduct);
+    }
 
     const cur = displayBreakdowns[_plYear];
     if(!cur){
@@ -6800,8 +6803,8 @@ async function renderPL(){
     renderPLYoYTable('plYoyTable', cur, prior, _plYear, priorYear);
     // Fiscal: insert 2026est before 2027 so 2027 stays last; show cycle: no 2026est
     const plTableYears = _plCycleMode === 'fiscal'
-      ? [...activeYears.filter(y => y !== 2027), '2026est', ...(activeYears.includes(2027) ? ['2027budget', '2027'] : [])]
-      : activeYears;
+      ? [...activeYears.filter(y => y !== 2027), '2026est', ...(activeYears.includes(2027) ? ['2027budget', '2027rf3'] : [])]
+      : [...activeYears, ...(activeYears.includes(2027) ? ['2027rf3sc'] : [])];
     renderPLYearlyTable('plYearlyTable', displayBreakdowns, plTableYears);
     renderCondensedPL('plTable', cur, prior, priorYear);
 
@@ -7089,8 +7092,9 @@ function renderPLYearlyTable(tableId, allBreakdowns, yearsOverride){
   years.forEach(y => {
     const isEst = y === '2026est';
     const isBdg = y === '2027budget';
-    const hdrExtra = isEst ? ';color:#6B3FA0;font-style:italic' : isBdg ? ';color:#1A6B4A;font-style:italic' : '';
-    const hdrLabel = isEst ? '2026 Est ($)' : isBdg ? '2027 Bdg ($)' : `${y} ($)`;
+    const isRf3 = y === '2027rf3' || y === '2027rf3sc';
+    const hdrExtra = isEst ? ';color:#6B3FA0;font-style:italic' : isBdg ? ';color:#1A6B4A;font-style:italic' : isRf3 ? ';color:#1A4A8A;font-style:italic' : '';
+    const hdrLabel = isEst ? '2026 Est ($)' : isBdg ? '2027 Bdg ($)' : isRf3 ? '2027 RF#3 ($)' : `${y} ($)`;
     html += `<th style="${hdrCs}${hdrExtra}">${hdrLabel}</th><th style="${hdrCs}${hdrExtra}">% sales</th>`;
   });
   html += `</tr></thead><tbody>`;
@@ -7131,9 +7135,10 @@ function renderPLYearlyTable(tableId, allBreakdowns, yearsOverride){
       const yrRev = b.revTot.total;
       const isEst = y === '2026est';
       const isBdg = y === '2027budget';
-      const valColor = line.kind === 'summary' ? ((val||0) >= 0 ? '#1B7A3D' : '#C0392B') : (isEst ? '#4A3070' : isBdg ? '#1A6B4A' : (line.kind === 'category' ? '#0D2B29' : 'inherit'));
+      const isRf3 = y === '2027rf3' || y === '2027rf3sc';
+      const valColor = line.kind === 'summary' ? ((val||0) >= 0 ? '#1B7A3D' : '#C0392B') : (isEst ? '#4A3070' : isBdg ? '#1A6B4A' : isRf3 ? '#1A4A8A' : (line.kind === 'category' ? '#0D2B29' : 'inherit'));
       const pct = (val != null && yrRev > 0) ? (val/yrRev*100).toFixed(1)+'%' : '—';
-      const estBg = isEst ? ';background:#FAF7FF' : isBdg ? ';background:#F0FAF5' : '';
+      const estBg = isEst ? ';background:#FAF7FF' : isBdg ? ';background:#F0FAF5' : isRf3 ? ';background:#EEF4FF' : '';
       html += `<td style="${sty.cs};color:${valColor}${estBg}">${_plFmt$(val)}</td><td style="${sty.cs};color:#A8C5BE;font-size:10px${estBg}">${pct}</td>`;
     });
     html += `</tr>`;
@@ -7159,7 +7164,7 @@ function renderPLYearlyTable(tableId, allBreakdowns, yearsOverride){
           const val = byYear[y] ?? null;
           const yrRev = b?.revTot.total ?? 0;
           const pct = (val != null && yrRev > 0) ? (val/yrRev*100).toFixed(1)+'%' : '—';
-          const estBg = y === '2026est' ? ';background:#FAF7FF' : '';
+          const estBg = y === '2026est' ? ';background:#FAF7FF' : (y === '2027rf3' || y === '2027rf3sc') ? ';background:#EEF4FF' : '';
           html += `<td style="${lcs}${estBg}">${_plFmt$(val)}</td><td style="${lcs}${estBg}">${pct}</td>`;
         });
         html += `</tr>`;
