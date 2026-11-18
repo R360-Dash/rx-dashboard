@@ -252,6 +252,7 @@ tr:hover td{background:#E8F0ED}
     <a class="nav-item" data-nav="sec-hscumsp">Cumulative YoY</a>
     <a class="nav-item" data-nav="sec-hscumfirm">Client Cohorts</a>
     <a class="nav-item" data-nav="sec-hsclientrev">Revenue by Client</a>
+    <a class="nav-item" data-nav="sec-rfm">RFM Analysis</a>
     </div>
   </div>
   <div class="nav-group">
@@ -992,6 +993,43 @@ tr:hover td{background:#E8F0ED}
 </div>
 
 <div class="hs-updated" id="gripSource" style="margin-top:12px"></div>
+</div>
+
+<!-- ═══ RFM ANALYSIS ═══ -->
+<div id="sec-rfm" class="page">
+<div style="font-size:13px;color:#7BA69E;margin-bottom:16px">Source: HubSpot CRM · Closed Won deals · Shows 2024–2027 · Sponsors &amp; Exhibitors</div>
+
+<!-- Filter bar -->
+<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:20px">
+  <div class="hs-pipeline-toggle" id="rfmProductToggle" onclick="(function(btn){if(!btn||!btn.dataset.rp)return;document.querySelectorAll('#rfmProductToggle button').forEach(b=>b.classList.remove('active'));btn.classList.add('active');window.renderRFM&&window.renderRFM()})(event.target.closest('button'))">
+    <button class="active" data-rp="rx">Show + CS</button>
+    <button data-rp="show">Show Only</button>
+    <button data-rp="cs">City Series Only</button>
+  </div>
+  <input type="text" id="rfmSearch" placeholder="Search sponsor…" oninput="window._rfmFilter&&window._rfmFilter()" style="flex:1;min-width:160px;padding:7px 12px;border:1px solid #D4E2DD;border-radius:8px;font-size:12px;color:#0D2B29;background:#fff">
+</div>
+
+<!-- KPI chips -->
+<div id="rfmKpis" style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:24px"></div>
+
+<!-- Segment grid -->
+<div class="section">
+  <div class="section-header"><div class="section-bar"></div><div class="section-title">Sponsor Segments</div></div>
+  <div id="rfmSegmentGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px"></div>
+</div>
+
+<!-- Full table -->
+<div class="section" style="margin-top:24px">
+  <div class="section-header"><div class="section-bar"></div><div class="section-title">Sponsor RFM Scores</div></div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <div class="hs-deals-wrap" style="max-height:70vh">
+    <table id="rfmTable" style="width:100%;border-collapse:collapse">
+      <thead><tr id="rfmTableHead"></tr></thead>
+      <tbody id="rfmTableBody"></tbody>
+    </table>
+    </div>
+  </div>
+</div>
 </div>
 
 <!-- ═══ PARTNERS & IAPPF ═══ -->
@@ -2995,7 +3033,7 @@ function showPage(id){
   document.querySelectorAll('.nav-group').forEach(g=>{
     if(g.querySelector(`.nav-item[data-nav="${id}"]`))g.classList.remove('collapsed');
   });
-  document.getElementById('tog').style.display=(id==='sec-mkt'||id==='sec-cumfirm'||id==='sec-cumsp'||id==='sec-settings'||id==='sec-board'||id==='sec-sales-report'||id==='sec-hsoverview'||id==='sec-hsdeals'||id==='sec-grip'||id==='sec-hsmix'||id==='sec-hsnew'||id==='sec-hsrebooks'||id==='sec-hsmom'||id==='sec-hscumsp'||id==='sec-hscumfirm'||id==='sec-hsclientrev'||id==='sec-partners'||id==='sec-linkedin'||id==='sec-ga4'||id==='sec-pl'||id==='sec-bva'||id==='sec-cashflow'||id==='sec-revproj'||id==='sec-scenario'||id==='sec-expenses'||id==='sec-csmap')?'none':'flex';
+  document.getElementById('tog').style.display=(id==='sec-mkt'||id==='sec-cumfirm'||id==='sec-cumsp'||id==='sec-settings'||id==='sec-board'||id==='sec-sales-report'||id==='sec-hsoverview'||id==='sec-hsdeals'||id==='sec-grip'||id==='sec-hsmix'||id==='sec-hsnew'||id==='sec-hsrebooks'||id==='sec-hsmom'||id==='sec-hscumsp'||id==='sec-hscumfirm'||id==='sec-hsclientrev'||id==='sec-rfm'||id==='sec-partners'||id==='sec-linkedin'||id==='sec-ga4'||id==='sec-pl'||id==='sec-bva'||id==='sec-cashflow'||id==='sec-revproj'||id==='sec-scenario'||id==='sec-expenses'||id==='sec-csmap')?'none':'flex';
   // Show page-specific year toggle in header
   ['expCycleToggle','expYearToggle','plProductToggle','plCycleToggle','plYearToggle','cfYearToggle','bvaYearToggle1','bvaViewToggle'].forEach(t=>{const el=document.getElementById(t);if(el)el.style.display='none';});
   if(id==='sec-expenses'){
@@ -3027,6 +3065,7 @@ function showPage(id){
   if(id==='sec-hscumsp')setTimeout(renderHsCumYoY,80);
   if(id==='sec-hscumfirm')setTimeout(renderHsCohorts,80);
   if(id==='sec-hsclientrev')setTimeout(renderHsClientRev,80);
+  if(id==='sec-rfm')setTimeout(()=>window.renderRFM&&window.renderRFM(),80);
   if(id==='sec-partners')setTimeout(renderPartners,80);
   if(id==='sec-linkedin')setTimeout(renderLinkedin,80);
   if(id==='sec-ga4')setTimeout(renderGA4,80);
@@ -3124,6 +3163,7 @@ async function fetchLiveHubspotData(){
     // Re-render everything
     renderHsData();
     if(typeof render==='function')render();
+    if(document.getElementById('sec-rfm')?.classList.contains('visible')&&window.renderRFM)window.renderRFM();
     if(typeof renderPartners==='function'&&document.getElementById('sec-partners')?.classList.contains('visible'))renderPartners();
 
     // Show refresh button
@@ -4676,6 +4716,263 @@ window.renderHsCumYoY=renderHsCumYoY;
 window.renderHsCohorts=renderHsCohorts;
 window.renderHsClientRev=renderHsClientRev;
 window.renderPartners=renderPartners;
+
+// ═══════════════════════════════════════════════════════════════
+// RFM ANALYSIS
+// Recency  = last show year the sponsor had a Closed Won deal
+// Frequency= number of distinct show years (2024-2027) with ≥1 deal
+// Monetary = total Closed Won revenue across all years
+// Scores 1-4 derived from quartiles; RFM = concatenated string e.g. "4-3-2"
+// ═══════════════════════════════════════════════════════════════
+(function(){
+
+  const RFM_YEARS = [24, 25, 26, 27];
+  const YEAR_LABEL = {24:'2024',25:'2025',26:'2026',27:'2027'};
+
+  // ── Segment definitions (evaluated in order; first match wins) ──
+  const SEGMENTS = [
+    { key:'champions',   label:'Champions',       color:'#1B4D4A', bg:'#E8F4F2',
+      desc:'Active in 2 or more shows including 2027',
+      test: s => s.r >= 4 && s.f >= 2 },
+    { key:'loyal',       label:'Loyal',           color:'#2D7A6F', bg:'#EEF8F5',
+      desc:'3+ show appearances, still active 2026/2027',
+      test: s => s.f >= 3 && s.r >= 3 },
+    { key:'big_spender', label:'Big Spenders',    color:'#1A6B4A', bg:'#F0FAF5',
+      desc:'Top 25% by total revenue, 2+ shows',
+      test: s => s.mScore === 4 && s.f >= 2 },
+    { key:'promising',   label:'Promising',       color:'#4FAF9F', bg:'#F0FAFA',
+      desc:'New sponsor in 2026 or 2027',
+      test: s => s.f === 1 && s.r >= 3 },
+    { key:'returning',   label:'Returning',       color:'#8E44AD', bg:'#F9F0FF',
+      desc:'Came back after skipping ≥1 year',
+      test: s => s.f >= 2 && s.r >= 3 && !s.consecutive },
+    { key:'at_risk',     label:'At Risk',         color:'#B8860B', bg:'#FFFBEF',
+      desc:'Active in 2025 or 2026 but no 2027 deal yet',
+      test: s => s.lastYr <= 26 && s.lastYr >= 25 },
+    { key:'dormant',     label:'Dormant',         color:'#C0392B', bg:'#FFF0EF',
+      desc:'Last active in 2024 or earlier, no return',
+      test: s => s.lastYr <= 24 },
+    { key:'other',       label:'One-Time',        color:'#7BA69E', bg:'#F4F8F7',
+      desc:'Single show, non-recent',
+      test: () => true },
+  ];
+
+  function dealAmt(d, yr, product) {
+    if (product === 'rx') return d.a;
+    if (yr === 26 || yr === 27) {
+      const { csAmt, showAmt } = window._splitDealAmts ? window._splitDealAmts(d, yr) : { csAmt: 0, showAmt: d.a };
+      return product === 'cs' ? csAmt : showAmt;
+    }
+    const isCS = window._isCsDeal ? window._isCsDeal(d.n) : d.n.toLowerCase().includes('city series');
+    return product === 'cs' ? (isCS ? d.a : 0) : (isCS ? 0 : d.a);
+  }
+
+  function computeRFM(product) {
+    const firms = {};
+    RFM_YEARS.forEach(yr => {
+      const ws = WON_STAGE[yr];
+      HS.d.filter(d => d.p === yr && d.s === ws && d.a > 0).forEach(d => {
+        const amt = dealAmt(d, yr, product);
+        if (!amt) return;
+        const k = hsCompanyKey(d.n);
+        const nm = hsCompanyName(d.n);
+        if (!firms[k]) firms[k] = { k, n: nm, years: new Set(), rev: {}, total: 0, lastCd: null };
+        firms[k].years.add(yr);
+        firms[k].rev[yr] = (firms[k].rev[yr] || 0) + amt;
+        firms[k].total += amt;
+        // Track most recent close date for tie-breaking
+        if (d.cd && (!firms[k].lastCd || d.cd > firms[k].lastCd)) firms[k].lastCd = d.cd;
+      });
+    });
+
+    const list = Object.values(firms);
+
+    // Monetary quartiles
+    const totals = list.map(f => f.total).sort((a, b) => a - b);
+    const q1 = totals[Math.floor(totals.length * 0.25)];
+    const q2 = totals[Math.floor(totals.length * 0.50)];
+    const q3 = totals[Math.floor(totals.length * 0.75)];
+    function mScore(v) { return v > q3 ? 4 : v > q2 ? 3 : v > q1 ? 2 : 1; }
+
+    // Frequency score (1-4 shows possible)
+    function fScore(n) { return Math.min(4, n); }
+
+    // Recency score
+    function rScore(lastYr) {
+      if (lastYr >= 27) return 4;
+      if (lastYr === 26) return 3;
+      if (lastYr === 25) return 2;
+      return 1;
+    }
+
+    list.forEach(f => {
+      const yrs = [...f.years].sort();
+      f.lastYr = Math.max(...yrs);
+      f.firstYr = Math.min(...yrs);
+      f.f = yrs.length;
+      // Check for consecutive appearances (all years from first to last present)
+      const expected = [];
+      for (let y = f.firstYr; y <= f.lastYr; y++) expected.push(y);
+      f.consecutive = expected.every(y => f.years.has(y));
+      f.r = rScore(f.lastYr);
+      f.mScore = mScore(f.total);
+      f.fScore = fScore(f.f);
+      f.rfm = `${f.r}-${f.fScore}-${f.mScore}`;
+      // Assign segment
+      f.segment = SEGMENTS.find(s => s.test(f));
+    });
+
+    return list;
+  }
+
+  // ── Render ──
+  let _rfmSortCol = 'total', _rfmSortDir = -1;
+
+  function renderRFM() {
+    if (!window.HS || !window.HS.d) return;
+    const product = (document.querySelector('#rfmProductToggle button.active') || {}).dataset?.rp || 'rx';
+    const list = computeRFM(product);
+    const search = (document.getElementById('rfmSearch')?.value || '').toLowerCase();
+
+    // ── KPI chips ──
+    const kpiEl = document.getElementById('rfmKpis');
+    const total = list.length;
+    const champions = list.filter(f => f.segment?.key === 'champions').length;
+    const atRisk = list.filter(f => f.segment?.key === 'at_risk').length;
+    const dormant = list.filter(f => f.segment?.key === 'dormant').length;
+    const active27 = list.filter(f => f.years.has(27)).length;
+    const retRate = list.filter(f => f.f >= 2).length;
+    if (kpiEl) kpiEl.innerHTML = [
+      { i: '🏢', t: 'Total Sponsors', v: total, c: '#1B4D4A' },
+      { i: '🏆', t: 'Champions', v: champions, c: '#1B4D4A' },
+      { i: '📅', t: '2027 Signed', v: active27, c: '#2D7A6F' },
+      { i: '⚠️', t: 'At Risk', v: atRisk, c: '#B8860B' },
+      { i: '❌', t: 'Dormant', v: dormant, c: '#C0392B' },
+      { i: '🔁', t: 'Multi-Show', v: retRate, c: '#8E44AD' },
+    ].map(k => `<div class="kpi" style="border-left-color:${k.c};min-width:120px"><div class="kpi-label">${k.i} ${k.t}</div><div class="kpi-value" style="color:${k.c}">${k.v}</div></div>`).join('');
+
+    // ── Segment grid ──
+    const segEl = document.getElementById('rfmSegmentGrid');
+    if (segEl) {
+      const segCounts = {};
+      const segRev = {};
+      list.forEach(f => {
+        const sk = f.segment?.key || 'other';
+        segCounts[sk] = (segCounts[sk] || 0) + 1;
+        segRev[sk] = (segRev[sk] || 0) + f.total;
+      });
+      segEl.innerHTML = SEGMENTS.filter(s => segCounts[s.key]).map(s => {
+        const cnt = segCounts[s.key] || 0;
+        const rev = segRev[s.key] || 0;
+        const pct = Math.round(cnt / total * 100);
+        const revStr = rev >= 1000000 ? '$' + (rev / 1000000).toFixed(1) + 'M' : '$' + Math.round(rev / 1000).toLocaleString() + 'K';
+        return `<div style="background:${s.bg};border:1px solid ${s.color}30;border-radius:12px;padding:16px;cursor:pointer"
+          onclick="document.getElementById('rfmSearch').value='';document.querySelectorAll('#rfmSegmentGrid div').forEach(d=>d.style.outline='');this.style.outline='2px solid ${s.color}';window._rfmFilterBySegment&&window._rfmFilterBySegment('${s.key}')">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+            <span style="font-size:18px;font-weight:800;color:${s.color}">${cnt}</span>
+            <span style="font-size:10px;background:${s.color}20;color:${s.color};border-radius:12px;padding:2px 8px;font-weight:700">${pct}%</span>
+          </div>
+          <div style="font-size:13px;font-weight:700;color:${s.color};margin-bottom:4px">${s.label}</div>
+          <div style="font-size:11px;color:#7BA69E;margin-bottom:8px">${s.desc}</div>
+          <div style="font-size:12px;font-weight:600;color:${s.color}">${revStr} total rev</div>
+        </div>`;
+      }).join('');
+    }
+
+    // ── Table ──
+    const cs = 'padding:7px 10px;font-size:12px;font-family:"Source Sans 3",monospace;text-align:right';
+    const ls = 'padding:7px 10px;font-size:12px;text-align:left';
+    const hcs = cs + ';color:#7BA69E;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;white-space:nowrap;user-select:none;background:#F4F8F6';
+    const hls = ls + ';color:#7BA69E;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;background:#F4F8F6';
+    const thead = document.getElementById('rfmTableHead');
+    if (thead) thead.innerHTML = [
+      { k:'n',    l:'Sponsor',      align:'left'  },
+      { k:'segment', l:'Segment',   align:'left'  },
+      { k:'r',    l:'Recency ↕',   align:'right' },
+      { k:'fScore',  l:'Frequency ↕', align:'right'},
+      { k:'mScore',  l:'Monetary ↕', align:'right'},
+      { k:'rfm',  l:'RFM Score',   align:'right' },
+      { k:'lastYr',  l:'Last Show', align:'right' },
+      { k:'f',    l:'# Shows',     align:'right' },
+      { k:'total',l:'Total Rev ↕', align:'right' },
+      { k:'y24',  l:"'24 Rev",     align:'right' },
+      { k:'y25',  l:"'25 Rev",     align:'right' },
+      { k:'y26',  l:"'26 Rev",     align:'right' },
+      { k:'y27',  l:"'27 Rev",     align:'right' },
+    ].map(h => {
+      const style = h.align === 'left' ? hls : hcs;
+      return `<th style="${style}" onclick="window._rfmSort&&window._rfmSort('${h.k}')">${h.l}</th>`;
+    }).join('');
+
+    const fmtAmt = v => v > 0 ? '$' + v.toLocaleString('en-US', { maximumFractionDigits: 0 }) : '<span style="color:#ccc">—</span>';
+    const scoreCell = (v, max) => {
+      const pct = v / max;
+      const col = pct >= 0.75 ? '#1B4D4A' : pct >= 0.5 ? '#2D7A6F' : pct >= 0.25 ? '#B8860B' : '#C0392B';
+      const dots = Array(max).fill(0).map((_, i) => `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${i < v ? col : '#D4E2DD'};margin:0 1px"></span>`).join('');
+      return `<td style="${cs}"><div style="display:flex;align-items:center;justify-content:flex-end;gap:4px">${dots}<span style="color:${col};font-weight:700;min-width:12px;text-align:right">${v}</span></div></td>`;
+    };
+
+    window._rfmRows = list;
+    window._rfmProduct = product;
+
+    function renderRows(rows) {
+      const tbody = document.getElementById('rfmTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = rows.map((f, i) => {
+        const seg = f.segment || SEGMENTS[SEGMENTS.length - 1];
+        const bg = i % 2 === 0 ? '#fff' : '#F9FBFA';
+        return `<tr style="background:${bg}">
+          <td style="${ls};font-weight:600;color:#0D2B29">${f.n}</td>
+          <td style="${ls}"><span style="background:${seg.bg};color:${seg.color};border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;white-space:nowrap">${seg.label}</span></td>
+          ${scoreCell(f.r, 4)}
+          ${scoreCell(f.fScore, 4)}
+          ${scoreCell(f.mScore, 4)}
+          <td style="${cs};font-weight:700;color:#1B4D4A;letter-spacing:.05em">${f.rfm}</td>
+          <td style="${cs};color:#1B4D4A">${YEAR_LABEL[f.lastYr]}</td>
+          <td style="${cs}">${f.f}</td>
+          <td style="${cs};font-weight:700;color:#1B4D4A">${fmtAmt(f.total)}</td>
+          <td style="${cs}">${fmtAmt(f.rev[24] || 0)}</td>
+          <td style="${cs}">${fmtAmt(f.rev[25] || 0)}</td>
+          <td style="${cs}">${fmtAmt(f.rev[26] || 0)}</td>
+          <td style="${cs}">${fmtAmt(f.rev[27] || 0)}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    function getSortedFiltered(segFilter, searchTerm) {
+      let rows = [...list];
+      if (segFilter) rows = rows.filter(f => f.segment?.key === segFilter);
+      if (searchTerm) rows = rows.filter(f => f.n.toLowerCase().includes(searchTerm));
+      rows.sort((a, b) => {
+        const av = _rfmSortCol === 'n' ? a.n : (_rfmSortCol === 'rfm' ? a.rfm : (a[_rfmSortCol] ?? 0));
+        const bv = _rfmSortCol === 'n' ? b.n : (_rfmSortCol === 'rfm' ? b.rfm : (b[_rfmSortCol] ?? 0));
+        if (typeof av === 'string') return _rfmSortDir * av.localeCompare(bv);
+        return _rfmSortDir * (bv - av);
+      });
+      return rows;
+    }
+
+    let _segFilter = '';
+    renderRows(getSortedFiltered(_segFilter, search));
+
+    window._rfmSort = function(col) {
+      if (_rfmSortCol === col) _rfmSortDir *= -1;
+      else { _rfmSortCol = col; _rfmSortDir = -1; }
+      renderRows(getSortedFiltered(_segFilter, (document.getElementById('rfmSearch')?.value || '').toLowerCase()));
+    };
+    window._rfmFilterBySegment = function(seg) {
+      _segFilter = _segFilter === seg ? '' : seg;
+      renderRows(getSortedFiltered(_segFilter, (document.getElementById('rfmSearch')?.value || '').toLowerCase()));
+    };
+    window._rfmFilter = function() {
+      const s = (document.getElementById('rfmSearch')?.value || '').toLowerCase();
+      if (s) _segFilter = '';
+      renderRows(getSortedFiltered(_segFilter, s));
+    };
+  }
+
+  window.renderRFM = renderRFM;
+})();
 // Expose utility functions for KPI Snapshot (render() in outer scope)
 window.hsCompanyKey=hsCompanyKey;
 window.hsCompanyName=hsCompanyName;
