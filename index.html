@@ -4732,23 +4732,23 @@ window.renderPartners=renderPartners;
   // ── Segment definitions (evaluated in order; first match wins) ──
   const SEGMENTS = [
     { key:'champions',   label:'Champions',       color:'#1B4D4A', bg:'#E8F4F2',
-      desc:'Active in 2 or more shows including 2027',
-      test: s => s.r >= 4 && s.f >= 2 },
+      desc:'Closed Won in 2027, 2+ shows, no lost deals',
+      test: s => s.r >= 4 && s.f >= 2 && !s.hasLost27 },
     { key:'loyal',       label:'Loyal',           color:'#2D7A6F', bg:'#EEF8F5',
-      desc:'3+ show appearances, still active 2026/2027',
-      test: s => s.f >= 3 && s.r >= 3 },
+      desc:'3+ shows, still active 2026/2027, no lost 2027',
+      test: s => s.f >= 3 && s.r >= 3 && !s.hasLost27 },
     { key:'big_spender', label:'Big Spenders',    color:'#1A6B4A', bg:'#F0FAF5',
-      desc:'Top 25% by total revenue, 2+ shows',
-      test: s => s.mScore === 4 && s.f >= 2 },
+      desc:'Top 25% by total revenue, 2+ shows, no lost 2027',
+      test: s => s.mScore === 4 && s.f >= 2 && !s.hasLost27 },
     { key:'promising',   label:'Promising',       color:'#4FAF9F', bg:'#F0FAFA',
-      desc:'New sponsor in 2026 or 2027',
-      test: s => s.f === 1 && s.r >= 3 },
+      desc:'First-time sponsor in 2026 or 2027, no lost deal',
+      test: s => s.f === 1 && s.r >= 3 && !s.hasLost27 },
     { key:'returning',   label:'Returning',       color:'#8E44AD', bg:'#F9F0FF',
-      desc:'Came back after skipping ≥1 year',
-      test: s => s.f >= 2 && s.r >= 3 && !s.consecutive },
+      desc:'Came back after skipping ≥1 year, no lost 2027',
+      test: s => s.f >= 2 && s.r >= 3 && !s.consecutive && !s.hasLost27 },
     { key:'at_risk',     label:'At Risk',         color:'#B8860B', bg:'#FFFBEF',
-      desc:'Active in 2025 or 2026 but no 2027 deal yet',
-      test: s => s.lastYr <= 26 && s.lastYr >= 25 },
+      desc:'Active sponsor who declined or skipped 2027',
+      test: s => s.hasLost27 || (s.lastYr <= 26 && s.lastYr >= 25) },
     { key:'dormant',     label:'Dormant',         color:'#C0392B', bg:'#FFF0EF',
       desc:'Last active in 2024 or earlier, no return',
       test: s => s.lastYr <= 24 },
@@ -4805,11 +4805,24 @@ window.renderPartners=renderPartners;
       return 1;
     }
 
+    // Flag sponsors who have a Closed Lost deal in any year (especially 2027)
+    RFM_YEARS.forEach(yr => {
+      const ls = LOST_STAGE[yr];
+      HS.d.filter(d => d.p === yr && d.s === ls).forEach(d => {
+        const k = hsCompanyKey(d.n);
+        if (!firms[k]) return; // only flag existing sponsors (with at least one won deal)
+        if (!firms[k].lostYears) firms[k].lostYears = new Set();
+        firms[k].lostYears.add(yr);
+      });
+    });
+
     list.forEach(f => {
       const yrs = [...f.years].sort();
       f.lastYr = Math.max(...yrs);
       f.firstYr = Math.min(...yrs);
       f.f = yrs.length;
+      f.lostYears = f.lostYears || new Set();
+      f.hasLost27 = f.lostYears.has(27);
       // Check for consecutive appearances (all years from first to last present)
       const expected = [];
       for (let y = f.firstYr; y <= f.lastYr; y++) expected.push(y);
@@ -4923,7 +4936,7 @@ window.renderPartners=renderPartners;
         const bg = i % 2 === 0 ? '#fff' : '#F9FBFA';
         return `<tr style="background:${bg}">
           <td style="${ls};font-weight:600;color:#0D2B29">${f.n}</td>
-          <td style="${ls}"><span style="background:${seg.bg};color:${seg.color};border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;white-space:nowrap">${seg.label}</span></td>
+          <td style="${ls}"><span style="background:${seg.bg};color:${seg.color};border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;white-space:nowrap">${seg.label}</span>${f.hasLost27 ? '<span style="margin-left:6px;font-size:10px;color:#C0392B;font-weight:600">✗ Lost \'27</span>' : ''}</td>
           ${scoreCell(f.r, 4)}
           ${scoreCell(f.fScore, 4)}
           ${scoreCell(f.mScore, 4)}
