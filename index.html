@@ -6715,16 +6715,15 @@ async function renderPL(){
       }
     });
 
-    // No QBO actuals exist for 2027 yet — use RF#3 Excel plan
-    allBreakdowns[2027] = PL_RF3_BK;
-
     // Build Show Cycle breakdowns (Apr Y-1 → Mar Y) from the already-fetched fiscal data
     const showCycleBreakdowns = {};
     SC_YEARS.forEach(y => {
       const b = _buildShowCycleBreakdown(allBreakdowns, y);
       if(b) showCycleBreakdowns[y] = b;
     });
-    // SC 2027 (Apr 2026 – Mar 2027): use RF#3 Excel plan directly
+
+    // No QBO actuals exist for 2027 yet — override both with RF#3 Excel plan after SC is built
+    allBreakdowns[2027] = PL_RF3_BK;
     showCycleBreakdowns[2027] = PL_RF3_SC2027_BK;
 
     // Auto-clamp year: SC mode has no 2023 (would need 2022 data)
